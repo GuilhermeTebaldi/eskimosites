@@ -149,7 +149,20 @@ export default function IndispensavelLayout() {
             />
           ))}
         </section>
-
+        <section className="flex flex-col-reverse items-center gap-6 bg-[#b39964] px-6 py-10 md:flex-row md:justify-between md:px-16">
+          <div className="text-center md:max-w-md md:text-left">
+            <h3 className="text-2xl font-bold text-white">Quem Somos</h3>
+            <p className="mt-2 text-white">
+              Moda sustentável e de qualidade, valorizando o estilo e o meio
+              ambiente.
+            </p>
+          </div>
+          <img
+            src="https://i.pinimg.com/736x/74/a6/17/74a617c89ccc087d5b7fdb467f94e122.jpg"
+            alt="Quem Somos"
+            className="w-full max-w-sm rounded-lg object-cover md:w-[400px]"
+          />
+        </section>
         {/* Faixa Decorativa */}
         <section
           className="h-48 w-full bg-cover bg-center"
