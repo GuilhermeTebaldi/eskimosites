@@ -159,13 +159,17 @@ export default function IndispensavelLayout() {
         </section>
         <section className="flex flex-col-reverse items-center gap-6 bg-[#b39964] px-6 py-10 md:flex-row md:justify-between md:px-16">
           <div className="text-center md:max-w-md md:text-left">
-            <h3 className="text-2xl font-bold text-white">Aonde Estamos</h3>
+            <h3 className="text-2xl font-bold text-white">Nosso Endereço</h3>
             <p className="mt-2 text-white">
-              Endereço: Av. Itajuba, 1372 - Itajubá, Barra Velha - SC
+              Estamos localizados na Av. Itajuba, 1372 – Bairro Itajubá, Barra
+              Velha – SC, bem pertinho do mar! 🌊 Nada melhor do que curtir o
+              litoral com muito estilo, né? Venha nos visitar e descubra looks
+              incríveis para aproveitar a vibe da praia com conforto e
+              personalidade. 💃☀️👗
             </p>
           </div>
           <img
-            src="https://i.pinimg.com/736x/dd/8e/ef/dd8eef5e072bc6c9204e04570b240b4b.jpg"
+            src="https://i.pinimg.com/736x/3d/d2/1f/3dd21f83dcbbf70b210e90278f9dbdc6.jpg"
             alt="Quem Somos"
             className="w-full max-w-sm rounded-lg object-cover md:w-[400px]"
           />
