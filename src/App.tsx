@@ -64,7 +64,7 @@ export default function IndispensavelLayout() {
           <FaWhatsapp />
         </a>
         <a
-          href="https://www.instagram.com/brecho_shop_sc/?igsh=ZjlxczJmeTRqOHNp"
+          href="https://www.instagram.com/brecho_shop_sc?igsh=ZjlxczJmeTRqOHNp"
           target="_blank"
           className="rounded-full bg-[#E1306C] p-3 text-xl text-white shadow-md transition hover:scale-110"
         >
