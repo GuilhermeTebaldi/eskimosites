@@ -4,6 +4,12 @@ import { FaWhatsapp, FaInstagram, FaMapMarkerAlt } from "react-icons/fa";
 
 const mainPhoto =
   "https://i.pinimg.com/736x/81/78/5c/81785c9f65298577426cd988b5cb7409.jpg";
+type PhotoItem = {
+  name: string;
+  whatsapp: string;
+  main: string;
+  thumbs: string[];
+};
 
 const galleryPhotos = [
   {
@@ -49,7 +55,8 @@ const galleryPhotos = [
 ];
 
 export default function IndispensavelLayout() {
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<PhotoItem | null>(null);
+
   const closePhoto = () => setSelectedPhoto(null);
 
   return (
