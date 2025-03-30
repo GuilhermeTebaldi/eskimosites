@@ -8,7 +8,7 @@ const mainPhoto =
 const galleryPhotos = [
   {
     name: "Vestido Elegante",
-    whatsapp: "https://wa.me/5511999999991",
+    whatsapp: "https://wa.me/5547997703787",
     main: "https://i.pinimg.com/736x/66/69/43/6669439b27a25fc7508c96e94a70f7d6.jpg",
     thumbs: [
       "https://source.unsplash.com/random/800x1200?fashion,dress1-1",
@@ -18,7 +18,7 @@ const galleryPhotos = [
   },
   {
     name: "Casaco Casual",
-    whatsapp: "https://wa.me/5511999999992",
+    whatsapp: "https://wa.me/5547997703787",
     main: "https://i.pinimg.com/736x/10/3e/3b/103e3b50cda0d63606dd73669b789b3b.jpg",
     thumbs: [
       "https://source.unsplash.com/random/800x1200?fashion,coat1-1",
@@ -28,7 +28,7 @@ const galleryPhotos = [
   },
   {
     name: "Conjunto Esportivo",
-    whatsapp: "https://wa.me/5511999999993",
+    whatsapp: "https://wa.me/5547997703787",
     main: "https://i.pinimg.com/736x/42/ed/d5/42edd58fbfb4f2b3c30ea9360457bd96.jpg",
     thumbs: [
       "https://source.unsplash.com/random/800x1200?fashion,sport1-1",
@@ -38,7 +38,7 @@ const galleryPhotos = [
   },
   {
     name: "Jeans Moderno",
-    whatsapp: "https://wa.me/5511999999994",
+    whatsapp: "https://wa.me/5547997703787",
     main: "https://i.pinimg.com/736x/9a/2e/56/9a2e569167264cda2dc88e8acba617b9.jpg",
     thumbs: [
       "https://source.unsplash.com/random/800x1200?fashion,jeans1-1",
@@ -63,7 +63,7 @@ export default function IndispensavelLayout() {
     <>
       <div className="fixed left-4 top-1/3 z-50 flex flex-col gap-4">
         <a
-          href="https://wa.me/5547997102677"
+          href="https://wa.me/5547997703787"
           target="_blank"
           className="rounded-full bg-[#25d366] p-2 text-3xl text-white shadow-lg hover:text-green-400"
         >
