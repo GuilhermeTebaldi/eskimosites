@@ -95,7 +95,7 @@ export default function IndispensavelLayout() {
       <div className="relative flex min-h-screen flex-col bg-[#f5f5ee] font-sans">
         <header className="sticky top-0 z-30 flex w-full justify-center bg-gradient-to-r from-[#f5f5ee] via-[#b39964] to-[#f5f5ee] py-4 shadow-sm">
           <h2 className="bg-gradient-to-r from-[#8ecae6] via-[#219ebc] to-[#023047] bg-clip-text text-3xl font-extrabold uppercase text-transparent md:text-5xl">
-            𝔅𝔯𝔢𝔠𝔥ó 𝔖𝔥𝔬𝔭
+            BRECHÓ SHOP
           </h2>
         </header>
 
