@@ -64,7 +64,7 @@ export default function IndispensavelLayout() {
           <FaWhatsapp />
         </a>
         <a
-          href="https://instagram.com"
+          href="https://www.instagram.com/brecho_shop_sc?igsh=ZjlxczJmeTRqOHNp"
           target="_blank"
           className="rounded-full bg-[#E1306C] p-3 text-xl text-white shadow-md transition hover:scale-110"
         >
@@ -78,7 +78,7 @@ export default function IndispensavelLayout() {
           <i className="fab fa-facebook" />
         </a>
         <a
-          href="https://www.google.com/maps/place/Av.+Itajuba,+1372"
+          href="https://www.google.com/maps/place/Brech%C3%B3+Shop/@-26.7072434,-49.2926429,10z/data=!4m6!3m5!1s0x94d8d5d1b0faaebb:0x9885d714f1f17d16!8m2!3d-26.7072434!4d-48.6829017!16s%2Fg%2F11h2ptxhd4?entry=ttu&g_ep=EgoyMDI1MDMyNS4xIKXMDSoASAFQAw%3D%3D"
           target="_blank"
           className="rounded-full bg-[#EA4335] p-3 text-xl text-white shadow-md transition hover:scale-110"
         >
