@@ -389,7 +389,7 @@ export default function Loja() {
             <p className="mb-2 font-bold">Total: R$ {total}</p>
             <button
               onClick={openCheckout}
-              className="w-full rounded bg-green-600 py-2 text-white hover:bg-green-700"
+              className="mt-2 w-full rounded bg-red-300 py-2 text-gray-50 hover:bg-red-700"
             >
               Finalizar Compra
             </button>
