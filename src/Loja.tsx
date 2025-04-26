@@ -266,7 +266,7 @@ export default function Loja() {
               setCurrentPage(1);
             }}
           >
-            <option value="">Todas as Categorias</option>
+            <option value="">Menu de Sabores</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
@@ -284,7 +284,7 @@ export default function Loja() {
                   setCurrentPage(1);
                 }}
               >
-                <option value="">Todas as Subcategorias</option>
+                <option value="">Escolha seu tipo</option>
                 {subcategories(selectedCategory).map((sub) => (
                   <option key={sub} value={sub}>
                     {sub}
