@@ -1,0 +1,400 @@
+import { useEffect, useState } from "react";
+import axios from "axios";
+
+interface Product {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string;
+  categoryName: string;
+  subcategoryName?: string;
+}
+
+const API_URL = "https://backend-eskimo.onrender.com/api";
+
+const categoryIcons: { [key: string]: string } = {
+  Picolé: "🍦",
+  "Pote de Sorvete": "🧁",
+  Açaí: "🍇",
+  Sundae: "🍨",
+  Extras: "🍫",
+  Kids: "🧒",
+};
+
+export default function Loja() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [cart, setCart] = useState<Product[]>([]);
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showCart, setShowCart] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [deliveryType, setDeliveryType] = useState("retirar");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(
+    null,
+  );
+
+  const productsPerPage = 12;
+  const total = cart.reduce((acc, item) => acc + item.price, 0).toFixed(2);
+
+  const categories = Array.from(new Set(products.map((p) => p.categoryName)));
+  const subcategories = (category: string) =>
+    Array.from(
+      new Set(
+        products
+          .filter((p) => p.categoryName === category && p.subcategoryName)
+          .map((p) => p.subcategoryName!),
+      ),
+    );
+
+  useEffect(() => {
+    axios
+      .get<Product[]>(`${API_URL}/products/list?page=1&pageSize=100`)
+      .then((res) => {
+        setProducts(res.data || []);
+      })
+      .catch((err) => console.error("Erro ao buscar produtos:", err));
+  }, []);
+
+  const filtered = products.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = selectedCategory
+      ? p.categoryName === selectedCategory
+      : true;
+    const matchesSubcategory = selectedSubcategory
+      ? p.subcategoryName === selectedSubcategory
+      : true;
+    return matchesSearch && matchesCategory && matchesSubcategory;
+  });
+
+  const totalPages = Math.ceil(filtered.length / productsPerPage);
+  const paginated = filtered.slice(
+    (currentPage - 1) * productsPerPage,
+    currentPage * productsPerPage,
+  );
+
+  const addToCart = (product: Product) => {
+    setCart((prev) => [...prev, product]);
+  };
+
+  const removeFromCart = (id: number) => {
+    setCart((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const openCheckout = () => {
+    if (cart.length === 0) {
+      alert("Seu carrinho está vazio!");
+      return;
+    }
+    setShowCheckout(true);
+  };
+
+  const confirmOrder = () => {
+    if (!customerName.trim()) {
+      alert("Por favor, informe seu nome.");
+      return;
+    }
+    setShowCheckout(false);
+    setShowConfirmation(true);
+  };
+
+  const finalizeOrder = async () => {
+    const orderPayload = {
+      customerName,
+      deliveryType,
+      items: cart.map((item) => ({
+        productId: item.id,
+        name: item.name,
+        price: item.price,
+      })),
+      total: parseFloat(total),
+    };
+    try {
+      await axios.post(`${API_URL}/orders`, orderPayload);
+      alert("✅ Pedido enviado com sucesso!");
+      setCart([]);
+      setShowConfirmation(false);
+      setCustomerName("");
+      setDeliveryType("retirar");
+    } catch (err) {
+      console.error("Erro ao enviar pedido:", err);
+      alert("❌ Erro ao enviar pedido.");
+    }
+  };
+
+  return (
+    <div className="relative min-h-screen bg-white font-sans text-gray-800">
+      {/* Cabeçalho fixo */}
+      <div className="fixed left-0 right-0 top-0 z-50 bg-white shadow-md">
+        <h1 className="py-4 text-center text-2xl font-bold text-red-600">
+          🍦 Eskimó
+        </h1>
+
+        {/* Barra de Pesquisa */}
+        <div className="flex flex-col items-center gap-2 px-4 pb-4">
+          <input
+            type="text"
+            placeholder="Buscar produto..."
+            className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          {/* Botões de Categoria */}
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            <button
+              onClick={() => {
+                setSelectedCategory(null);
+                setSelectedSubcategory(null);
+                setCurrentPage(1);
+              }}
+              className={`rounded-full border px-3 py-1 ${!selectedCategory ? "bg-red-500 text-white" : "bg-white text-black"}`}
+            >
+              Todas
+            </button>
+
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => {
+                  setSelectedCategory(cat);
+                  setSelectedSubcategory(null);
+                  setCurrentPage(1);
+                }}
+                className={`rounded-full border px-3 py-1 ${
+                  selectedCategory === cat
+                    ? "bg-red-500 text-white"
+                    : "bg-white text-black"
+                }`}
+              >
+                {categoryIcons[cat] || "🍧"} {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Subcategorias */}
+          {selectedCategory && subcategories(selectedCategory).length > 0 && (
+            <div className="animate-fadeIn mt-2 flex flex-wrap justify-center gap-2">
+              {subcategories(selectedCategory).map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => {
+                    setSelectedSubcategory(sub);
+                    setCurrentPage(1);
+                  }}
+                  className={`rounded-full border px-3 py-1 ${
+                    selectedSubcategory === sub
+                      ? "bg-green-500 text-white"
+                      : "bg-white text-black"
+                  }`}
+                >
+                  {sub}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Produtos encontrados */}
+          <div className="mt-2 text-xs text-gray-500">
+            {filtered.length} produto(s) encontrado(s)
+          </div>
+        </div>
+      </div>
+
+      {/* Espaço para o cabeçalho */}
+      <div className="h-[300px]" />
+
+      {/* Grade de Produtos */}
+      <div className="grid grid-cols-2 gap-6 px-6 pb-40 sm:grid-cols-3 lg:grid-cols-4">
+        {paginated.map((product) => (
+          <div
+            key={product.id}
+            className="flex flex-col items-center rounded-xl bg-white p-4 shadow transition duration-300 hover:shadow-lg"
+          >
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="mb-2 h-48 w-full cursor-pointer object-contain"
+              onClick={() => setSelectedProduct(product)}
+            />
+            <h3 className="mb-2 text-center text-sm font-semibold">
+              {product.name}
+            </h3>
+            <button
+              onClick={() => addToCart(product)}
+              className="rounded-full bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+            >
+              + Adicionar
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Paginação fixa */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center gap-2 bg-white py-3 shadow-md">
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <button
+            key={page}
+            onClick={() => setCurrentPage(page)}
+            className={`rounded border px-3 py-1 ${
+              page === currentPage
+                ? "bg-red-600 text-white"
+                : "bg-white text-black"
+            }`}
+          >
+            {page}
+          </button>
+        ))}
+      </div>
+
+      {/* Botão do Carrinho */}
+      <button
+        className="fixed bottom-20 right-6 z-50 rounded-full bg-red-600 p-4 text-white shadow-lg hover:bg-red-700"
+        onClick={() => setShowCart(!showCart)}
+      >
+        🛒 ({cart.length})
+      </button>
+
+      {/* Modais (Carrinho, Checkout, Confirmação, Produto) */}
+      {showCart && (
+        <div className="animate-fadeIn fixed right-0 top-0 z-50 flex h-full w-80 flex-col bg-white p-6 shadow-lg">
+          <h2 className="mb-4 text-xl font-bold">Seu Carrinho</h2>
+          <ul className="flex-1 space-y-2 overflow-y-auto">
+            {cart.map((item) => (
+              <li key={item.id} className="flex justify-between">
+                <span>{item.name}</span>
+                <button
+                  className="text-red-600 hover:text-red-800"
+                  onClick={() => removeFromCart(item.id)}
+                >
+                  Remover
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6 border-t pt-4">
+            <p className="mb-2 font-bold">Total: R$ {total}</p>
+            <div className="flex flex-col gap-2">
+              <button
+                className="w-full rounded bg-green-600 py-2 text-white hover:bg-green-700"
+                onClick={openCheckout}
+              >
+                Finalizar Compra
+              </button>
+              <button
+                className="w-full rounded bg-gray-300 py-2 text-gray-700 hover:bg-gray-400"
+                onClick={() => setShowCart(false)}
+              >
+                Continuar Comprando
+              </button>
+            </div>
+          </div>
+          <h1
+            style={{
+              fontSize: "1.0rem",
+              color: "#065f46",
+              fontWeight: "bold",
+              marginBottom: "1rem",
+              textAlign: "center", // ✅ adiciona centralização
+            }}
+          >
+            Volpesites 🦊
+          </h1>
+        </div>
+      )}
+
+      {showCheckout && (
+        <div className="animate-fadeIn fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="animate-slideUp relative w-full max-w-md rounded-xl bg-white p-8 shadow-xl">
+            <button
+              onClick={() => setShowCheckout(false)}
+              className="absolute right-3 top-3 text-xl text-red-600"
+            >
+              ✕
+            </button>
+            <h2 className="mb-4 text-center text-2xl font-bold text-red-600">
+              Finalizar Pedido
+            </h2>
+            <input
+              type="text"
+              placeholder="Seu nome"
+              className="mb-4 w-full rounded border px-4 py-2"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+            />
+            <select
+              className="mb-4 w-full rounded border px-4 py-2"
+              value={deliveryType}
+              onChange={(e) => setDeliveryType(e.target.value)}
+            >
+              <option value="retirar">Retirar na Loja</option>
+              <option value="entregar">Entrega em Casa</option>
+            </select>
+            <button
+              onClick={confirmOrder}
+              className="w-full rounded bg-green-600 py-2 text-white hover:bg-green-700"
+            >
+              Confirmar Pedido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showConfirmation && (
+        <div className="animate-fadeIn fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="animate-slideUp relative w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+            <div className="mb-6 flex items-center justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+                <span className="text-5xl text-green-600">✔️</span>
+              </div>
+            </div>
+            <h2 className="mb-2 text-2xl font-bold text-green-700">
+              Pedido Confirmado!
+            </h2>
+            <p className="mb-6 text-gray-600">
+              Recebemos seu pedido com sucesso.
+            </p>
+            <button
+              onClick={() => setShowConfirmation(false)}
+              className="rounded-full bg-green-600 px-6 py-2 text-white transition duration-300 hover:bg-green-700"
+            >
+              Voltar para a Loja
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selectedProduct && (
+        <div className="animate-fadeIn fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="animate-slideUp relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <button
+              onClick={() => setSelectedProduct(null)}
+              className="absolute right-3 top-3 text-xl text-red-600"
+            >
+              ✕
+            </button>
+            <img
+              src={selectedProduct.imageUrl}
+              alt={selectedProduct.name}
+              className="mb-4 h-60 w-full object-contain"
+            />
+            <h2 className="mb-2 text-lg font-bold">{selectedProduct.name}</h2>
+            <p className="mb-4 text-sm text-gray-600">
+              {selectedProduct.description}
+            </p>
+            <button
+              onClick={() => addToCart(selectedProduct)}
+              className="w-full rounded bg-red-600 py-2 text-white hover:bg-red-700"
+            >
+              Adicionar ao Carrinho
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

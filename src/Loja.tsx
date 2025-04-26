@@ -22,6 +22,8 @@ export default function Loja() {
     [],
   );
   const [search, setSearch] = useState("");
+  const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(true);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -168,10 +170,16 @@ export default function Loja() {
 
       {/* Cabeçalho */}
       <div className="fixed left-0 right-0 top-0 z-50 bg-white shadow-md">
-        <h1 className="py-4 text-center text-2xl font-bold text-red-600">
+        <h1 className="py-2 text-center text-2xl font-bold text-red-600">
           🍦 Eskimó
         </h1>
 
+        {/* Nome da unidade selecionada */}
+        {selectedStore && (
+          <h2 className="pb-2 text-center text-sm font-semibold text-gray-700">
+            🏠 Unidade: {selectedStore}
+          </h2>
+        )}
         {/* Mensagem de Escolha (só aparece antes de clicar) */}
         {showInstruction && (
           <div className="flex justify-center">
@@ -183,59 +191,49 @@ export default function Loja() {
 
         {/* Botões de Seleção de Unidade */}
         <div className="flex justify-center gap-4 py-2">
-          <button
-            onClick={() => {
-              setSelectedStore("Efapi");
-              setShowInstruction(false);
-            }}
-            className={`${
-              selectedStore
-                ? "w-20 px-2 py-1 text-xs"
-                : "w-28 px-4 py-2 text-sm"
-            } rounded-md border border-gray-300 bg-white text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100 ${
-              !selectedStore || selectedStore === "Efapi"
-                ? "scale-105 animate-pulse font-semibold"
-                : ""
-            }`}
-          >
-            🍦 Efapi
-          </button>
+          {isStoreSelectorExpanded ? (
+            <>
+              <button
+                onClick={() => {
+                  setSelectedStore("Efapi");
+                  setShowInstruction(false);
+                  setIsStoreSelectorExpanded(false);
+                }}
+                className="w-28 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
+              >
+                🍦 Efapi
+              </button>
 
-          <button
-            onClick={() => {
-              setSelectedStore("Palmital");
-              setShowInstruction(false);
-            }}
-            className={`${
-              selectedStore
-                ? "w-20 px-2 py-1 text-xs"
-                : "w-28 px-4 py-2 text-sm"
-            } rounded-md border border-gray-300 bg-white text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100 ${
-              !selectedStore || selectedStore === "Palmital"
-                ? "scale-105 animate-pulse font-semibold"
-                : ""
-            }`}
-          >
-            🍦 Palmital
-          </button>
+              <button
+                onClick={() => {
+                  setSelectedStore("Palmital");
+                  setShowInstruction(false);
+                  setIsStoreSelectorExpanded(false);
+                }}
+                className="w-28 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
+              >
+                🍦 Palmital
+              </button>
 
-          <button
-            onClick={() => {
-              setSelectedStore("Passo dos Fortes");
-              setShowInstruction(false);
-            }}
-            className={`${
-              selectedStore
-                ? "w-24 px-2 py-1 text-xs"
-                : "w-36 px-4 py-2 text-sm"
-            } rounded-md border border-gray-300 bg-white text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100 ${
-              !selectedStore || selectedStore === "Passo dos Fortes"
-                ? "scale-105 animate-pulse font-semibold"
-                : ""
-            }`}
-          >
-            🍦 Passo dos Fortes
-          </button>
+              <button
+                onClick={() => {
+                  setSelectedStore("Passo dos Fortes");
+                  setShowInstruction(false);
+                  setIsStoreSelectorExpanded(false);
+                }}
+                className="w-36 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
+              >
+                🍦 Passo dos Fortes
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setIsStoreSelectorExpanded(true)}
+              className="rounded-full bg-gray-300 px-6 py-1 text-xs text-gray-700 shadow transition-all duration-300 hover:bg-gray-400"
+            >
+              🏪 Trocar Unidade
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col items-center gap-2 px-4 pb-3">
@@ -492,8 +490,14 @@ export default function Loja() {
       )}
 
       {selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="relative w-full max-w-md rounded-xl bg-white p-6">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          onClick={() => setSelectedProduct(null)}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-xl bg-white p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setSelectedProduct(null)}
               className="absolute right-3 top-3 text-xl text-red-600"
@@ -503,23 +507,25 @@ export default function Loja() {
             <img
               src={selectedProduct.imageUrl}
               alt={selectedProduct.name}
-              className="mb-4 h-60 w-full object-contain"
+              className="mb-4 h-48 w-full object-contain"
             />
-            <h2 className="mb-2 text-lg font-bold">{selectedProduct.name}</h2>
-            <p className="mb-4 text-sm text-gray-600">
+            <h2 className="mb-2 text-center text-lg font-bold">
+              {selectedProduct.name}
+            </h2>
+            <p className="mb-4 text-center text-sm text-gray-600">
               {selectedProduct.description}
             </p>
             <div className="mb-4 flex items-center justify-center gap-4">
               <button
                 onClick={() => setQuantityToAdd(quantityToAdd - 1)}
-                className="text-xl"
+                className="text-2xl"
               >
                 ➖
               </button>
               <span className="text-xl">{quantityToAdd}</span>
               <button
                 onClick={() => setQuantityToAdd(quantityToAdd + 1)}
-                className="text-xl"
+                className="text-2xl"
               >
                 ➕
               </button>
