@@ -54,13 +54,25 @@ export default function Loja() {
           .map((p) => p.subcategoryName!),
       ),
     );
-
   useEffect(() => {
     axios
       .get<Product[]>(`${API_URL}/products/list?page=1&pageSize=100`)
       .then((res) => setProducts(res.data || []))
       .catch((err) => console.error("Erro ao buscar produtos:", err));
   }, []);
+
+  useEffect(() => {
+    if (selectedStore) {
+      axios
+        .get<Product[]>(
+          `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=100`,
+        )
+        .then((res) => setProducts(res.data || []))
+        .catch((err) =>
+          console.error("Erro ao buscar produtos da unidade:", err),
+        );
+    }
+  }, [selectedStore]);
 
   const filtered = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
