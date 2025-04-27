@@ -14,3 +14,26 @@
 .animate-pulse-slow {
   animation: pulse-slow 2.5s infinite;
 }
+@keyframes energy-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+    box-shadow: 0 0 0px rgba(255, 215, 0, 0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.05);
+    box-shadow:
+      0 0 15px rgba(255, 215, 0, 0.8),
+      0 0 25px rgba(255, 215, 0, 0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+  }
+}
+
+.energy-animate {
+  animation: energy-rise 2s ease-out forwards;
+}

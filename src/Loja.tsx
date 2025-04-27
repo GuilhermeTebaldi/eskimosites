@@ -23,6 +23,8 @@ export default function Loja() {
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>(
     [],
   );
+  const [animateButtons, setAnimateButtons] = useState(true);
+
   const [search, setSearch] = useState("");
   const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(true);
 
@@ -41,6 +43,7 @@ export default function Loja() {
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [quantityToAdd, setQuantityToAdd] = useState(1);
   const [selectedStore, setSelectedStore] = useState<string | null>(null); // AQUI!!
+  const [clickedProductId, setClickedProductId] = useState<number | null>(null);
 
   const productsPerPage = 12;
   const total = cart
@@ -56,6 +59,93 @@ export default function Loja() {
           .map((p) => p.subcategoryName!),
       ),
     );
+  const storeLocations = [
+    {
+      name: "Palmital",
+      lat: -27.1152884,
+      lng: -52.6166752,
+    },
+    {
+      name: "Passo dos Fortes",
+      lat: -27.077056,
+      lng: -52.6122383,
+    },
+    {
+      name: "Efapi",
+      lat: -27.112815,
+      lng: -52.670769,
+    },
+  ];
+  function getDistanceFromLatLonInKm(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) {
+    const R = 6371; // Raio da Terra em KM
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c;
+    return d;
+  }
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+
+          let closestStore = storeLocations[0];
+          let closestDistance = getDistanceFromLatLonInKm(
+            userLat,
+            userLng,
+            storeLocations[0].lat,
+            storeLocations[0].lng,
+          );
+
+          for (let i = 1; i < storeLocations.length; i++) {
+            const store = storeLocations[i];
+            const distance = getDistanceFromLatLonInKm(
+              userLat,
+              userLng,
+              store.lat,
+              store.lng,
+            );
+
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              closestStore = store;
+            }
+          }
+
+          setSelectedStore(closestStore.name);
+          setShowInstruction(false);
+          // 🚫 NÃO colocar mais `setIsStoreSelectorExpanded(false)` aqui!!
+        },
+        (error) => {
+          console.log("Não foi possível obter a localização:", error);
+        },
+      );
+    } else {
+      console.log("Geolocalização não suportada.");
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAnimateButtons(false);
+    }, 2000); // 2 segundos = duração da animação
+
+    return () => clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     axios
@@ -211,14 +301,14 @@ export default function Loja() {
         {/* Mensagem de Escolha (só aparece antes de clicar) */}
         {showInstruction && (
           <div className="flex justify-center">
-            <div className="mb-2 animate-pulse text-sm text-gray-900">
+            <div className="mb-3 animate-pulse text-sm text-gray-900">
               👉 Escolha sua unidade para começar
             </div>
           </div>
         )}
 
         {/* Botões de Seleção de Unidade */}
-        <div className="flex justify-center gap-4 py-2">
+        <div className="relative z-50 flex justify-center gap-4 py-2">
           {isStoreSelectorExpanded ? (
             <>
               <button
@@ -227,7 +317,11 @@ export default function Loja() {
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
-                className="w-38 rounded-md border border-yellow-700 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
+                className={`${animateButtons ? "energy-animate" : ""} w-38 rounded-md border px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
+                  selectedStore === "Efapi"
+                    ? "border-yellow-700 bg-yellow-300 text-gray-800"
+                    : "border-yellow-700 bg-white text-gray-700 hover:bg-gray-100"
+                }`}
               >
                 🍦 Efapi
               </button>
@@ -238,7 +332,11 @@ export default function Loja() {
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
-                className="w-38 rounded-md border border-yellow-700 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
+                className={`${animateButtons ? "energy-animate" : ""} w-38 rounded-md border px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
+                  selectedStore === "Palmital"
+                    ? "border-yellow-700 bg-yellow-300 text-gray-800"
+                    : "border-yellow-700 bg-white text-gray-700 hover:bg-gray-100"
+                }`}
               >
                 🍦 Palmital
               </button>
@@ -249,7 +347,11 @@ export default function Loja() {
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
-                className="w-38 rounded-md border border-yellow-700 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
+                className={`${animateButtons ? "energy-animate" : ""} w-38 rounded-md border px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
+                  selectedStore === "Passo dos Fortes"
+                    ? "border-yellow-700 bg-yellow-300 text-gray-800"
+                    : "border-yellow-700 bg-white text-gray-700 hover:bg-gray-100"
+                }`}
               >
                 🍦 Passo dos Fortes
               </button>
@@ -328,24 +430,31 @@ export default function Loja() {
           : paginated.map((product) => (
               <div
                 key={product.id}
-                className="flex flex-col items-center transition-all duration-300 hover:scale-105
-          sm:rounded-xl sm:bg-white sm:p-4 sm:shadow"
+                className={`flex flex-col items-center transition-all duration-300 sm:rounded-xl sm:bg-white sm:p-4 sm:shadow ${
+                  clickedProductId === product.id
+                    ? "scale-110"
+                    : "hover:scale-105"
+                }`}
               >
                 <img
                   src={product.imageUrl}
                   alt={product.name}
                   className="mb-2 h-48 w-full cursor-pointer object-contain"
-                  onClick={() => setSelectedProduct(product)}
+                  onClick={() => setSelectedProduct(product)} // Foto: abre o modal normal
                 />
-                <h3 className="text-center text-sm font-semibold text-gray-800">
+                <h3
+                  className="cursor-pointer text-center text-sm font-semibold text-gray-800 transition-all duration-300 hover:text-red-600"
+                  onClick={() => {
+                    if (clickedProductId === product.id) {
+                      setSelectedProduct(product); // Segunda vez: abre Ver Mais
+                      setClickedProductId(null); // Resetar para normal depois
+                    } else {
+                      setClickedProductId(product.id); // Primeira vez: só aumentar
+                    }
+                  }}
+                >
                   {product.name}
                 </h3>
-                <button
-                  onClick={() => setSelectedProduct(product)}
-                  className="mt-2 rounded-full bg-red-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-red-600 hover:shadow"
-                >
-                  Ver Mais
-                </button>
               </div>
             ))}
       </div>
@@ -475,13 +584,13 @@ export default function Loja() {
             <p className="mb-2 font-bold">Total: R$ {total}</p>
             <button
               onClick={openCheckout}
-              className="mt-2 w-full rounded bg-red-300 py-2 text-gray-50 hover:bg-red-700"
+              className="mt-2 w-full rounded bg-red-500 py-2 text-gray-50 hover:bg-red-700"
             >
               Finalizar Compra
             </button>
             <button
               onClick={() => setShowCart(false)}
-              className="mt-2 w-full rounded bg-gray-300 py-2 text-gray-700 hover:bg-gray-400"
+              className="mt-2 w-full rounded bg-gray-100 py-2 text-gray-700 hover:bg-gray-300"
             >
               Continuar Comprando
             </button>
