@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@keyframes pulse-slow {
+  0%,
+  40% {
+    transform: scale(1);
+  }
+  20% {
+    transform: scale(1.2);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2.5s infinite;
+}

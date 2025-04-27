@@ -14,6 +14,8 @@ interface Product {
 const API_URL = "https://backend-eskimo.onrender.com/api";
 
 export default function Loja() {
+  const [loading, setLoading] = useState(true);
+
   const [showInstruction, setShowInstruction] = useState(true);
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -55,22 +57,36 @@ export default function Loja() {
       ),
     );
   useEffect(() => {
+    setLoading(true);
     axios
-      .get<Product[]>(`${API_URL}/products/list?page=1&pageSize=100`)
-      .then((res) => setProducts(res.data || []))
-      .catch((err) => console.error("Erro ao buscar produtos:", err));
+      .get<Product[]>(`${API_URL}/products/list?page=1&pageSize=200`)
+      .then((res) => {
+        setProducts(res.data || []);
+      })
+      .catch((err) => {
+        console.error("Erro ao buscar produtos:", err);
+      })
+      .then(() => {
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
     if (selectedStore) {
+      setLoading(true);
       axios
         .get<Product[]>(
-          `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=100`,
+          `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`,
         )
-        .then((res) => setProducts(res.data || []))
-        .catch((err) =>
-          console.error("Erro ao buscar produtos da unidade:", err),
-        );
+        .then((res) => {
+          setProducts(res.data || []);
+        })
+        .catch((err) => {
+          console.error("Erro ao buscar produtos da unidade:", err);
+        })
+        .then(() => {
+          setLoading(false);
+        });
     }
   }, [selectedStore]);
 
@@ -195,7 +211,7 @@ export default function Loja() {
         {/* Mensagem de Escolha (só aparece antes de clicar) */}
         {showInstruction && (
           <div className="flex justify-center">
-            <div className="mb-2 animate-pulse text-sm text-gray-600">
+            <div className="mb-2 animate-pulse text-sm text-gray-900">
               👉 Escolha sua unidade para começar
             </div>
           </div>
@@ -211,7 +227,7 @@ export default function Loja() {
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
-                className="w-28 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
+                className="w-38 rounded-md border border-yellow-700 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
               >
                 🍦 Efapi
               </button>
@@ -222,7 +238,7 @@ export default function Loja() {
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
-                className="w-28 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
+                className="w-38 rounded-md border border-yellow-700 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
               >
                 🍦 Palmital
               </button>
@@ -233,7 +249,7 @@ export default function Loja() {
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
-                className="w-36 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
+                className="w-38 rounded-md border border-yellow-700 bg-white px-4 py-2 text-sm text-gray-700 shadow-sm transition-all duration-300 hover:bg-gray-100"
               >
                 🍦 Passo dos Fortes
               </button>
@@ -241,7 +257,7 @@ export default function Loja() {
           ) : (
             <button
               onClick={() => setIsStoreSelectorExpanded(true)}
-              className="rounded-full bg-gray-300 px-6 py-1 text-xs text-gray-700 shadow transition-all duration-300 hover:bg-gray-400"
+              className="rounded-full bg-yellow-500 px-6 py-1 text-xs text-gray-100 shadow transition-all duration-300 hover:bg-gray-400"
             >
               🏪 Trocar Unidade
             </button>
@@ -302,49 +318,119 @@ export default function Loja() {
 
       {/* Produtos */}
       <div className="grid grid-cols-2 gap-6 px-6 pb-40 sm:grid-cols-3 lg:grid-cols-4">
-        {paginated.map((product) => (
-          <div
-            key={product.id}
-            className="flex flex-col items-center rounded-xl bg-white p-4 shadow transition hover:shadow-lg"
-          >
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="mb-2 h-48 w-full cursor-pointer object-contain"
-              onClick={() => setSelectedProduct(product)}
-            />
-            <h3 className="mb-2 text-center text-sm font-semibold">
-              {product.name}
-            </h3>
-            <button
-              onClick={() => setSelectedProduct(product)}
-              className="rounded-full bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-            >
-              Ver Mais
-            </button>
-          </div>
-        ))}
+        {loading
+          ? Array.from({ length: 12 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="h-64 w-full animate-pulse rounded-xl bg-gray-100"
+              ></div>
+            ))
+          : paginated.map((product) => (
+              <div
+                key={product.id}
+                className="flex flex-col items-center transition-all duration-300 hover:scale-105
+          sm:rounded-xl sm:bg-white sm:p-4 sm:shadow"
+              >
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="mb-2 h-48 w-full cursor-pointer object-contain"
+                  onClick={() => setSelectedProduct(product)}
+                />
+                <h3 className="text-center text-sm font-semibold text-gray-800">
+                  {product.name}
+                </h3>
+                <button
+                  onClick={() => setSelectedProduct(product)}
+                  className="mt-2 rounded-full bg-red-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-red-600 hover:shadow"
+                >
+                  Ver Mais
+                </button>
+              </div>
+            ))}
       </div>
 
       {/* Paginação */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center gap-2 bg-white py-3 shadow-md">
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-          <button
-            key={page}
-            onClick={() => setCurrentPage(page)}
-            className={`rounded border px-3 py-1 ${page === currentPage ? "bg-red-600 text-white" : "bg-white text-black"}`}
-          >
-            {page}
-          </button>
-        ))}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white py-2 shadow-inner">
+        <div className="mx-auto flex max-w-[360px] items-center justify-center gap-1 overflow-x-auto px-4">
+          {/* Botão Anterior */}
+          {currentPage > 1 && (
+            <button
+              onClick={() => setCurrentPage(currentPage - 1)}
+              className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-600 transition hover:bg-gray-200"
+            >
+              ‹
+            </button>
+          )}
+
+          {/* Primeira página */}
+          {currentPage > 3 && (
+            <>
+              <button
+                onClick={() => setCurrentPage(1)}
+                className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-600 transition hover:bg-gray-200"
+              >
+                1
+              </button>
+              <span className="px-1 text-gray-400">...</span>
+            </>
+          )}
+
+          {/* Páginas principais */}
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter((page) => {
+              if (currentPage <= 3) return page <= 5;
+              if (currentPage >= totalPages - 2) return page >= totalPages - 4;
+              return Math.abs(page - currentPage) <= 2;
+            })
+            .map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`h-8 w-8 rounded border text-sm font-semibold transition-all ${
+                  page === currentPage
+                    ? "bg-red-600 text-white shadow"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+          {/* Última página */}
+          {currentPage < totalPages - 2 && (
+            <>
+              <span className="px-1 text-gray-400">...</span>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-600 transition hover:bg-gray-200"
+              >
+                {totalPages}
+              </button>
+            </>
+          )}
+
+          {/* Botão Próximo */}
+          {currentPage < totalPages && (
+            <button
+              onClick={() => setCurrentPage(currentPage + 1)}
+              className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-900 transition hover:bg-gray-200"
+            >
+              ›
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Botão Carrinho */}
+      {/* Botão Carrinho Quadrado Premium com Movimento */}
       <button
         onClick={() => setShowCart(!showCart)}
-        className="fixed bottom-20 right-6 z-50 rounded-full bg-red-600 p-4 text-white shadow-lg hover:bg-red-700"
+        className="animate-pulse-slow fixed bottom-20 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-yellow-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
       >
-        🛒 ({cart.reduce((sum, item) => sum + item.quantity, 0)})
+        <div className="text-3xl">🛒</div>
+        <div className="mt-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-yellow-500 shadow-md">
+          {cart.reduce((sum, item) => sum + item.quantity, 0)}
+        </div>
       </button>
 
       {/* Modais */}
@@ -403,27 +489,28 @@ export default function Loja() {
         </div>
       )}
 
+      {/* Modal de Finalizar Pedido */}
       {showCheckout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="relative w-full max-w-md rounded-xl bg-white p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm transition-all duration-500">
+          <div className="animate-zoom-fade relative w-full max-w-sm rounded-3xl bg-white/90 p-6 shadow-2xl">
             <button
               onClick={() => setShowCheckout(false)}
-              className="absolute right-3 top-3 text-xl text-red-600"
+              className="absolute right-4 top-4 text-2xl text-gray-400 transition hover:text-red-500"
             >
               ✕
             </button>
-            <h2 className="mb-4 text-center text-2xl font-bold text-red-600">
+            <h2 className="mb-4 text-center text-xl font-semibold text-gray-800">
               Finalizar Pedido
             </h2>
             <input
               type="text"
-              placeholder="Seu nome"
-              className="mb-4 w-full rounded border px-4 py-2"
+              placeholder="Seu nome completo"
+              className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
             />
             <select
-              className="mb-4 w-full rounded border px-4 py-2"
+              className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
               value={deliveryType}
               onChange={(e) => setDeliveryType(e.target.value)}
             >
@@ -433,15 +520,15 @@ export default function Loja() {
             {deliveryType === "entregar" && (
               <input
                 type="text"
-                placeholder="Seu Endereço"
-                className="mb-4 w-full rounded border px-4 py-2"
+                placeholder="Seu endereço completo"
+                className="mb-6 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
               />
             )}
             <button
               onClick={confirmOrder}
-              className="w-full rounded bg-green-600 py-2 text-white hover:bg-green-700"
+              className="w-full rounded-full bg-red-500 py-2 font-semibold text-white transition hover:bg-red-600 active:scale-95"
             >
               Ir para Pagamento
             </button>
@@ -449,35 +536,35 @@ export default function Loja() {
         </div>
       )}
 
-      {/* Modal de Pagamento */}
+      {/* Modal de Pagamento via PIX */}
       {showPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
-            <h2 className="mb-6 text-2xl font-bold text-green-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm transition-all duration-500">
+          <div className="animate-zoom-fade relative w-full max-w-sm rounded-3xl bg-white/90 p-6 text-center shadow-2xl">
+            <h2 className="mb-4 text-xl font-semibold text-green-700">
               Pagamento via PIX
             </h2>
-            <p className="mb-4 text-gray-600">
-              Use a chave PIX abaixo ou escaneie o QR Code:
+            <p className="mb-2 text-sm text-gray-600">
+              Escaneie o QR Code ou copie a chave:
             </p>
             <img
               src="https://upload.wikimedia.org/wikipedia/commons/6/6b/QR_code_example.png"
               alt="QR Code PIX"
-              className="mx-auto mb-4 h-32"
+              className="mx-auto mb-4 h-28 w-28 rounded-lg shadow"
             />
-            <p className="mb-4 font-mono text-sm text-gray-800">
+            <p className="mb-6 select-all font-mono text-xs text-gray-500">
               chavepix@email.com
             </p>
             <button
               onClick={finalizeOrder}
-              className="mb-2 w-full rounded-full bg-green-600 py-2 text-white hover:bg-green-700"
+              className="mb-2 w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
             >
               Confirmar Pagamento
             </button>
             <button
               onClick={() => setShowPayment(false)}
-              className="w-full rounded-full bg-gray-300 py-2 text-gray-700 hover:bg-gray-400"
+              className="w-full rounded-full bg-gray-200 py-2 text-gray-600 transition hover:bg-gray-300"
             >
-              Cancelar Pagamento
+              Cancelar
             </button>
           </div>
         </div>
