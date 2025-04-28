@@ -217,10 +217,6 @@ export default function Loja() {
   });
 
   const totalPages = Math.ceil(filtered.length / productsPerPage);
-  const paginated = filtered.slice(
-    (currentPage - 1) * productsPerPage,
-    currentPage * productsPerPage,
-  );
 
   const addToCart = (product: Product, quantity: number = 1) => {
     setCart((prev) => {
@@ -328,7 +324,7 @@ export default function Loja() {
         className="fixed left-0 right-0 top-0 z-50 bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md"
         style={{
           backgroundImage:
-            "url('https://i.pinimg.com/736x/4f/64/68/4f6468ff2526f6c88c9463710547c75c.jpg')",
+            "url('https://i.pinimg.com/736x/7a/77/8d/7a778d6c7fde881e47f323b4f3085e85.jpg')",
         }}
       >
         {/* Área da logo */}
@@ -495,7 +491,7 @@ export default function Loja() {
               "Complementos",
             ];
 
-            const ordemSubcategorias = {
+            const ordemSubcategorias: Record<string, string[]> = {
               Picolé: [
                 "Frutas",
                 "Cremes",
@@ -529,20 +525,31 @@ export default function Loja() {
                 ordemCategorias.indexOf(b.categoryName) !== -1
                   ? ordemCategorias.indexOf(b.categoryName)
                   : 999;
+
               if (catA !== catB) return catA - catB;
 
               const subcatA =
-                (a.subcategoryName &&
-                  ordemSubcategorias[a.categoryName]?.indexOf(
-                    a.subcategoryName,
-                  )) ??
-                999;
+                typeof a.categoryName === "string" &&
+                typeof a.subcategoryName === "string" &&
+                ordemSubcategorias[
+                  a.categoryName as keyof typeof ordemSubcategorias
+                ]
+                  ? ordemSubcategorias[
+                      a.categoryName as keyof typeof ordemSubcategorias
+                    ].indexOf(a.subcategoryName)
+                  : 999;
+
               const subcatB =
-                (b.subcategoryName &&
-                  ordemSubcategorias[b.categoryName]?.indexOf(
-                    b.subcategoryName,
-                  )) ??
-                999;
+                typeof b.categoryName === "string" &&
+                typeof b.subcategoryName === "string" &&
+                ordemSubcategorias[
+                  b.categoryName as keyof typeof ordemSubcategorias
+                ]
+                  ? ordemSubcategorias[
+                      b.categoryName as keyof typeof ordemSubcategorias
+                    ].indexOf(b.subcategoryName)
+                  : 999;
+
               if (subcatA !== subcatB) return subcatA - subcatB;
 
               return a.name.localeCompare(b.name);
@@ -583,6 +590,10 @@ export default function Loja() {
                     >
                       {product.name}
                     </h3>
+                    {/* PREÇO embaixo do nome */}
+                    <p className="text-black-900 mt-1 text-center text-xs font-bold">
+                      R$ {product.price.toFixed(2)}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -686,6 +697,25 @@ export default function Loja() {
         <div className="text-3xl">🛒</div>
         <div className="mt-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-yellow-500 shadow-md">
           {cart.reduce((sum, item) => sum + item.quantity, 0)}
+        </div>
+      </button>
+
+      {/* Botão de Total Gasto */}
+      <button
+        className={`fixed bottom-96 left-1 z-0 flex flex-col items-center justify-center rounded-xl bg-green-700 px-4 py-2 text-white shadow-2xl transition-all duration-300 active:scale-95 ${
+          cart.reduce(
+            (acc, item) => acc + item.product.price * item.quantity,
+            0,
+          ) > 0
+            ? "animate-pulse-slow hover:scale-105"
+            : ""
+        }`}
+      >
+        <div className="mt-0 flex h-4 w-16 items-center justify-center rounded bg-white text-sm font-bold text-green-700 shadow-md">
+          R$
+          {cart
+            .reduce((acc, item) => acc + item.product.price * item.quantity, 0)
+            .toFixed(2)}
         </div>
       </button>
 
@@ -864,12 +894,19 @@ export default function Loja() {
               alt={selectedProduct.name}
               className="mb-4 h-48 w-full object-contain"
             />
-            <h2 className="mb-2 text-center text-lg font-bold">
+            <h2 className="mb-1 text-center text-lg font-bold text-gray-800">
               {selectedProduct.name}
             </h2>
+
+            {/* PREÇO AQUI */}
+            <p className="mb-3 text-center text-base font-bold text-green-700">
+              R$ {selectedProduct.price.toFixed(2)}
+            </p>
+
             <p className="mb-4 text-center text-sm text-gray-600">
               {selectedProduct.description}
             </p>
+
             <div className="mb-4 flex items-center justify-center gap-4">
               <button
                 onClick={() => setQuantityToAdd(quantityToAdd - 1)}
@@ -885,9 +922,10 @@ export default function Loja() {
                 ➕
               </button>
             </div>
+
             <button
               onClick={() => addToCart(selectedProduct, quantityToAdd)}
-              className="w-full rounded bg-red-600 py-2 text-white hover:bg-red-700"
+              className="w-full rounded bg-red-600 py-2 text-white hover:bg-red-500"
             >
               Adicionar ao Carrinho
             </button>
