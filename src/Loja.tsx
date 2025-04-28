@@ -147,6 +147,29 @@ export default function Loja() {
       console.log("Geolocalização não suportada.");
     }
   }, []);
+  useEffect(() => {
+    if (products.length > 0) {
+      const categoriasSubcategorias: Record<string, Set<string>> = {};
+
+      products.forEach((product) => {
+        const categoria = product.categoryName || "Sem Categoria";
+        const subcategoria = product.subcategoryName || "Sem Subcategoria";
+
+        if (!categoriasSubcategorias[categoria]) {
+          categoriasSubcategorias[categoria] = new Set();
+        }
+        categoriasSubcategorias[categoria].add(subcategoria);
+      });
+
+      console.log("📝 Categorias e Subcategorias:");
+      Object.keys(categoriasSubcategorias).forEach((categoria) => {
+        console.log(`Categoria: ${categoria}`);
+        categoriasSubcategorias[categoria].forEach((sub) => {
+          console.log(`  - Subcategoria: ${sub}`);
+        });
+      });
+    }
+  }, [products]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -295,7 +318,8 @@ export default function Loja() {
         onSelectCategorySubcategory={(category, subcategory) => {
           setQuickFilterCategory(category);
           setQuickFilterSubcategory(subcategory || null);
-          setCurrentPage(1); // Ok deixar resetar a página para o começo
+          setSearch(""); // <-- limpar a busca!!
+          setCurrentPage(1);
         }}
       />
 
@@ -304,7 +328,7 @@ export default function Loja() {
         className="fixed left-0 right-0 top-0 z-50 bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md"
         style={{
           backgroundImage:
-            "url('https://i.pinimg.com/736x/82/38/3f/82383fffa32351554a30ed9ea3cb5c1d.jpg')",
+            "url('https://i.pinimg.com/736x/4f/64/68/4f6468ff2526f6c88c9463710547c75c.jpg')",
         }}
       >
         {/* Área da logo */}
@@ -318,10 +342,13 @@ export default function Loja() {
 
         {/* Nome da unidade selecionada */}
         {selectedStore && (
-          <h2 className="pb-2 text-center text-sm font-semibold text-gray-700">
-            🏠 Unidade: {selectedStore}
-          </h2>
+          <div className="flex justify-center py-1">
+            <div className="text-sm font-semibold text-gray-700">
+              🏠 {selectedStore}
+            </div>
+          </div>
         )}
+
         {/* Mensagem de Escolha (só aparece antes de clicar) */}
         {showInstruction && (
           <div className="flex justify-center">
@@ -405,6 +432,7 @@ export default function Loja() {
               setSelectedCategory(e.target.value || null);
               setSelectedSubcategory(null);
               setShowSubcategories(true);
+              setSearch(""); // <-- limpar a busca!!
               setCurrentPage(1);
             }}
           >
@@ -425,6 +453,7 @@ export default function Loja() {
                   setQuickFilterCategory(null); // 🔥 limpa o atalho
                   setQuickFilterSubcategory(null); // 🔥 limpa o atalho
                   setSelectedSubcategory(e.target.value || null);
+                  setSearch(""); // <-- limpar a busca!!
                   setCurrentPage(1);
                 }}
               >
@@ -442,45 +471,124 @@ export default function Loja() {
         </div>
       </div>
 
-      {/* Produtos */}
-      <div className="grid grid-cols-2 gap-6 px-6 pb-40 sm:grid-cols-3 lg:grid-cols-4">
-        {loading
-          ? Array.from({ length: 12 }).map((_, idx) => (
+      {/* Produtos organizados por Categoria/Subcategoria */}
+      <div className="px-6 pb-40">
+        {loading ? (
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 12 }).map((_, idx) => (
               <div
                 key={idx}
                 className="h-64 w-full animate-pulse rounded-xl bg-gray-100"
               ></div>
-            ))
-          : paginated.map((product) => (
-              <div
-                key={product.id}
-                className={`flex flex-col items-center transition-all duration-300 sm:rounded-xl sm:bg-white sm:p-4 sm:shadow ${
-                  clickedProductId === product.id
-                    ? "scale-110"
-                    : "hover:scale-105"
-                }`}
-              >
-                <img
-                  src={product.imageUrl}
-                  alt={product.name}
-                  className="mb-2 h-48 w-full cursor-pointer object-contain"
-                  onClick={() => setSelectedProduct(product)} // Foto: abre o modal normal
-                />
-                <h3
-                  className="cursor-pointer text-center text-sm font-semibold text-gray-800 transition-all duration-300 hover:text-red-600"
-                  onClick={() => {
-                    if (clickedProductId === product.id) {
-                      setSelectedProduct(product); // Segunda vez: abre Ver Mais
-                      setClickedProductId(null); // Resetar para normal depois
-                    } else {
-                      setClickedProductId(product.id); // Primeira vez: só aumentar
-                    }
-                  }}
-                >
-                  {product.name}
-                </h3>
-              </div>
             ))}
+          </div>
+        ) : (
+          (() => {
+            const ordemCategorias = [
+              "Picolé",
+              "Pote de Sorvete",
+              "Tortas",
+              "Açaí",
+              "Sundae",
+              "Extras",
+              "selleto",
+              "Complementos",
+            ];
+
+            const ordemSubcategorias = {
+              Picolé: [
+                "Frutas",
+                "Cremes",
+                "Diamond",
+                "Ituzinho",
+                "Kids",
+                "Grego",
+                "Sem Subcategoria",
+              ],
+              "Pote de Sorvete": [
+                "2L",
+                "1,5L",
+                "Best Cup",
+                "Grand Nevado",
+                "Sem Subcategoria",
+              ],
+              Tortas: ["Sem Subcategoria"],
+              Açaí: ["guaraná", "banana"],
+              Sundae: ["Sem Subcategoria"],
+              Extras: ["Cobertura", "Cascão"],
+              selleto: ["Sem Subcategoria"],
+              Complementos: ["Sem Subcategoria"],
+            };
+
+            const produtosOrdenados = [...filtered].sort((a, b) => {
+              const catA =
+                ordemCategorias.indexOf(a.categoryName) !== -1
+                  ? ordemCategorias.indexOf(a.categoryName)
+                  : 999;
+              const catB =
+                ordemCategorias.indexOf(b.categoryName) !== -1
+                  ? ordemCategorias.indexOf(b.categoryName)
+                  : 999;
+              if (catA !== catB) return catA - catB;
+
+              const subcatA =
+                (a.subcategoryName &&
+                  ordemSubcategorias[a.categoryName]?.indexOf(
+                    a.subcategoryName,
+                  )) ??
+                999;
+              const subcatB =
+                (b.subcategoryName &&
+                  ordemSubcategorias[b.categoryName]?.indexOf(
+                    b.subcategoryName,
+                  )) ??
+                999;
+              if (subcatA !== subcatB) return subcatA - subcatB;
+
+              return a.name.localeCompare(b.name);
+            });
+
+            // Paginação: 12 produtos por página
+            const inicio = (currentPage - 1) * productsPerPage;
+            const fim = inicio + productsPerPage;
+            const paginados = produtosOrdenados.slice(inicio, fim);
+
+            return (
+              <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+                {paginados.map((product) => (
+                  <div
+                    key={product.id}
+                    className={`flex flex-col items-center transition-all duration-300 sm:rounded-xl sm:bg-white sm:p-4 sm:shadow ${
+                      clickedProductId === product.id
+                        ? "scale-110"
+                        : "hover:scale-105"
+                    }`}
+                  >
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="mb-2 h-48 w-full cursor-pointer object-contain"
+                      onClick={() => setSelectedProduct(product)}
+                    />
+                    <h3
+                      className="cursor-pointer text-center text-sm font-semibold text-gray-800 transition-all duration-300 hover:text-red-600"
+                      onClick={() => {
+                        if (clickedProductId === product.id) {
+                          setSelectedProduct(product);
+                          setClickedProductId(null);
+                        } else {
+                          setClickedProductId(product.id);
+                        }
+                      }}
+                    >
+                      {product.name}
+                    </h3>
+                  </div>
+                ))}
+              </div>
+            );
+          })()
+        )}
       </div>
 
       {/* Paginação */}
@@ -489,7 +597,10 @@ export default function Loja() {
           {/* Botão Anterior */}
           {currentPage > 1 && (
             <button
-              onClick={() => setCurrentPage(currentPage - 1)}
+              onClick={() => {
+                setCurrentPage(currentPage - 1);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-600 transition hover:bg-gray-200"
             >
               ‹
@@ -500,7 +611,10 @@ export default function Loja() {
           {currentPage > 3 && (
             <>
               <button
-                onClick={() => setCurrentPage(1)}
+                onClick={() => {
+                  setCurrentPage(1);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
                 className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-600 transition hover:bg-gray-200"
               >
                 1
@@ -519,7 +633,10 @@ export default function Loja() {
             .map((page) => (
               <button
                 key={page}
-                onClick={() => setCurrentPage(page)}
+                onClick={() => {
+                  setCurrentPage(page);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
                 className={`h-8 w-8 rounded border text-sm font-semibold transition-all ${
                   page === currentPage
                     ? "bg-red-600 text-white shadow"
@@ -535,7 +652,10 @@ export default function Loja() {
             <>
               <span className="px-1 text-gray-400">...</span>
               <button
-                onClick={() => setCurrentPage(totalPages)}
+                onClick={() => {
+                  setCurrentPage(totalPages);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
                 className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-600 transition hover:bg-gray-200"
               >
                 {totalPages}
@@ -546,13 +666,16 @@ export default function Loja() {
           {/* Botão Próximo */}
           {currentPage < totalPages && (
             <button
-              onClick={() => setCurrentPage(currentPage + 1)}
+              onClick={() => {
+                setCurrentPage(currentPage + 1);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-900 transition hover:bg-gray-200"
             >
               ›
             </button>
           )}
-        </div>{" "}
+        </div>
       </div>
 
       {/* Botão Carrinho Quadrado Premium com Movimento */}

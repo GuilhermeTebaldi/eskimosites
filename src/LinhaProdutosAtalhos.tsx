@@ -5,7 +5,17 @@ export default function LinhaProdutosAtalhos({
 }: {
   onSelectCategorySubcategory: (category: string, subcategory?: string) => void;
 }) {
-  const imagensEsquerda = [
+  const imagens = [
+    {
+      src: "https://eskimo.com.br/wp-content/uploads/2023/04/Linha-Fruta.png",
+      category: "Picolé",
+      subcategory: "Frutas",
+    },
+    {
+      src: "https://eskimo.com.br/wp-content/uploads/2023/04/Linha-Creme.png",
+      category: "Picolé",
+      subcategory: "Cremes",
+    },
     {
       src: "https://eskimo.com.br/wp-content/uploads/2023/04/Linha-Kids.png",
       category: "Picolé",
@@ -20,9 +30,6 @@ export default function LinhaProdutosAtalhos({
       src: "https://eskimo.com.br/wp-content/uploads/2023/05/Acai-900g-sem-lupa.png",
       category: "Açaí",
     },
-  ];
-
-  const imagensDireita = [
     {
       src: "https://eskimo.com.br/wp-content/uploads/2023/04/Pote-2-Litros-1.png",
       category: "Pote de Sorvete",
@@ -33,77 +40,65 @@ export default function LinhaProdutosAtalhos({
       category: "Pote de Sorvete",
       subcategory: "Grand Nevado",
     },
-    {
-      src: "https://eskimo.com.br/wp-content/uploads/2023/04/Linha-Fruta.png",
-      category: "Picolé",
-      subcategory: "Frutas",
-    },
-    {
-      src: "https://eskimo.com.br/wp-content/uploads/2023/04/Linha-Creme.png",
-      category: "Picolé",
-      subcategory: "Cremes",
-    },
   ];
 
-  const [indexEsquerda, setIndexEsquerda] = useState(0);
-  const [indexDireita, setIndexDireita] = useState(0);
-  const [fadeEsquerda, setFadeEsquerda] = useState(true);
-  const [fadeDireita, setFadeDireita] = useState(true);
+  const [index, setIndex] = useState(0);
+
+  const nextImage = () => {
+    setIndex((prev) => (prev + 1) % imagens.length);
+  };
+
+  const prevImage = () => {
+    setIndex((prev) => (prev - 1 + imagens.length) % imagens.length);
+  };
 
   useEffect(() => {
-    const intervalEsquerda = setInterval(() => {
-      setFadeEsquerda(false);
-      setTimeout(() => {
-        setIndexEsquerda((prev) => (prev + 1) % imagensEsquerda.length);
-        setFadeEsquerda(true);
-      }, 400);
-    }, 3000);
-
-    const intervalDireita = setInterval(() => {
-      setFadeDireita(false);
-      setTimeout(() => {
-        setIndexDireita((prev) => (prev + 1) % imagensDireita.length);
-        setFadeDireita(true);
-      }, 400);
+    const interval = setInterval(() => {
+      nextImage();
     }, 4000);
-
-    return () => {
-      clearInterval(intervalEsquerda);
-      clearInterval(intervalDireita);
-    };
+    return () => clearInterval(interval);
   }, []);
 
-  const imagemEsquerda = imagensEsquerda[indexEsquerda];
-  const imagemDireita = imagensDireita[indexDireita];
-
   return (
-    <div className="flex w-full justify-center gap-8 py-6">
-      <img
-        src={imagemEsquerda.src}
-        alt="Linha Eskimo"
-        className={`h-20 w-auto cursor-pointer object-contain transition-all duration-700 ease-in-out hover:scale-110 ${
-          fadeEsquerda ? "scale-100 opacity-100" : "scale-90 opacity-0"
-        }`}
-        onClick={() =>
-          onSelectCategorySubcategory(
-            imagemEsquerda.category,
-            imagemEsquerda.subcategory,
-          )
-        }
-      />
-      <img
-        src={imagemDireita.src}
-        alt="Linha Eskimo"
-        className={`h-20 w-auto cursor-pointer object-contain transition-all duration-700 ease-in-out hover:scale-110 ${
-          fadeDireita ? "scale-100 opacity-100" : "scale-90 opacity-0"
-        }`}
-        onClick={() =>
-          onSelectCategorySubcategory(
-            imagemDireita.category,
-            imagemDireita.subcategory,
-          )
-        }
-      />
+    <div className="relative flex w-full flex-col items-center gap-4 py-6">
+      <div className="relative flex w-full max-w-md items-center justify-center">
+        <button
+          onClick={prevImage}
+          className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl text-gray-600 hover:text-red-600"
+        >
+          ‹
+        </button>
+
+        <img
+          src={imagens[index].src}
+          alt="Linha Eskimo"
+          className="h-36 w-auto cursor-pointer object-contain"
+          onClick={() =>
+            onSelectCategorySubcategory(
+              imagens[index].category,
+              imagens[index].subcategory,
+            )
+          }
+        />
+
+        <button
+          onClick={nextImage}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-3xl text-gray-600 hover:text-red-600"
+        >
+          ›
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {imagens.map((_, i) => (
+          <div
+            key={i}
+            className={`h-1.5 w-5 rounded-full transition-all ${
+              i === index ? "bg-red-500" : "bg-gray-300"
+            }`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
