@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos"; // ou ajuste o caminho se precisar
 
 interface Product {
   id: number;
@@ -131,6 +132,8 @@ export default function Loja() {
         },
         (error) => {
           console.log("Não foi possível obter a localização:", error);
+          setShowInstruction(true);
+          setIsStoreSelectorExpanded(true);
         },
       );
     } else {
@@ -147,21 +150,6 @@ export default function Loja() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    axios
-      .get<Product[]>(`${API_URL}/products/list?page=1&pageSize=200`)
-      .then((res) => {
-        setProducts(res.data || []);
-      })
-      .catch((err) => {
-        console.error("Erro ao buscar produtos:", err);
-      })
-      .then(() => {
-        setLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
     if (selectedStore) {
       setLoading(true);
       axios
@@ -175,6 +163,9 @@ export default function Loja() {
           console.error("Erro ao buscar produtos da unidade:", err);
         })
         .then(() => {
+          setLoading(false);
+        })
+        .catch(() => {
           setLoading(false);
         });
     }
@@ -255,7 +246,7 @@ export default function Loja() {
         customerName,
         address,
         deliveryType,
-        store: selectedStore, // salvar também a loja escolhida
+        store: selectedStore,
         items: cart.map((item) => ({
           productId: item.product.id,
           name: item.product.name,
@@ -264,6 +255,7 @@ export default function Loja() {
         })),
         total: parseFloat(total),
       });
+
       setCart([]);
       setShowPayment(false);
       setShowConfirmation(true);
@@ -271,6 +263,7 @@ export default function Loja() {
       setAddress("");
       setDeliveryType("retirar");
     } catch (err) {
+      console.error(err);
       alert("Erro ao enviar pedido.");
     }
   };
@@ -285,13 +278,20 @@ export default function Loja() {
           🔙 Voltar para Unidades
         </button>
       </div>
-
+      {/* carrocel de produtos  */}
+      <div className="h-[280px]" />
+      <LinhaProdutosAtalhos
+        onSelectCategorySubcategory={(category, subcategory) => {
+          setSelectedCategory(category);
+          setSelectedSubcategory(subcategory || null);
+          setCurrentPage(1);
+        }}
+      />
       {/* Cabeçalho */}
       <div className="fixed left-0 right-0 top-0 z-50 bg-white shadow-md">
         <h1 className="py-2 text-center text-2xl font-bold text-red-600">
           🍦 Eskimó
-        </h1>
-
+        </h1>{" "}
         {/* Nome da unidade selecionada */}
         {selectedStore && (
           <h2 className="pb-2 text-center text-sm font-semibold text-gray-700">
@@ -306,7 +306,6 @@ export default function Loja() {
             </div>
           </div>
         )}
-
         {/* Botões de Seleção de Unidade */}
         <div className="relative z-50 flex justify-center gap-4 py-2">
           {isStoreSelectorExpanded ? (
@@ -365,7 +364,6 @@ export default function Loja() {
             </button>
           )}
         </div>
-
         <div className="flex flex-col items-center gap-2 px-4 pb-3">
           <input
             type="text"
@@ -415,8 +413,6 @@ export default function Loja() {
           </div>
         </div>
       </div>
-
-      <div className="h-[300px]" />
 
       {/* Produtos */}
       <div className="grid grid-cols-2 gap-6 px-6 pb-40 sm:grid-cols-3 lg:grid-cols-4">
@@ -528,7 +524,7 @@ export default function Loja() {
               ›
             </button>
           )}
-        </div>
+        </div>{" "}
       </div>
 
       {/* Botão Carrinho Quadrado Premium com Movimento */}
