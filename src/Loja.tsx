@@ -24,6 +24,13 @@ export default function Loja() {
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>(
     [],
   );
+  const [quickFilterCategory, setQuickFilterCategory] = useState<string | null>(
+    null,
+  );
+  const [quickFilterSubcategory, setQuickFilterSubcategory] = useState<
+    string | null
+  >(null);
+
   const [animateButtons, setAnimateButtons] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -173,12 +180,16 @@ export default function Loja() {
 
   const filtered = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory
-      ? p.categoryName === selectedCategory
-      : true;
-    const matchesSubcategory = selectedSubcategory
-      ? p.subcategoryName === selectedSubcategory
-      : true;
+    const matchesCategory = quickFilterCategory
+      ? p.categoryName === quickFilterCategory
+      : selectedCategory
+        ? p.categoryName === selectedCategory
+        : true;
+    const matchesSubcategory = quickFilterSubcategory
+      ? p.subcategoryName === quickFilterSubcategory
+      : selectedSubcategory
+        ? p.subcategoryName === selectedSubcategory
+        : true;
     return matchesSearch && matchesCategory && matchesSubcategory;
   });
 
@@ -278,20 +289,33 @@ export default function Loja() {
           🔙 Voltar para Unidades
         </button>
       </div>
-      {/* carrocel de produtos  */}
+      {/* carrocel de produtos na pasta LinhaProdutosAtalhos.tsx */}
       <div className="h-[280px]" />
       <LinhaProdutosAtalhos
         onSelectCategorySubcategory={(category, subcategory) => {
-          setSelectedCategory(category);
-          setSelectedSubcategory(subcategory || null);
-          setCurrentPage(1);
+          setQuickFilterCategory(category);
+          setQuickFilterSubcategory(subcategory || null);
+          setCurrentPage(1); // Ok deixar resetar a página para o começo
         }}
       />
+
       {/* Cabeçalho */}
-      <div className="fixed left-0 right-0 top-0 z-50 bg-white shadow-md">
-        <h1 className="py-2 text-center text-2xl font-bold text-red-600">
-          🍦 Eskimó
-        </h1>{" "}
+      <div
+        className="fixed left-0 right-0 top-0 z-50 bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md"
+        style={{
+          backgroundImage:
+            "url('https://i.pinimg.com/736x/82/38/3f/82383fffa32351554a30ed9ea3cb5c1d.jpg')",
+        }}
+      >
+        {/* Área da logo */}
+        <div className="flex items-center justify-center py-2">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/9/96/Logo_eskim%C3%B3_Sorvetes_Vermelha.png"
+            alt="Eskimo Logo"
+            className="h-20 w-auto object-contain"
+          />
+        </div>
+
         {/* Nome da unidade selecionada */}
         {selectedStore && (
           <h2 className="pb-2 text-center text-sm font-semibold text-gray-700">
@@ -376,6 +400,8 @@ export default function Loja() {
             className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
             value={selectedCategory || ""}
             onChange={(e) => {
+              setQuickFilterCategory(null); // 🔥 limpa o atalho
+              setQuickFilterSubcategory(null); // 🔥 limpa o atalho
               setSelectedCategory(e.target.value || null);
               setSelectedSubcategory(null);
               setShowSubcategories(true);
@@ -396,6 +422,8 @@ export default function Loja() {
                 className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
                 value={selectedSubcategory || ""}
                 onChange={(e) => {
+                  setQuickFilterCategory(null); // 🔥 limpa o atalho
+                  setQuickFilterSubcategory(null); // 🔥 limpa o atalho
                   setSelectedSubcategory(e.target.value || null);
                   setCurrentPage(1);
                 }}

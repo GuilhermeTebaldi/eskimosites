@@ -20,10 +20,6 @@ export default function LinhaProdutosAtalhos({
       src: "https://eskimo.com.br/wp-content/uploads/2023/05/Acai-900g-sem-lupa.png",
       category: "Açaí",
     },
-    {
-      src: "https://eskimo.com.br/wp-content/uploads/2023/04/torta-de-sorvete-1.png",
-      category: "Tortas",
-    },
   ];
 
   const imagensDireita = [
@@ -46,10 +42,6 @@ export default function LinhaProdutosAtalhos({
       src: "https://eskimo.com.br/wp-content/uploads/2023/04/Linha-Creme.png",
       category: "Picolé",
       subcategory: "Cremes",
-    },
-    {
-      src: "https://eskimo.com.br/wp-content/uploads/2023/04/Sundae-2.png",
-      category: "Sundae",
     },
   ];
 
