@@ -24,6 +24,7 @@ export default function Loja() {
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>(
     [],
   );
+
   const [quickFilterCategory, setQuickFilterCategory] = useState<string | null>(
     null,
   );
@@ -44,10 +45,15 @@ export default function Loja() {
   const [customerName, setCustomerName] = useState("");
   const [deliveryType, setDeliveryType] = useState("retirar");
   const [address, setAddress] = useState("");
+  const [street, setStreet] = useState("");
+  const [number, setNumber] = useState("");
+  const [complement, setComplement] = useState("");
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(
     null,
   );
+
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [quantityToAdd, setQuantityToAdd] = useState(1);
   const [selectedStore, setSelectedStore] = useState<string | null>(null); // AQUI!!
@@ -275,6 +281,9 @@ export default function Loja() {
       await axios.post(`${API_URL}/orders`, {
         customerName,
         address,
+        street,
+        number,
+        complement,
         deliveryType,
         store: selectedStore,
         items: cart.map((item) => ({
@@ -788,6 +797,8 @@ export default function Loja() {
             <h2 className="mb-4 text-center text-xl font-semibold text-gray-800">
               Finalizar Pedido
             </h2>
+
+            {/* Nome */}
             <input
               type="text"
               placeholder="Seu nome completo"
@@ -795,6 +806,8 @@ export default function Loja() {
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
             />
+
+            {/* Tipo de entrega */}
             <select
               className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
               value={deliveryType}
@@ -803,18 +816,57 @@ export default function Loja() {
               <option value="retirar">Retirar na Loja</option>
               <option value="entregar">Entrega em Casa</option>
             </select>
+
+            {/* Campos para entrega */}
             {deliveryType === "entregar" && (
-              <input
-                type="text"
-                placeholder="Seu endereço completo"
-                className="mb-6 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-              />
+              <div className="flex flex-col gap-3">
+                <select
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                >
+                  <option value="">Escolha o Bairro</option>
+                  <option value="Centro">Centro</option>
+                  <option value="Efapi">Efapi</option>
+                  <option value="Passo dos Fortes">Passo dos Fortes</option>
+                  <option value="Palmital">Palmital</option>
+                  <option value="Presidente Médici">Presidente Médici</option>
+                  <option value="São Cristóvão">São Cristóvão</option>
+                  <option value="Seminário">Seminário</option>
+                  <option value="Universitário">Universitário</option>
+                  {/* Você pode adicionar mais bairros conforme necessário */}
+                </select>
+
+                <input
+                  type="text"
+                  placeholder="Rua"
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                />
+
+                <input
+                  type="text"
+                  placeholder="Número"
+                  value={number}
+                  onChange={(e) => setNumber(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                />
+
+                <input
+                  type="text"
+                  placeholder="Complemento (opcional)"
+                  value={complement}
+                  onChange={(e) => setComplement(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                />
+              </div>
             )}
+
+            {/* Botão confirmar */}
             <button
               onClick={confirmOrder}
-              className="w-full rounded-full bg-red-500 py-2 font-semibold text-white transition hover:bg-red-600 active:scale-95"
+              className="mt-6 w-full rounded-full bg-red-500 py-2 font-semibold text-white transition hover:bg-red-600 active:scale-95"
             >
               Ir para Pagamento
             </button>
