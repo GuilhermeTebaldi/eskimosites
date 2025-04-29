@@ -861,7 +861,6 @@ export default function Loja() {
                   <option value="Desbravador">Desbravador</option>
                   <option value="Universitário">Universitário</option>
                   <option value="Líder">Líder</option>
-
                   {/* Você pode adicionar mais bairros conforme necessário */}
                 </select>
 
