@@ -865,18 +865,28 @@ export default function Loja() {
 
                 <input
                   type="text"
-                  placeholder="Rua"
+                  placeholder="* Rua (obrigatório)"
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                  required
+                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                    !street
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-300 bg-gray-50"
+                  } focus:border-red-400 focus:ring focus:ring-red-200`}
                 />
 
                 <input
                   type="text"
-                  placeholder="Número"
+                  placeholder="* Número (obrigatório)"
                   value={number}
                   onChange={(e) => setNumber(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                  required
+                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                    !number
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-300 bg-gray-50"
+                  } focus:border-red-400 focus:ring focus:ring-red-200`}
                 />
 
                 <input
@@ -884,14 +894,26 @@ export default function Loja() {
                   placeholder="Complemento (opcional)"
                   value={complement}
                   onChange={(e) => setComplement(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700"
                 />
+
                 <input
                   type="tel"
-                  placeholder="Seu WhatsApp (com DDD)"
+                  placeholder="* WhatsApp com DDD (ex: 49991234567)"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700"
+                  onChange={(e) => {
+                    let valor = e.target.value.replace(/\D/g, ""); // só números
+                    if (!valor.startsWith("55")) {
+                      valor = "55" + valor;
+                    }
+                    setPhoneNumber(valor);
+                  }}
+                  required
+                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                    !phoneNumber || phoneNumber.length < 13
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-300 bg-gray-50"
+                  } focus:border-red-400 focus:ring focus:ring-red-200`}
                 />
               </div>
             )}
