@@ -47,7 +47,6 @@ export default function MeusPedidos(): JSX.Element {
             className="h-10 w-auto object-contain"
           />
         </div>
-
         <h1 className="text-center text-2xl font-bold text-white">
           🧾 Consultar Meus Pedidos
         </h1>
