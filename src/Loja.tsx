@@ -16,6 +16,7 @@ const API_URL = "https://backend-eskimo.onrender.com/api";
 
 export default function Loja() {
   const [loading, setLoading] = useState(true);
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   const [showInstruction, setShowInstruction] = useState(true);
 
@@ -293,6 +294,7 @@ export default function Loja() {
           quantity: item.quantity,
         })),
         total: parseFloat(total),
+        phoneNumber, // ✅ <- adicionar este campo!
       });
 
       setCart([]);
@@ -834,6 +836,7 @@ export default function Loja() {
                   <option value="São Cristóvão">São Cristóvão</option>
                   <option value="Seminário">Seminário</option>
                   <option value="Universitário">Universitário</option>
+                  <option value="Universitário">Jardim America</option>
                   {/* Você pode adicionar mais bairros conforme necessário */}
                 </select>
 
@@ -859,6 +862,13 @@ export default function Loja() {
                   value={complement}
                   onChange={(e) => setComplement(e.target.value)}
                   className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                />
+                <input
+                  type="tel"
+                  placeholder="Seu WhatsApp (com DDD)"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700"
                 />
               </div>
             )}
