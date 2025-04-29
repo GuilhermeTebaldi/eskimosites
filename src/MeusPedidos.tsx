@@ -12,7 +12,9 @@ interface Order {
 }
 
 export default function MeusPedidos(): JSX.Element {
-  const [phone, setPhone] = useState<string>("");
+  const [phone, setPhone] = useState<string>(
+    localStorage.getItem("userPhone") || "",
+  );
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -23,24 +25,27 @@ export default function MeusPedidos(): JSX.Element {
     }
 
     setLoading(true);
+    localStorage.setItem("userPhone", phone);
 
     axios
       .get<Order[]>(`${API_URL}/orders`)
       .then((res) => {
         const pedidos = res.data.filter((p: Order) => p.phoneNumber === phone);
         setOrders(pedidos);
-        setLoading(false); // 👈 movido para dentro do .then
+        setLoading(false);
       })
       .catch(() => {
         alert("Erro ao buscar pedidos.");
-        setLoading(false); // 👈 movido para dentro do .catch
+        setLoading(false);
       });
+  };
+
+  const atualizarPedidos = () => {
+    buscarPedidos();
   };
 
   return (
     <div className="min-h-screen w-full bg-white text-gray-800">
-      {/* Barra Superior */}
-      {/* Área da logo */}
       <header className="w-full bg-blue-600 py-4 shadow-md">
         <div className="flex items-center justify-center py-2">
           <img
@@ -64,14 +69,23 @@ export default function MeusPedidos(): JSX.Element {
           </a>
         </div>
 
-        <div className="mb-10 flex flex-col items-center gap-4">
+        <div className="mb-10 flex flex-col items-center gap-2">
           <input
             type="tel"
             placeholder="Digite seu WhatsApp com DDD"
             className="w-full max-w-md rounded-lg border border-gray-300 px-4 py-3 text-base shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => {
+              let valor = e.target.value.replace(/\D/g, "");
+              if (!valor.startsWith("55")) {
+                valor = "55" + valor;
+              }
+              setPhone(valor);
+            }}
           />
+          <p className="text-xs text-gray-500">
+            ⚠️ Usamos seu número para localizar seus pedidos automaticamente.
+          </p>
           <button
             onClick={buscarPedidos}
             className="w-full max-w-md rounded-lg bg-blue-600 px-6 py-3 text-base font-bold text-white shadow-lg transition hover:bg-blue-700"
@@ -116,6 +130,15 @@ export default function MeusPedidos(): JSX.Element {
                 </div>
               </div>
             ))}
+
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={atualizarPedidos}
+                className="rounded-full bg-blue-500 px-6 py-2 font-semibold text-white shadow hover:bg-blue-600"
+              >
+                🔄 Atualizar Status
+              </button>
+            </div>
           </div>
         )}
       </div>

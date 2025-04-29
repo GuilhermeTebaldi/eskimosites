@@ -703,12 +703,14 @@ export default function Loja() {
       </div>
       {/* Botão "Meus Pedidos" */}
       <Link
+        onClick={() => setShowCart(!showCart)}
         to="/meus-pedidos"
         className="fixed bottom-48 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-blue-500 p-2 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
       >
         <div className="text-3xl">📜</div>
         <div className="mt-1 text-xs font-bold">Meu</div>
         <div className="mt-1 text-xs font-bold">Pedido</div>
+        {cart.reduce((sum, item) => sum + item.quantity, 0)}
       </Link>
 
       {/* Botão Carrinho Quadrado Premium com Movimento */}
@@ -915,6 +917,12 @@ export default function Loja() {
                       : "border-gray-300 bg-gray-50"
                   } focus:border-red-400 focus:ring focus:ring-red-200`}
                 />
+
+                {/* Mensagem indicativa abaixo do campo */}
+                <p className="mt-1 text-xs text-gray-600">
+                  ⚠️ Este número será usado para você consultar seu pedido
+                  depois.
+                </p>
               </div>
             )}
 
