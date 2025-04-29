@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos"; // ou ajuste o caminho se precisar
+import { Link } from "react-router-dom"; // 🚀 importa o Link também
 
 interface Product {
   id: number;
@@ -422,6 +423,7 @@ export default function Loja() {
             </button>
           )}
         </div>
+
         <div className="flex flex-col items-center gap-2 px-4 pb-3">
           <input
             type="text"
@@ -699,6 +701,15 @@ export default function Loja() {
           )}
         </div>
       </div>
+      {/* Botão "Meus Pedidos" */}
+      <Link
+        to="/meus-pedidos"
+        className="fixed bottom-48 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-blue-500 p-2 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
+      >
+        <div className="text-3xl">📜</div>
+        <div className="mt-1 text-xs font-bold">Meu</div>
+        <div className="mt-1 text-xs font-bold">Pedido</div>
+      </Link>
 
       {/* Botão Carrinho Quadrado Premium com Movimento */}
       <button
@@ -712,23 +723,20 @@ export default function Loja() {
       </button>
 
       {/* Botão de Total Gasto */}
-      <button
-        className={`fixed bottom-96 left-1 z-0 flex flex-col items-center justify-center rounded-xl bg-green-700 px-4 py-2 text-white shadow-2xl transition-all duration-300 active:scale-95 ${
-          cart.reduce(
-            (acc, item) => acc + item.product.price * item.quantity,
-            0,
-          ) > 0
-            ? "animate-pulse-slow hover:scale-105"
-            : ""
-        }`}
-      >
-        <div className="mt-0 flex h-4 w-16 items-center justify-center rounded bg-white text-sm font-bold text-green-700 shadow-md">
-          R$
-          {cart
-            .reduce((acc, item) => acc + item.product.price * item.quantity, 0)
-            .toFixed(2)}
-        </div>
-      </button>
+      {cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0) >
+        0 && (
+        <button className="animate-pulse-slow fixed bottom-96 left-1 z-0 flex flex-col items-center justify-center rounded-xl bg-green-700 px-4 py-2 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95">
+          <div className="mt-0 flex h-4 w-16 items-center justify-center rounded bg-white text-sm font-bold text-green-700 shadow-md">
+            R$
+            {cart
+              .reduce(
+                (acc, item) => acc + item.product.price * item.quantity,
+                0,
+              )
+              .toFixed(2)}
+          </div>
+        </button>
+      )}
 
       {/* Modais */}
       {showCart && (
@@ -827,7 +835,6 @@ export default function Loja() {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                 >
-                  <option value="">Escolha o Bairro</option>
                   <option value="Centro">Centro</option>
                   <option value="Efapi">Efapi</option>
                   <option value="Passo dos Fortes">Passo dos Fortes</option>
@@ -836,7 +843,25 @@ export default function Loja() {
                   <option value="São Cristóvão">São Cristóvão</option>
                   <option value="Seminário">Seminário</option>
                   <option value="Universitário">Universitário</option>
-                  <option value="Universitário">Jardim America</option>
+                  <option value="Jardim América">Jardim América</option>
+                  <option value="São Pedro">São Pedro</option>
+                  <option value="Jardim Itália">Jardim Itália</option>
+                  <option value="Paraíso">Paraíso</option>
+                  <option value="Maria Goretti">Maria Goretti</option>
+                  <option value="Santa Maria">Santa Maria</option>
+                  <option value="Saic">Saic</option>
+                  <option value="Santo Antônio">Santo Antônio</option>
+                  <option value="Quedas do Palmital">Quedas do Palmital</option>
+                  <option value="Dom Pascoal">Dom Pascoal</option>
+                  <option value="Monte Castelo">Monte Castelo</option>
+                  <option value="Cristo Rei">Cristo Rei</option>
+                  <option value="Esplanada">Esplanada</option>
+                  <option value="Santa Paulina">Santa Paulina</option>
+                  <option value="Trevo">Trevo</option>
+                  <option value="Desbravador">Desbravador</option>
+                  <option value="Universitário">Universitário</option>
+                  <option value="Líder">Líder</option>
+
                   {/* Você pode adicionar mais bairros conforme necessário */}
                 </select>
 
@@ -926,6 +951,15 @@ export default function Loja() {
             <h2 className="mb-4 text-2xl font-bold text-green-700">
               Pedido Confirmado!
             </h2>
+            {/* ✅ Mensagem aguardando confirmação */}
+            <h2 className="mt-4 text-center text-lg font-bold text-yellow-700">
+              🕐 Aguardando confirmação de pagamento...
+            </h2>
+            <p className="text-center text-sm text-gray-600">
+              Você receberá a confirmação pelo WhatsApp assim que o pagamento
+              for aprovado.
+            </p>
+
             <button
               onClick={() => setShowConfirmation(false)}
               className="rounded-full bg-green-600 px-6 py-2 text-white hover:bg-green-700"
