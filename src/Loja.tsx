@@ -194,9 +194,11 @@ export default function Loja() {
         .get<Product[]>(
           `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`,
         )
+
         .then((res) => {
           setProducts(res.data || []);
         })
+
         .catch((err) => {
           console.error("Erro ao buscar produtos da unidade:", err);
         })
