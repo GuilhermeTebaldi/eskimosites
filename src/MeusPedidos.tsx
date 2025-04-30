@@ -8,6 +8,7 @@ interface Order {
   store: string;
   status: string;
   total: number;
+  name: string; // ✅ Adicionado
   phoneNumber: string;
 }
 
@@ -102,6 +103,9 @@ export default function MeusPedidos(): JSX.Element {
           <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md transition hover:shadow-lg">
             <div className="mb-2 text-lg font-bold text-gray-800">
               📦 Pedido #{order.id}
+            </div>
+            <div className="mb-1 text-sm text-gray-600">
+              <strong>Cliente:</strong> {order.name}
             </div>
             <div className="mb-1 text-sm text-gray-600">
               <strong>Unidade:</strong> {order.store}
