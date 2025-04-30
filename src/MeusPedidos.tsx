@@ -41,7 +41,8 @@ export default function MeusPedidos(): JSX.Element {
       .catch(() => {
         setError("Erro ao buscar pedidos.");
       })
-      .finally(() => {
+      .then(() => {
+        // ✅ Coloque o `setLoading(false)` aqui em vez de `.finally`
         setLoading(false);
       });
   };
