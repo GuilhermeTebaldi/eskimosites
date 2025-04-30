@@ -1053,9 +1053,6 @@ export default function Loja() {
             <p className="mb-2 text-sm text-gray-600">
               Escaneie o QR Code ou copie a chave:
             </p>
-            <p className="mb-2 text-sm text-gray-600">
-              Escaneie o QR Code ou copie a chave:
-            </p>
 
             <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
               <p>
