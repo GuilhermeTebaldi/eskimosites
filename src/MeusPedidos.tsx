@@ -12,36 +12,44 @@ interface Order {
 }
 
 export default function MeusPedidos(): JSX.Element {
-  const [phone, setPhone] = useState<string>(
-    localStorage.getItem("userPhone") || "",
-  );
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orderId, setOrderId] = useState<string>("");
+  const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
 
-  const buscarPedidos = () => {
-    if (!phone) {
-      alert("Digite seu número de WhatsApp com DDD!");
+  const buscarPedidoPorId = () => {
+    if (!orderId) {
+      alert("Digite o número do pedido!");
       return;
     }
 
     setLoading(true);
-    localStorage.setItem("userPhone", phone);
+    setError("");
+    setOrder(null);
 
     axios
       .get<Order[]>(`${API_URL}/orders`)
       .then((res) => {
-        const pedidos = res.data.filter((p: Order) => p.phoneNumber === phone);
-        setOrders(pedidos);
-        setLoading(false);
+        const encontrado = res.data.find((p) => p.id === Number(orderId));
+        if (encontrado) {
+          setOrder(encontrado);
+        } else {
+          setError("Pedido não encontrado.");
+        }
       })
       .catch(() => {
-        alert("Erro ao buscar pedidos.");
+        setError("Erro ao buscar pedidos.");
+      })
+      .then(() => {
         setLoading(false);
       });
   };
 
-  const atualizarPedidos = () => {
-    buscarPedidos();
+  const copiarPedidoParaAreaTransferencia = () => {
+    if (order) {
+      navigator.clipboard.writeText(order.id.toString());
+      alert(`Número do pedido #${order.id} copiado!`);
+    }
   };
 
   return (
@@ -55,7 +63,7 @@ export default function MeusPedidos(): JSX.Element {
           />
         </div>
         <h1 className="text-center text-2xl font-bold text-white">
-          🧾 Consultar Meus Pedidos
+          🧾 Consultar Pedido por Número
         </h1>
       </header>
 
@@ -71,76 +79,54 @@ export default function MeusPedidos(): JSX.Element {
 
         <div className="mb-10 flex flex-col items-center gap-2">
           <input
-            type="tel"
-            placeholder="Digite seu WhatsApp com DDD"
+            type="number"
+            placeholder="Digite o número do seu pedido"
             className="w-full max-w-md rounded-lg border border-gray-300 px-4 py-3 text-base shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
-            value={phone}
-            onChange={(e) => {
-              let valor = e.target.value.replace(/\D/g, "");
-              if (!valor.startsWith("55")) {
-                valor = "55" + valor;
-              }
-              setPhone(valor);
-            }}
+            value={orderId}
+            onChange={(e) => setOrderId(e.target.value)}
           />
-          <p className="text-xs text-gray-500">
-            ⚠️ Usamos seu número para localizar seus pedidos automaticamente.
-          </p>
           <button
-            onClick={buscarPedidos}
+            onClick={buscarPedidoPorId}
             className="w-full max-w-md rounded-lg bg-blue-600 px-6 py-3 text-base font-bold text-white shadow-lg transition hover:bg-blue-700"
           >
-            🔍 Buscar Meus Pedidos
+            🔍 Buscar Pedido
           </button>
+          {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
 
         {loading ? (
           <div className="flex justify-center">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
           </div>
-        ) : orders.length === 0 ? (
-          <p className="text-center text-lg text-gray-500">
-            Nenhum pedido encontrado.
-          </p>
-        ) : (
-          <div className="space-y-6">
-            {orders.map((order) => (
-              <div
-                key={order.id}
-                className="rounded-xl border border-gray-200 bg-white p-6 shadow-md transition hover:shadow-lg"
-              >
-                <div className="mb-2 text-lg font-bold text-gray-800">
-                  📦 Pedido #{order.id}
-                </div>
-                <div className="mb-1 text-sm text-gray-600">
-                  <strong>Unidade:</strong> {order.store}
-                </div>
-                <div className="mb-1 text-sm">
-                  <strong>Status:</strong>{" "}
-                  {order.status === "pendente" ? (
-                    <span className="text-yellow-600">🕐 Em processo</span>
-                  ) : order.status === "pago" ? (
-                    <span className="text-green-600">✅ Confirmado</span>
-                  ) : (
-                    <span className="text-gray-500">{order.status}</span>
-                  )}
-                </div>
-                <div className="mt-4 text-right text-lg font-bold text-blue-700">
-                  Total: R$ {order.total.toFixed(2)}
-                </div>
-              </div>
-            ))}
-
-            <div className="mt-8 flex justify-center">
-              <button
-                onClick={atualizarPedidos}
-                className="rounded-full bg-blue-500 px-6 py-2 font-semibold text-white shadow hover:bg-blue-600"
-              >
-                🔄 Atualizar Status
-              </button>
+        ) : order ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md transition hover:shadow-lg">
+            <div className="mb-2 text-lg font-bold text-gray-800">
+              📦 Pedido #{order.id}
             </div>
+            <div className="mb-1 text-sm text-gray-600">
+              <strong>Unidade:</strong> {order.store}
+            </div>
+            <div className="mb-1 text-sm">
+              <strong>Status:</strong>{" "}
+              {order.status === "pendente" ? (
+                <span className="text-yellow-600">🕐 Em processo</span>
+              ) : order.status === "pago" ? (
+                <span className="text-green-600">✅ Confirmado</span>
+              ) : (
+                <span className="text-gray-500">{order.status}</span>
+              )}
+            </div>
+            <div className="mt-4 text-right text-lg font-bold text-blue-700">
+              Total: R$ {order.total.toFixed(2)}
+            </div>
+            <button
+              onClick={copiarPedidoParaAreaTransferencia}
+              className="mt-4 rounded-full bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
+            >
+              📋 Copiar Número do Pedido
+            </button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -16,11 +16,11 @@ interface Product {
 const API_URL = "https://backend-eskimo.onrender.com/api";
 
 export default function Loja() {
+  const [orderId, setOrderId] = useState<number | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [phoneNumber, setPhoneNumber] = useState("");
-
   const [showInstruction, setShowInstruction] = useState(true);
-
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>(
@@ -35,10 +35,8 @@ export default function Loja() {
   >(null);
 
   const [animateButtons, setAnimateButtons] = useState(true);
-
   const [search, setSearch] = useState("");
   const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(true);
-
   const [currentPage, setCurrentPage] = useState(1);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -50,7 +48,6 @@ export default function Loja() {
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
   const [complement, setComplement] = useState("");
-
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(
     null,
@@ -60,7 +57,6 @@ export default function Loja() {
   const [quantityToAdd, setQuantityToAdd] = useState(1);
   const [selectedStore, setSelectedStore] = useState<string | null>(null); // AQUI!!
   const [clickedProductId, setClickedProductId] = useState<number | null>(null);
-
   const productsPerPage = 12;
   const total = cart
     .reduce((acc, item) => acc + item.product.price * item.quantity, 0)
@@ -204,9 +200,6 @@ export default function Loja() {
         })
         .then(() => {
           setLoading(false);
-        })
-        .catch(() => {
-          setLoading(false);
         });
     }
   }, [selectedStore]);
@@ -282,23 +275,39 @@ export default function Loja() {
 
   const finalizeOrder = async () => {
     try {
-      await axios.post(`${API_URL}/orders`, {
-        customerName,
-        address,
-        street,
-        number,
-        complement,
-        deliveryType,
-        store: selectedStore,
-        items: cart.map((item) => ({
-          productId: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-        })),
-        total: parseFloat(total),
-        phoneNumber, // ✅ <- adicionar este campo!
-      });
+      const response = await axios.post<{ id: number; message: string }>(
+        `${API_URL}/orders`,
+        {
+          customerName,
+          address,
+          street,
+          number,
+          complement,
+          deliveryType,
+          store: selectedStore,
+          items: cart.map((item) => ({
+            productId: item.product.id,
+            name: item.product.name,
+            price: item.product.price,
+            quantity: item.quantity,
+          })),
+          total: parseFloat(total),
+          phoneNumber,
+        },
+      );
+
+      console.log("📦 Resposta da API:", response.data);
+
+      const { id } = response.data;
+
+      if (typeof id === "number" && !isNaN(id)) {
+        setOrderId(id);
+        console.log("✅ ID do pedido salvo:", id);
+      } else {
+        alert("Erro: número do pedido não foi retornado corretamente.");
+        console.error("❌ ID inválido:", id);
+        return;
+      }
 
       setCart([]);
       setShowPayment(false);
@@ -307,7 +316,7 @@ export default function Loja() {
       setAddress("");
       setDeliveryType("retirar");
     } catch (err) {
-      console.error(err);
+      console.error("❌ Erro ao enviar pedido:", err);
       alert("Erro ao enviar pedido.");
     }
   };
@@ -712,7 +721,6 @@ export default function Loja() {
         <div className="text-3xl">📜</div>
         <div className="mt-1 text-xs font-bold">Meu</div>
         <div className="mt-1 text-xs font-bold">Pedido</div>
-        {cart.reduce((sum, item) => sum + item.quantity, 0)}
       </Link>
 
       {/* Botão Carrinho Quadrado Premium com Movimento */}
@@ -981,14 +989,32 @@ export default function Loja() {
             <h2 className="mb-4 text-2xl font-bold text-green-700">
               Pedido Confirmado!
             </h2>
-            {/* ✅ Mensagem aguardando confirmação */}
-            <h2 className="mt-4 text-center text-lg font-bold text-yellow-700">
-              🕐 Aguardando confirmação de pagamento...
-            </h2>
-            <p className="text-center text-sm text-gray-600">
-              Você receberá a confirmação pelo WhatsApp assim que o pagamento
-              for aprovado.
-            </p>
+
+            {orderId !== null && (
+              <>
+                <p className="mb-2 text-base font-semibold text-gray-800">
+                  Número do pedido:
+                </p>
+                <div className="mb-3 flex items-center justify-center gap-2">
+                  <div className="rounded-lg border border-dashed border-green-500 bg-green-50 px-4 py-2 text-lg font-bold text-green-700 shadow-sm">
+                    #{orderId}
+                  </div>
+                  <button
+                    onClick={() =>
+                      navigator.clipboard.writeText(orderId.toString())
+                    }
+                    className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700"
+                  >
+                    Copiar
+                  </button>
+                </div>
+                <p className="mb-6 text-sm text-gray-600">
+                  Você poderá acompanhar o status do seu pedido clicando no
+                  botão <strong>“Meu Pedido”</strong> no canto inferior direito
+                  da tela.
+                </p>
+              </>
+            )}
 
             <button
               onClick={() => setShowConfirmation(false)}
