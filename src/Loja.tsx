@@ -62,9 +62,11 @@ export default function Loja() {
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
 
   const productsPerPage = 12;
-  const total = cart
-    .reduce((acc, item) => acc + item.product.price * item.quantity, 0)
-    .toFixed(2);
+  const subtotal = cart.reduce(
+    (acc, item) => acc + item.product.price * item.quantity,
+    0,
+  );
+  const total = subtotal + deliveryFee;
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
   const subcategories = (category: string) =>
@@ -349,8 +351,8 @@ export default function Loja() {
             price: item.product.price,
             quantity: item.quantity,
           })),
-          total: parseFloat(total),
-          deliveryFee, // 👈 novo campo aqui
+          total: total, // ✅ agora é o valor correto com frete incluído
+          deliveryFee,
           phoneNumber,
         },
       );
@@ -848,7 +850,29 @@ export default function Loja() {
             ))}
           </ul>
           <div className="mt-6 border-t pt-4">
-            <p className="mb-2 font-bold">Total: R$ {total}</p>
+            {/* Exibe Subtotal, Frete e Total */}
+            {(() => {
+              const subtotal = cart.reduce(
+                (sum, item) => sum + item.product.price * item.quantity,
+                0,
+              );
+              const totalWithDelivery = subtotal + deliveryFee;
+              return (
+                <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
+                  <p>
+                    🧁 Produtos: <strong>R$ {subtotal.toFixed(2)}</strong>
+                  </p>
+                  <p>
+                    🚚 Entrega aproximada:{" "}
+                    <strong>R$ {deliveryFee.toFixed(2)}</strong>
+                  </p>
+                  <p className="text-base font-bold text-green-700">
+                    💰 Total: R$ {totalWithDelivery.toFixed(2)}
+                  </p>
+                </div>
+              );
+            })()}
+
             <button
               onClick={openCheckout}
               className="mt-2 w-full rounded bg-red-500 py-2 text-gray-50 hover:bg-red-700"
@@ -1021,6 +1045,22 @@ export default function Loja() {
             <p className="mb-2 text-sm text-gray-600">
               Escaneie o QR Code ou copie a chave:
             </p>
+            <p className="mb-2 text-sm text-gray-600">
+              Escaneie o QR Code ou copie a chave:
+            </p>
+
+            <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
+              <p>
+                🧁 Subtotal: <strong>R$ {subtotal.toFixed(2)}</strong>
+              </p>
+              <p>
+                🚚 Entrega: <strong>R$ {deliveryFee.toFixed(2)}</strong>
+              </p>
+              <p className="text-base font-bold text-green-700">
+                💰 Total: R$ {total.toFixed(2)}
+              </p>
+            </div>
+
             <img
               src="https://upload.wikimedia.org/wikipedia/commons/6/6b/QR_code_example.png"
               alt="QR Code PIX"
