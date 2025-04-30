@@ -3,12 +3,22 @@ import axios from "axios";
 
 const API_URL = "https://backend-eskimo.onrender.com/api";
 
+interface OrderAPIResponse {
+  id: number;
+  store: string;
+  status: string;
+  total: number;
+  name?: string;
+  customerName?: string;
+  phoneNumber: string;
+}
+
 interface Order {
   id: number;
   store: string;
   status: string;
   total: number;
-  name: string; // <- alias de CustomerName vindo da API
+  name: string;
   phoneNumber: string;
 }
 
@@ -29,11 +39,19 @@ export default function MeusPedidos(): JSX.Element {
     setOrder(null);
 
     axios
-      .get<Order[]>(`${API_URL}/orders`)
+      .get<OrderAPIResponse[]>(`${API_URL}/orders`)
       .then((res) => {
         const encontrado = res.data.find((p) => p.id === Number(orderId));
         if (encontrado) {
-          setOrder(encontrado);
+          const orderFormatado: Order = {
+            id: encontrado.id,
+            store: encontrado.store,
+            status: encontrado.status,
+            total: encontrado.total,
+            phoneNumber: encontrado.phoneNumber,
+            name: encontrado.name || encontrado.customerName || "Cliente",
+          };
+          setOrder(orderFormatado);
         } else {
           setError("Pedido não encontrado.");
         }
@@ -42,7 +60,7 @@ export default function MeusPedidos(): JSX.Element {
         setError("Erro ao buscar pedidos.");
       })
       .then(() => {
-        setLoading(false);
+        setLoading(false); // ⚠️ usamos then e não finally (para evitar o erro IPromise)
       });
   };
 
