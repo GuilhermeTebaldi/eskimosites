@@ -116,9 +116,18 @@ export default function MeusPedidos(): JSX.Element {
                 <span className="text-gray-500">{order.status}</span>
               )}
             </div>
-            <div className="mt-4 text-right text-lg font-bold text-blue-700">
-              Total: R$ {order.total.toFixed(2)}
+            <div className="mt-4 flex flex-col items-end gap-2">
+              <div className="text-lg font-bold text-blue-700">
+                Total: R$ {order.total.toFixed(2)}
+              </div>
+              <button
+                onClick={buscarPedidoPorId}
+                className="rounded-full bg-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-yellow-600"
+              >
+                🔄 Atualizar Status
+              </button>
             </div>
+
             <button
               onClick={copiarPedidoParaAreaTransferencia}
               className="mt-4 rounded-full bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
