@@ -8,7 +8,7 @@ interface Order {
   store: string;
   status: string;
   total: number;
-  name: string; // <- será retornado como alias de CustomerName
+  name: string; // <- alias de CustomerName vindo da API
   phoneNumber: string;
 }
 
@@ -42,7 +42,6 @@ export default function MeusPedidos(): JSX.Element {
         setError("Erro ao buscar pedidos.");
       })
       .then(() => {
-        // ✅ Coloque o `setLoading(false)` aqui em vez de `.finally`
         setLoading(false);
       });
   };
