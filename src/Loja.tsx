@@ -57,6 +57,10 @@ export default function Loja() {
   const [quantityToAdd, setQuantityToAdd] = useState(1);
   const [selectedStore, setSelectedStore] = useState<string | null>(null); // AQUI!!
   const [clickedProductId, setClickedProductId] = useState<number | null>(null);
+
+  const [deliveryRate, setDeliveryRate] = useState<number>(0);
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+
   const productsPerPage = 12;
   const total = cart
     .reduce((acc, item) => acc + item.product.price * item.quantity, 0)
@@ -107,6 +111,7 @@ export default function Loja() {
     const d = R * c;
     return d;
   }
+  // 1️⃣ Obtém localização e define unidade mais próxima
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -139,7 +144,6 @@ export default function Loja() {
 
           setSelectedStore(closestStore.name);
           setShowInstruction(false);
-          // 🚫 NÃO colocar mais `setIsStoreSelectorExpanded(false)` aqui!!
         },
         (error) => {
           console.log("Não foi possível obter a localização:", error);
@@ -151,6 +155,60 @@ export default function Loja() {
       console.log("Geolocalização não suportada.");
     }
   }, []);
+
+  // 2️⃣ Busca o valor do KM da API
+  useEffect(() => {
+    axios
+      .get<{ deliveryRate: number }>(`${API_URL}/settings`)
+      .then((res) => {
+        const rate = res.data?.deliveryRate ?? 0;
+        setDeliveryRate(rate);
+      })
+
+      .catch((err) => {
+        console.error("Erro ao buscar deliveryRate:", err);
+      });
+  }, []);
+
+  // 3️⃣ Calcula a taxa de entrega quando `deliveryRate` e `selectedStore` estiverem disponíveis
+  useEffect(() => {
+    if (deliveryRate > 0 && navigator.geolocation && selectedStore) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+
+          const store = storeLocations.find((s) => s.name === selectedStore);
+          if (store) {
+            const distance = getDistanceFromLatLonInKm(
+              userLat,
+              userLng,
+              store.lat,
+              store.lng,
+            );
+            const fee = distance * deliveryRate;
+            setDeliveryFee(parseFloat(fee.toFixed(2)));
+          }
+        },
+        (error) => {
+          console.log("Erro ao calcular taxa de entrega:", error);
+        },
+      );
+    }
+  }, [deliveryRate, selectedStore]);
+
+  useEffect(() => {
+    axios
+      .get<{ deliveryRate: number }>(`${API_URL}/settings`)
+      .then((res) => {
+        setDeliveryRate(res.data.deliveryRate);
+      })
+
+      .catch((err) => {
+        console.error("Erro ao buscar deliveryRate:", err);
+      });
+  }, []);
+
   useEffect(() => {
     if (products.length > 0) {
       const categoriasSubcategorias: Record<string, Set<string>> = {};
@@ -292,6 +350,7 @@ export default function Loja() {
             quantity: item.quantity,
           })),
           total: parseFloat(total),
+          deliveryFee, // 👈 novo campo aqui
           phoneNumber,
         },
       );
@@ -819,6 +878,11 @@ export default function Loja() {
             <h2 className="mb-4 text-center text-xl font-semibold text-gray-800">
               Finalizar Pedido
             </h2>
+            {deliveryType === "entregar" && (
+              <p className="mt-2 text-sm text-gray-700">
+                🚚 Entrega: R$ {deliveryFee.toFixed(2)}
+              </p>
+            )}
 
             {/* Nome */}
             <input
