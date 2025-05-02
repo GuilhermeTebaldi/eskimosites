@@ -593,20 +593,6 @@ export default function Loja() {
           <div className="text-xs text-gray-500">
             {filtered.length} produto(s) encontrado(s)
           </div>
-
-          {/* Exibe somente o valor da entrega */}
-          <div className="mb-4 space-y-1 text-sm text-gray-600">
-            <p>
-              🚚 Entrega aproximada:{" "}
-              <strong>
-                {deliveryType === "entregar"
-                  ? deliveryFee > 0
-                    ? `R$ ${deliveryFee.toFixed(2)}`
-                    : "calculando..."
-                  : "R$ 0,00"}
-              </strong>
-            </p>
-          </div>
         </div>
       </div>
 
