@@ -1,7 +1,8 @@
+// Loja.tsx
 import { useEffect, useState } from "react";
 import axios from "axios";
-import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos"; // ou ajuste o caminho se precisar
-import { Link } from "react-router-dom"; // 🚀 importa o Link também
+import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos";
+import { Link } from "react-router-dom";
 
 interface Product {
   id: number;
@@ -17,7 +18,6 @@ const API_URL = "https://backend-eskimo.onrender.com/api";
 
 export default function Loja() {
   const [orderId, setOrderId] = useState<number | null>(null);
-
   const [loading, setLoading] = useState(true);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [showInstruction, setShowInstruction] = useState(true);
@@ -33,7 +33,6 @@ export default function Loja() {
   const [quickFilterSubcategory, setQuickFilterSubcategory] = useState<
     string | null
   >(null);
-
   const [animateButtons, setAnimateButtons] = useState(true);
   const [search, setSearch] = useState("");
   const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(true);
@@ -52,12 +51,10 @@ export default function Loja() {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(
     null,
   );
-
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [quantityToAdd, setQuantityToAdd] = useState(1);
-  const [selectedStore, setSelectedStore] = useState<string | null>(null); // AQUI!!
+  const [selectedStore, setSelectedStore] = useState<string | null>(null);
   const [clickedProductId, setClickedProductId] = useState<number | null>(null);
-
   const [deliveryRate, setDeliveryRate] = useState<number>(0);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
 
@@ -77,6 +74,7 @@ export default function Loja() {
           .map((p) => p.subcategoryName!),
       ),
     );
+
   const storeLocations = [
     { name: "efapi", lat: -27.112815, lng: -52.670769 },
     { name: "palmital", lat: -27.1152884, lng: -52.6166752 },
@@ -89,7 +87,7 @@ export default function Loja() {
     lat2: number,
     lon2: number,
   ) {
-    const R = 6371; // Raio da Terra em KM
+    const R = 6371;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
     const a =
@@ -99,8 +97,7 @@ export default function Loja() {
         Math.sin(dLon / 2) *
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const d = R * c;
-    return d;
+    return R * c;
   }
   // 1️⃣ Obtém localização e define unidade mais próxima
   useEffect(() => {
@@ -142,12 +139,34 @@ export default function Loja() {
           setIsStoreSelectorExpanded(true);
         },
       );
-    } else {
-      console.log("Geolocalização não suportada.");
     }
   }, []);
 
   // 2️⃣ Busca o valor do KM da API
+  useEffect(() => {
+    if (deliveryRate > 0 && navigator.geolocation && selectedStore) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          const store = storeLocations.find((s) => s.name === selectedStore);
+          if (store) {
+            const distance = getDistanceFromLatLonInKm(
+              userLat,
+              userLng,
+              store.lat,
+              store.lng,
+            );
+            const fee = distance * deliveryRate;
+            setDeliveryFee(parseFloat(fee.toFixed(2)));
+          }
+        },
+        (error) => {
+          console.log("Erro ao calcular taxa de entrega:", error);
+        },
+      );
+    }
+  }, [deliveryRate, selectedStore]);
   useEffect(() => {
     axios
       .get<{ deliveryRate: number }>(`${API_URL}/settings`)
@@ -155,11 +174,42 @@ export default function Loja() {
         const rate = res.data?.deliveryRate ?? 0;
         setDeliveryRate(rate);
       })
-
       .catch((err) => {
         console.error("Erro ao buscar deliveryRate:", err);
       });
   }, []);
+
+  useEffect(() => {
+    if (selectedStore) {
+      setLoading(true);
+      axios
+        .get<Product[]>(
+          `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`,
+        )
+        .then((res) => {
+          if (Array.isArray(res.data)) {
+            setProducts(res.data);
+          } else {
+            console.warn("Resposta inesperada da API:", res.data);
+            setProducts([]);
+          }
+        })
+        .catch((err) => {
+          console.error("Erro ao buscar produtos:", err);
+          setLoading(false); // ✅ também aqui
+        });
+    }
+  }, [selectedStore]);
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let valor = e.target.value.replace(/\D/g, "");
+    if (!valor.startsWith("55")) {
+      valor = "55" + valor;
+    }
+    if (valor.length <= 13) {
+      setPhoneNumber(valor);
+    }
+  };
 
   // 3️⃣ Calcula a taxa de entrega quando `deliveryRate` e `selectedStore` estiverem disponíveis
   useEffect(() => {
@@ -187,18 +237,6 @@ export default function Loja() {
       );
     }
   }, [deliveryRate, selectedStore]);
-
-  useEffect(() => {
-    axios
-      .get<{ deliveryRate: number }>(`${API_URL}/settings`)
-      .then((res) => {
-        setDeliveryRate(res.data.deliveryRate);
-      })
-
-      .catch((err) => {
-        console.error("Erro ao buscar deliveryRate:", err);
-      });
-  }, []);
 
   useEffect(() => {
     if (products.length > 0) {
@@ -540,7 +578,7 @@ export default function Loja() {
           </div>
 
           {/* Exibe somente o valor da entrega */}
-          <div className="mb-4 space-y-1 text-sm text-xs text-gray-600">
+          <div className="mb-4 space-y-1 text-sm text-gray-600">
             <p>
               🚚 Entrega aproximada:{" "}
               <strong>R$ {deliveryFee.toFixed(2)}</strong>
@@ -1014,14 +1052,7 @@ export default function Loja() {
                   type="tel"
                   placeholder="* WhatsApp com DDD (ex: 49991234567)"
                   value={phoneNumber}
-                  onChange={(e) => {
-                    let valor = e.target.value.replace(/\D/g, ""); // só números
-                    if (!valor.startsWith("55")) {
-                      valor = "55" + valor;
-                    }
-                    setPhoneNumber(valor);
-                  }}
-                  required
+                  onChange={handlePhoneChange}
                   className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
                     !phoneNumber || phoneNumber.length < 13
                       ? "border-red-400 bg-red-50"
