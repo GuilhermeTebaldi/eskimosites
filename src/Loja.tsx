@@ -597,7 +597,13 @@ export default function Loja() {
           <div className="mb-4 space-y-1 text-sm text-gray-600">
             <p>
               🚚 Entrega aproximada:{" "}
-              <strong>R$ {deliveryFee.toFixed(2)}</strong>
+              <strong>
+                {deliveryType === "entregar"
+                  ? deliveryFee > 0
+                    ? `R$ ${deliveryFee.toFixed(2)}`
+                    : "calculando..."
+                  : "R$ 0,00"}
+              </strong>
             </p>
           </div>
         </div>
