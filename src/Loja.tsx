@@ -393,6 +393,7 @@ export default function Loja() {
             name: item.product.name,
             price: item.product.price,
             quantity: item.quantity,
+            imageUrl: item.product.imageUrl,
           })),
           total: total, // ✅ agora é o valor correto com frete incluído
           deliveryFee,
