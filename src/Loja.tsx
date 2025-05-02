@@ -141,38 +141,81 @@ export default function Loja() {
       );
     }
   }, []);
+  const tentarRecalcularEntrega = async () => {
+    if (
+      deliveryType === "entregar" &&
+      deliveryRate > 0 &&
+      navigator.geolocation &&
+      selectedStore
+    ) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject),
+        );
 
-  // 2️⃣ Busca o valor do KM da API
-  useEffect(() => {
-    if (deliveryRate > 0 && navigator.geolocation && selectedStore) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLat = position.coords.latitude;
-          const userLng = position.coords.longitude;
-          const store = storeLocations.find((s) => s.name === selectedStore);
-          if (store) {
-            const distance = getDistanceFromLatLonInKm(
-              userLat,
-              userLng,
-              store.lat,
-              store.lng,
-            );
-            const fee = distance * deliveryRate;
-            setDeliveryFee(parseFloat(fee.toFixed(2)));
-          }
-        },
-        (error) => {
-          console.log("Erro ao calcular taxa de entrega:", error);
-        },
-      );
+        const userLat = pos.coords.latitude;
+        const userLng = pos.coords.longitude;
+        const loja = storeLocations.find((s) => s.name === selectedStore);
+        if (!loja) return;
+
+        const distancia = getDistanceFromLatLonInKm(
+          userLat,
+          userLng,
+          loja.lat,
+          loja.lng,
+        );
+        const taxa = distancia * deliveryRate;
+        setDeliveryFee(parseFloat(taxa.toFixed(2)));
+      } catch (error) {
+        console.error("❌ Falha ao obter localização:", error);
+      }
     }
+  };
+
+  // ✅ Cálculo consolidado da taxa de entrega com segurança e sincronia
+  useEffect(() => {
+    const calcularTaxa = async () => {
+      if (
+        deliveryRate > 0 &&
+        navigator.geolocation &&
+        selectedStore &&
+        storeLocations.length > 0
+      ) {
+        try {
+          const pos = await new Promise<GeolocationPosition>(
+            (resolve, reject) =>
+              navigator.geolocation.getCurrentPosition(resolve, reject),
+          );
+
+          const userLat = pos.coords.latitude;
+          const userLng = pos.coords.longitude;
+          const loja = storeLocations.find((s) => s.name === selectedStore);
+          if (!loja) return;
+
+          const distancia = getDistanceFromLatLonInKm(
+            userLat,
+            userLng,
+            loja.lat,
+            loja.lng,
+          );
+          const taxa = distancia * deliveryRate;
+          setDeliveryFee(parseFloat(taxa.toFixed(2)));
+        } catch (error) {
+          console.error("Erro ao calcular taxa de entrega:", error);
+        }
+      }
+    };
+
+    calcularTaxa();
   }, [deliveryRate, selectedStore]);
+
   useEffect(() => {
     axios
       .get<{ deliveryRate: number }>(`${API_URL}/settings`)
       .then((res) => {
         const rate = res.data?.deliveryRate ?? 0;
         setDeliveryRate(rate);
+        //setDeliveryFee(0); // 👈 FORÇA TAXA ZERADA PRA TESTAR
       })
       .catch((err) => {
         console.error("Erro ao buscar deliveryRate:", err);
@@ -210,33 +253,6 @@ export default function Loja() {
       setPhoneNumber(valor);
     }
   };
-
-  // 3️⃣ Calcula a taxa de entrega quando `deliveryRate` e `selectedStore` estiverem disponíveis
-  useEffect(() => {
-    if (deliveryRate > 0 && navigator.geolocation && selectedStore) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLat = position.coords.latitude;
-          const userLng = position.coords.longitude;
-
-          const store = storeLocations.find((s) => s.name === selectedStore);
-          if (store) {
-            const distance = getDistanceFromLatLonInKm(
-              userLat,
-              userLng,
-              store.lat,
-              store.lng,
-            );
-            const fee = distance * deliveryRate;
-            setDeliveryFee(parseFloat(fee.toFixed(2)));
-          }
-        },
-        (error) => {
-          console.log("Erro ao calcular taxa de entrega:", error);
-        },
-      );
-    }
-  }, [deliveryRate, selectedStore]);
 
   useEffect(() => {
     if (products.length > 0) {
@@ -1070,11 +1086,39 @@ export default function Loja() {
 
             {/* Botão confirmar */}
             <button
-              onClick={confirmOrder}
-              className="mt-6 w-full rounded-full bg-red-500 py-2 font-semibold text-white transition hover:bg-red-600 active:scale-95"
+              onClick={async () => {
+                if (deliveryType === "entregar" && deliveryFee === 0) {
+                  await tentarRecalcularEntrega();
+                  return;
+                }
+                confirmOrder();
+              }}
+              disabled={deliveryType === "entregar" && deliveryFee === 0}
+              className={`mt-6 w-full rounded-full py-2 font-semibold transition ${
+                deliveryType === "entregar" && deliveryFee === 0
+                  ? "cursor-not-allowed bg-gray-300 text-gray-500"
+                  : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
+              }`}
             >
               Ir para Pagamento
             </button>
+
+            {/* Aviso sobre GPS obrigatório + botão de tentar de novo */}
+            {deliveryType === "entregar" && deliveryFee === 0 && (
+              <>
+                <p className="mt-2 text-center text-sm text-red-600">
+                  ⚠️ Ative sua localização para calcular a taxa de entrega.
+                </p>
+                <div className="mt-3 flex justify-center">
+                  <button
+                    onClick={tentarRecalcularEntrega}
+                    className="animate-pulse-slow rounded-full bg-yellow-500 px-4 py-1 text-sm text-white shadow hover:bg-yellow-600 active:scale-95"
+                  >
+                    🔄 Tentar Localizar de Novo
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
