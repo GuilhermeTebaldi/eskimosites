@@ -78,22 +78,11 @@ export default function Loja() {
       ),
     );
   const storeLocations = [
-    {
-      name: "Palmital",
-      lat: -27.1152884,
-      lng: -52.6166752,
-    },
-    {
-      name: "Passo dos Fortes",
-      lat: -27.077056,
-      lng: -52.6122383,
-    },
-    {
-      name: "Efapi",
-      lat: -27.112815,
-      lng: -52.670769,
-    },
+    { name: "efapi", lat: -27.112815, lng: -52.670769 },
+    { name: "palmital", lat: -27.1152884, lng: -52.6166752 },
+    { name: "passo", lat: -27.077056, lng: -52.6122383 },
   ];
+
   function getDistanceFromLatLonInKm(
     lat1: number,
     lon1: number,
@@ -443,12 +432,12 @@ export default function Loja() {
             <>
               <button
                 onClick={() => {
-                  setSelectedStore("Efapi");
+                  setSelectedStore("efapi");
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
                 className={`${animateButtons ? "energy-animate" : ""} w-38 rounded-md border px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
-                  selectedStore === "Efapi"
+                  selectedStore === "efapi"
                     ? "border-yellow-700 bg-yellow-300 text-gray-800"
                     : "border-yellow-700 bg-white text-gray-700 hover:bg-gray-100"
                 }`}
@@ -458,12 +447,12 @@ export default function Loja() {
 
               <button
                 onClick={() => {
-                  setSelectedStore("Palmital");
+                  setSelectedStore("palmital");
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
                 className={`${animateButtons ? "energy-animate" : ""} w-38 rounded-md border px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
-                  selectedStore === "Palmital"
+                  selectedStore === "palmital"
                     ? "border-yellow-700 bg-yellow-300 text-gray-800"
                     : "border-yellow-700 bg-white text-gray-700 hover:bg-gray-100"
                 }`}
@@ -473,12 +462,12 @@ export default function Loja() {
 
               <button
                 onClick={() => {
-                  setSelectedStore("Passo dos Fortes");
+                  setSelectedStore("passo");
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
                 className={`${animateButtons ? "energy-animate" : ""} w-38 rounded-md border px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
-                  selectedStore === "Passo dos Fortes"
+                  selectedStore === "passo"
                     ? "border-yellow-700 bg-yellow-300 text-gray-800"
                     : "border-yellow-700 bg-white text-gray-700 hover:bg-gray-100"
                 }`}
@@ -943,32 +932,48 @@ export default function Loja() {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                 >
+                  <option value="Alvorada">Alvorada</option>
+                  <option value="Bela Vista">Bela Vista</option>
+                  <option value="Belvedere">Belvedere</option>
                   <option value="Centro">Centro</option>
-                  <option value="Efapi">Efapi</option>
-                  <option value="Passo dos Fortes">Passo dos Fortes</option>
-                  <option value="Palmital">Palmital</option>
-                  <option value="Presidente Médici">Presidente Médici</option>
-                  <option value="São Cristóvão">São Cristóvão</option>
-                  <option value="Seminário">Seminário</option>
-                  <option value="Universitário">Universitário</option>
-                  <option value="Jardim América">Jardim América</option>
-                  <option value="São Pedro">São Pedro</option>
-                  <option value="Jardim Itália">Jardim Itália</option>
-                  <option value="Paraíso">Paraíso</option>
-                  <option value="Maria Goretti">Maria Goretti</option>
-                  <option value="Santa Maria">Santa Maria</option>
-                  <option value="Saic">Saic</option>
-                  <option value="Santo Antônio">Santo Antônio</option>
-                  <option value="Quedas do Palmital">Quedas do Palmital</option>
-                  <option value="Dom Pascoal">Dom Pascoal</option>
-                  <option value="Monte Castelo">Monte Castelo</option>
+                  <option value="Colônia Cella">Colônia Cella</option>
                   <option value="Cristo Rei">Cristo Rei</option>
+                  <option value="Dom Gerônimo">Dom Gerônimo</option>
+                  <option value="Efapi">Efapi</option>
+                  <option value="Eldorado">Eldorado</option>
+                  <option value="Engenho Braun">Engenho Braun</option>
                   <option value="Esplanada">Esplanada</option>
-                  <option value="Santa Paulina">Santa Paulina</option>
-                  <option value="Trevo">Trevo</option>
-                  <option value="Desbravador">Desbravador</option>
-                  <option value="Universitário">Universitário</option>
+                  <option value="Jardim América">Jardim América</option>
+                  <option value="Jardim do Lago">Jardim do Lago</option>
+                  <option value="Jardim Europa">Jardim Europa</option>
+                  <option value="Jardim Itália">Jardim Itália</option>
+                  <option value="Jardim Paraíso">Jardim Paraíso</option>
+                  <option value="Jardim Peperi">Jardim Peperi</option>
                   <option value="Líder">Líder</option>
+                  <option value="Maria Goretti">Maria Goretti</option>
+                  <option value="Monte Castelo">Monte Castelo</option>
+                  <option value="Palmital">Palmital</option>
+                  <option value="Parque das Palmeiras">
+                    Parque das Palmeiras
+                  </option>
+                  <option value="Paraíso">Paraíso</option>
+                  <option value="Passo dos Fortes">Passo dos Fortes</option>
+                  <option value="Presidente Médici">Presidente Médici</option>
+                  <option value="Quedas do Palmital">Quedas do Palmital</option>
+                  <option value="Residencial Viena">Residencial Viena</option>
+                  <option value="Saic">Saic</option>
+                  <option value="Santa Maria">Santa Maria</option>
+                  <option value="Santa Paulina">Santa Paulina</option>
+                  <option value="Santa Terezinha">Santa Terezinha</option>
+                  <option value="Santo Antônio">Santo Antônio</option>
+                  <option value="São Carlos">São Carlos</option>
+                  <option value="São Cristóvão">São Cristóvão</option>
+                  <option value="São Lucas">São Lucas</option>
+                  <option value="São Pedro">São Pedro</option>
+                  <option value="Seminário">Seminário</option>
+                  <option value="Trevo">Trevo</option>
+                  <option value="Universitário">Universitário</option>
+                  <option value="Vila Real">Vila Real</option>
                 </select>
 
                 <input
