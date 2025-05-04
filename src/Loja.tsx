@@ -13,7 +13,6 @@ interface Product {
   categoryName: string;
   subcategoryName?: string;
 }
-
 const API_URL = "https://backend-eskimo.onrender.com/api";
 
 export default function Loja() {
