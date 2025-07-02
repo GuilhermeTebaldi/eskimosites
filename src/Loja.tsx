@@ -13,7 +13,7 @@ interface Product {
   categoryName: string;
   subcategoryName?: string;
 }
-const API_URL = "https://backend-eskimo.onrender.com/api";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Loja() {
   const [orderId, setOrderId] = useState<number | null>(null);
