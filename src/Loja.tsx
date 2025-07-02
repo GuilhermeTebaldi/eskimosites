@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos";
 import { Link } from "react-router-dom";
+// @ts-expect-error: JS component without types
+import PenguinBlink from "./components/PenguinBlink";
 
 interface Product {
   id: number;
@@ -427,6 +429,8 @@ export default function Loja() {
 
   return (
     <div className="relative min-h-screen bg-white font-sans text-gray-800">
+      {/* 🐧 Pinguim piscando */}
+      <PenguinBlink />
       <div className="fixed left-4 top-20 z-50">
         <button
           onClick={() => setSelectedStore(null)}
