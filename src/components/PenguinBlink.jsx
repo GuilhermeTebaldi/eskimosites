@@ -7,7 +7,7 @@ const PenguinBlink = () => {
     const interval = setInterval(() => {
       setIsBlinking(true);
       setTimeout(() => setIsBlinking(false), 200); // tempo da piscada
-    }, 5000); // intervalo entre piscadas
+    }, 4000); // intervalo entre piscadas
 
     return () => clearInterval(interval);
   }, []);
@@ -16,8 +16,8 @@ const PenguinBlink = () => {
     <div
       style={{
         position: "fixed",
-        bottom: "80px",
-        left: "10px", // 🔴 alterado de right para left
+        top: "10px", // ✅ coloca no topo
+        right: "10px", // ✅ coloca no canto direito
         width: "80px",
         height: "80px",
         zIndex: 9999,

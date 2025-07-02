@@ -429,8 +429,6 @@ export default function Loja() {
 
   return (
     <div className="relative min-h-screen bg-white font-sans text-gray-800">
-      {/* 🐧 Pinguim piscando */}
-      <PenguinBlink />
       <div className="fixed left-4 top-20 z-50">
         <button
           onClick={() => setSelectedStore(null)}
@@ -862,6 +860,8 @@ export default function Loja() {
       {showCart && (
         <div className="fixed right-0 top-0 z-50 h-full w-80 bg-white p-6 shadow-lg">
           <h2 className="mb-4 text-xl font-bold">Seu Carrinho</h2>
+          {/* 🐧 Pinguim piscando */}
+          <PenguinBlink />
           <ul className="flex-1 space-y-4 overflow-y-auto">
             {cart.map((item) => (
               <li
