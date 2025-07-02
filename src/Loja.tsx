@@ -451,7 +451,7 @@ export default function Loja() {
         className="fixed left-0 right-0 top-0 z-50 bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md"
         style={{
           backgroundImage:
-            "url('https://i.pinimg.com/736x/7a/77/8d/7a778d6c7fde881e47f323b4f3085e85.jpg')",
+            "url('https://i.pinimg.com/736x/81/6f/70/816f70cc68d9b3b3a82e9f58e912f9ef.jpg')",
         }}
       >
         {/* Área da logo */}
