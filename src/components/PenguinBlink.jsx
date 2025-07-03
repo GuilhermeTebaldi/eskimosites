@@ -54,7 +54,7 @@ const PenguinBlinkWave = () => {
       style={{
         position: "fixed",
         top: "10px",
-        right: "10px",
+        right: "50px",
         width: "80px",
         height: "80px",
         zIndex: 9999,
@@ -64,7 +64,7 @@ const PenguinBlinkWave = () => {
       <img
         src={penguinImage}
         alt="Penguin blinking and waving"
-        style={{ width: "60%", height: "60%" }}
+        style={{ width: "80%", height: "80%" }}
       />
     </div>
   );
