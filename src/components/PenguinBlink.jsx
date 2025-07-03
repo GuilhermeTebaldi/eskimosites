@@ -9,7 +9,7 @@ const PenguinBlinkWave = () => {
     const blinkInterval = setInterval(() => {
       setIsBlinking(true);
       setTimeout(() => setIsBlinking(false), 200); // tempo piscando
-    }, 5000); // a cada 5s
+    }, 3000); // a cada 5s
 
     // Intervalo de aceno (4 vezes seguidas)
     const waveInterval = setInterval(() => {
