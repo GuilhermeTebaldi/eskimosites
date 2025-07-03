@@ -1,23 +1,60 @@
 import React, { useEffect, useState } from "react";
 
-const PenguinBlink = () => {
+const PenguinBlinkWave = () => {
   const [isBlinking, setIsBlinking] = useState(false);
+  const [waveStep, setWaveStep] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    // Intervalo de piscada
+    const blinkInterval = setInterval(() => {
       setIsBlinking(true);
-      setTimeout(() => setIsBlinking(false), 200); // tempo da piscada
-    }, 4000); // intervalo entre piscadas
+      setTimeout(() => setIsBlinking(false), 200); // tempo piscando
+    }, 5000); // a cada 5s
 
-    return () => clearInterval(interval);
+    // Intervalo de aceno (4 vezes seguidas)
+    const waveInterval = setInterval(() => {
+      let count = 0;
+
+      const waveSequence = setInterval(() => {
+        setWaveStep((prev) => (prev === 1 ? 2 : 1));
+        count++;
+        if (count >= 8) {
+          // 🔴 4 acenos completos (2 steps por aceno)
+          clearInterval(waveSequence);
+          setWaveStep(0); // volta para normal após aceno
+        }
+      }, 300); // troca braço a cada 300ms
+    }, 8000); // a cada 8s
+
+    return () => {
+      clearInterval(blinkInterval);
+      clearInterval(waveInterval);
+    };
   }, []);
+
+  // Define imagem atual
+  let penguinImage = "";
+
+  if (isBlinking) {
+    penguinImage =
+      "https://i.pinimg.com/736x/0e/71/63/0e716360f7b7beabaa5dd9d47bc457bd.jpg"; // piscando
+  } else if (waveStep === 1) {
+    penguinImage =
+      "https://i.pinimg.com/736x/f5/2e/67/f52e672715f070aeb090348c94a833e2.jpg"; // braço posição 1
+  } else if (waveStep === 2) {
+    penguinImage =
+      "https://i.pinimg.com/736x/3d/0e/76/3d0e76c4810221cc387c707d63efeb28.jpg"; // braço posição 2
+  } else {
+    penguinImage =
+      "https://i.pinimg.com/736x/1d/9d/80/1d9d80d502c64fc76e665a1706274c3e.jpg"; // normal olho aberto
+  }
 
   return (
     <div
       style={{
         position: "fixed",
-        top: "10px", // ✅ coloca no topo
-        right: "10px", // ✅ coloca no canto direito
+        top: "10px",
+        right: "10px",
         width: "80px",
         height: "80px",
         zIndex: 9999,
@@ -25,16 +62,12 @@ const PenguinBlink = () => {
       }}
     >
       <img
-        src={
-          isBlinking
-            ? "https://i.pinimg.com/736x/0e/71/63/0e716360f7b7beabaa5dd9d47bc457bd.jpg"
-            : "https://i.pinimg.com/736x/1d/9d/80/1d9d80d502c64fc76e665a1706274c3e.jpg"
-        }
-        alt="Penguin"
+        src={penguinImage}
+        alt="Penguin blinking and waving"
         style={{ width: "60%", height: "60%" }}
       />
     </div>
   );
 };
 
-export default PenguinBlink;
+export default PenguinBlinkWave;
