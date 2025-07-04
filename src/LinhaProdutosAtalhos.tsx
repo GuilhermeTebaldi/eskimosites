@@ -23,7 +23,7 @@ export default function LinhaProdutosAtalhos({
     },
     {
       src: "https://eskimo.com.br/wp-content/uploads/2023/09/best-cup.png",
-      category: "Pote de Sorvete",
+      category: "Pote",
       subcategory: "Best Cup",
     },
     {

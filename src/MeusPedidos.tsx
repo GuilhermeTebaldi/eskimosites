@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import { motion } from "framer-motion";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -60,7 +61,7 @@ export default function MeusPedidos(): JSX.Element {
         setError("Erro ao buscar pedidos.");
       })
       .then(() => {
-        setLoading(false); // ⚠️ usamos then e não finally (para evitar o erro IPromise)
+        setLoading(false);
       });
   };
 
@@ -72,91 +73,126 @@ export default function MeusPedidos(): JSX.Element {
   };
 
   return (
-    <div className="min-h-screen w-full bg-white text-gray-800">
-      <header className="w-full bg-blue-600 py-4 shadow-md">
-        <div className="flex items-center justify-center py-2">
-          <img
+    <div className="min-h-screen w-full bg-white font-sans text-gray-800">
+      <header className="w-full bg-gradient-to-r from-blue-800 to-indigo-700 py-8 shadow-2xl">
+        <div className="flex flex-col items-center justify-center">
+          <motion.img
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
             src="https://upload.wikimedia.org/wikipedia/commons/9/96/Logo_eskim%C3%B3_Sorvetes_Vermelha.png"
             alt="Eskimo Logo"
-            className="h-10 w-auto object-contain"
+            className="h-16 w-auto object-contain drop-shadow-2xl"
           />
+          <motion.h1
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            className="mt-4 text-center text-4xl font-extrabold tracking-widest text-gray-50 drop-shadow-lg"
+          >
+            🧾 Meus Pedidos
+          </motion.h1>
         </div>
-        <h1 className="text-center text-2xl font-bold text-white">
-          🧾 Consultar Pedido por Número
-        </h1>
       </header>
 
-      <div className="mx-auto max-w-2xl px-4 py-10">
-        <div className="mb-6">
-          <a
-            href="/"
-            className="inline-block rounded-full border border-blue-500 bg-transparent px-5 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 hover:text-blue-700 hover:shadow"
-          >
-            ⬅️ Voltar para Loja
-          </a>
-        </div>
+      <div className="flex w-full flex-col items-center justify-center px-6 py-4">
+        <motion.a
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          href="/"
+          className="mb-6 inline-block rounded-full bg-gradient-to-r from-indigo-600 to-blue-600 px-8 py-3 text-base font-bold text-white shadow-lg transition hover:scale-105 hover:brightness-110 active:scale-95"
+        >
+          ⬅️ Voltar para Loja
+        </motion.a>
 
-        <div className="mb-10 flex flex-col items-center gap-2">
-          <input
+        <div className="mb-12 flex flex-col items-center gap-5">
+          <motion.input
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
             type="number"
             placeholder="Digite o número do seu pedido"
-            className="w-full max-w-md rounded-lg border border-gray-300 px-4 py-3 text-base shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
+            className="w-full rounded-xl border border-gray-300 bg-white px-5 py-4 text-lg text-gray-800 placeholder-gray-400 shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-400"
             value={orderId}
             onChange={(e) => setOrderId(e.target.value)}
           />
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={buscarPedidoPorId}
-            className="w-full max-w-md rounded-lg bg-blue-600 px-6 py-3 text-base font-bold text-white shadow-lg transition hover:bg-blue-700"
+            className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-4 text-lg font-bold text-white shadow-xl"
           >
             🔍 Buscar Pedido
-          </button>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          </motion.button>
+          {error && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-sm font-semibold text-red-500"
+            >
+              {error}
+            </motion.p>
+          )}
         </div>
 
         {loading ? (
           <div className="flex justify-center">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+              className="h-12 w-12 rounded-full border-4 border-indigo-400 border-t-transparent"
+            ></motion.div>
           </div>
         ) : order ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md transition hover:shadow-lg">
-            <div className="mb-2 text-lg font-bold text-gray-800">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="rounded-3xl bg-gray-50 p-8 shadow-2xl hover:shadow-indigo-500/50"
+          >
+            <div className="mb-4 text-2xl font-extrabold text-indigo-800">
               📦 Pedido #{order.id}
             </div>
-            <div className="mb-1 text-sm text-gray-600">
+            <div className="mb-2 text-lg">
               <strong>Cliente:</strong> {order.name}
             </div>
-            <div className="mb-1 text-sm text-gray-600">
+            <div className="mb-2 text-lg">
               <strong>Unidade:</strong> {order.store}
             </div>
-            <div className="mb-1 text-sm">
+            <div className="mb-4 text-lg">
               <strong>Status:</strong>{" "}
               {order.status === "pendente" ? (
-                <span className="text-yellow-600">🕐 Em processo</span>
+                <span className="text-yellow-500">🕐 Em processo</span>
               ) : order.status === "pago" ? (
                 <span className="text-green-600">✅ Confirmado</span>
               ) : (
                 <span className="text-gray-500">{order.status}</span>
               )}
             </div>
-            <div className="mt-4 flex flex-col items-end gap-2">
-              <div className="text-lg font-bold text-blue-700">
+
+            <div className="flex flex-col items-end gap-4">
+              <div className="text-xl font-bold text-indigo-600">
                 Total: R$ {order.total.toFixed(2)}
               </div>
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={buscarPedidoPorId}
-                className="rounded-full bg-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-yellow-600"
+                className="rounded-full bg-yellow-400 px-6 py-2 text-sm font-semibold text-gray-900 shadow-md"
               >
                 🔄 Atualizar Status
-              </button>
+              </motion.button>
             </div>
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={copiarPedidoParaAreaTransferencia}
-              className="mt-4 rounded-full bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
+              className="mt-6 w-full rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 px-6 py-3 text-base font-bold text-white shadow-lg"
             >
               📋 Copiar Número do Pedido
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
         ) : null}
       </div>
     </div>
