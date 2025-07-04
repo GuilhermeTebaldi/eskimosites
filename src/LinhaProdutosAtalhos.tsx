@@ -18,12 +18,12 @@ export default function LinhaProdutosAtalhos({
     },
     {
       src: "https://eskimo.com.br/wp-content/uploads/2023/04/Linha-Kids.png",
-      category: "Picolé",
-      subcategory: "Kids",
+      category: "Kids",
+      subcategory: "",
     },
     {
       src: "https://eskimo.com.br/wp-content/uploads/2023/09/best-cup.png",
-      category: "Pote",
+      category: "Pote de Sorvete",
       subcategory: "Best Cup",
     },
     {
