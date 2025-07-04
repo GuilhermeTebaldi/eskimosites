@@ -40,6 +40,11 @@ export default function LinhaProdutosAtalhos({
       category: "Pote de Sorvete",
       subcategory: "Grand Nevado",
     },
+    {
+      src: "https://i.pinimg.com/736x/8c/5d/f4/8c5df4e02d974b38d7aadd975feb0f2c.jpg",
+      category: "Seletto",
+      subcategory: "",
+    },
   ];
 
   const [index, setIndex] = useState(0);
