@@ -41,7 +41,7 @@ export default function LinhaProdutosAtalhos({
       subcategory: "Grand Nevado",
     },
     {
-      src: "https://i.pinimg.com/736x/8c/5d/f4/8c5df4e02d974b38d7aadd975feb0f2c.jpg",
+      src: "https://i.pinimg.com/736x/6a/c4/77/6ac4771a693310471ab914adcc82ea46.jpg",
       category: "Seletto",
       subcategory: "",
     },
