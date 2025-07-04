@@ -55,7 +55,7 @@ export default function LinhaProdutosAtalhos({
   useEffect(() => {
     const interval = setInterval(() => {
       nextImage();
-    }, 4000);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
