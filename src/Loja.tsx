@@ -14,6 +14,7 @@ interface Product {
   imageUrl: string;
   categoryName: string;
   subcategoryName?: string;
+  stock: number;
 }
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -1278,7 +1279,13 @@ export default function Loja() {
               </button>
               <span className="text-xl">{quantityToAdd}</span>
               <button
-                onClick={() => setQuantityToAdd(quantityToAdd + 1)}
+                onClick={() =>
+                  setQuantityToAdd((prev) =>
+                    selectedProduct && prev < selectedProduct.stock
+                      ? prev + 1
+                      : prev,
+                  )
+                }
                 className="text-2xl"
               >
                 ➕
