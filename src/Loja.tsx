@@ -385,8 +385,6 @@ export default function Loja() {
         );
         return;
       }
-      const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
-      const realTotal = subtotal + realDeliveryFee;
 
       const payload = {
         customerName,
@@ -403,8 +401,8 @@ export default function Loja() {
           quantity: item.quantity,
           imageUrl: item.product.imageUrl,
         })),
-        total: realTotal,
-        deliveryFee: realDeliveryFee,
+        total: total,
+        deliveryFee,
         phoneNumber,
       };
 
