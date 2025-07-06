@@ -64,7 +64,7 @@ export default function Loja() {
     (acc, item) => acc + item.product.price * item.quantity,
     0,
   );
-  //const total = subtotal + deliveryFee;
+  const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
   const subcategories = (category: string) =>
@@ -917,8 +917,8 @@ export default function Loja() {
                 (sum, item) => sum + item.product.price * item.quantity,
                 0,
               );
-              const totalWithDelivery =
-                subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
+              // const totalWithDelivery =
+              //  subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
 
               return (
                 <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
@@ -936,7 +936,7 @@ export default function Loja() {
                   </p>
 
                   <p className="text-base font-bold text-green-700">
-                    💰 Total: R$ {totalWithDelivery.toFixed(2)}
+                    💰 Total: R$ {total.toFixed(2)}
                   </p>
                 </div>
               );
