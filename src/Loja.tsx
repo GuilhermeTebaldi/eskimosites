@@ -406,7 +406,8 @@ export default function Loja() {
         phoneNumber,
       };
 
-      console.log("📝 Payload do pedido:", payload);
+      console.log("📝 Payload do pedido:");
+      console.log(JSON.stringify(payload, null, 2));
 
       const response = await axios.post<{ id: number; message: string }>(
         `${API_URL}/orders`,
