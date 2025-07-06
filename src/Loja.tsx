@@ -64,7 +64,7 @@ export default function Loja() {
     (acc, item) => acc + item.product.price * item.quantity,
     0,
   );
-  const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
+  //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
   const subcategories = (category: string) =>
@@ -930,9 +930,9 @@ export default function Loja() {
                   <p className="text-xs text-gray-500">
                     (Será cobrada apenas se escolher entrega)
                   </p>
-
                   <p className="text-base font-bold text-green-700">
-                    💰 Total: R$ {total.toFixed(2)}
+                    💰 Total com entrega: R${" "}
+                    {(subtotal + deliveryFee).toFixed(2)}
                   </p>
                 </div>
               );
