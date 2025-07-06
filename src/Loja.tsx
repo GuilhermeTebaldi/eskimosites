@@ -895,12 +895,25 @@ export default function Loja() {
                       ➖
                     </button>
                     <button
-                      onClick={() => updateQuantity(item.product.id, 1)}
-                      className="text-green-600"
+                      onClick={() => {
+                        if (item.quantity < item.product.stock) {
+                          updateQuantity(item.product.id, 1);
+                        }
+                      }}
+                      className={`text-green-600 ${
+                        item.quantity >= item.product.stock
+                          ? "cursor-not-allowed opacity-50"
+                          : ""
+                      }`}
+                      disabled={item.quantity >= item.product.stock}
                     >
                       ➕
                     </button>
                   </div>
+                  {/* Mostrar estoque disponível */}
+                  <p className="text-xs text-gray-500">
+                    Disponível: {item.product.stock}
+                  </p>
                 </div>
                 <button
                   onClick={() => removeFromCart(item.product.id)}
@@ -1264,6 +1277,11 @@ export default function Loja() {
             {/* PREÇO AQUI */}
             <p className="mb-3 text-center text-base font-bold text-green-700">
               R$ {selectedProduct.price.toFixed(2)}
+            </p>
+            <p className="mb-2 text-center text-xs text-gray-500">
+              {selectedProduct.stock > 0
+                ? `Disponível: ${selectedProduct.stock}`
+                : "Produto esgotado"}
             </p>
 
             <p className="mb-4 text-center text-sm text-gray-600">
