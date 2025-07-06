@@ -917,8 +917,6 @@ export default function Loja() {
                 (sum, item) => sum + item.product.price * item.quantity,
                 0,
               );
-              // const totalWithDelivery =
-              //  subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
 
               return (
                 <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
@@ -927,12 +925,10 @@ export default function Loja() {
                   </p>
                   <p>
                     🚚 Entrega aproximada:{" "}
-                    <strong>
-                      R${" "}
-                      {(deliveryType === "entregar" ? deliveryFee : 0).toFixed(
-                        2,
-                      )}
-                    </strong>
+                    <strong>R$ {deliveryFee.toFixed(2)}</strong>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    (Será cobrada apenas se escolher entrega)
                   </p>
 
                   <p className="text-base font-bold text-green-700">
