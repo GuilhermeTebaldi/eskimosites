@@ -379,27 +379,31 @@ export default function Loja() {
 
   const finalizeOrder = async () => {
     try {
+      const payload = {
+        customerName,
+        address,
+        street,
+        number,
+        complement,
+        deliveryType,
+        store: selectedStore,
+        items: cart.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+          imageUrl: item.product.imageUrl,
+        })),
+        total: total,
+        deliveryFee,
+        phoneNumber,
+      };
+
+      console.log("📝 Payload do pedido:", payload); // 👈 LOG AQUI
+
       const response = await axios.post<{ id: number; message: string }>(
         `${API_URL}/orders`,
-        {
-          customerName,
-          address,
-          street,
-          number,
-          complement,
-          deliveryType,
-          store: selectedStore,
-          items: cart.map((item) => ({
-            productId: item.product.id,
-            name: item.product.name,
-            price: item.product.price,
-            quantity: item.quantity,
-            imageUrl: item.product.imageUrl,
-          })),
-          total: total, // ✅ agora é o valor correto com frete incluído
-          deliveryFee,
-          phoneNumber,
-        },
+        payload,
       );
 
       console.log("📦 Resposta da API:", response.data);
@@ -859,7 +863,7 @@ export default function Loja() {
       {/* Modais */}
       {showCart && (
         <div className="fixed right-0 top-0 z-50 h-full w-80 bg-white p-6 shadow-lg">
-          <h2 className="mb-4 text-xl font-bold">Meu Carrinho</h2>
+          <h2 className="mb-4 text-xl font-bold">meu Carrinho</h2>
           {/* 🐧 Pinguim piscando */}
           <PenguinBlink />
           <ul className="flex-1 space-y-4 overflow-y-auto">
