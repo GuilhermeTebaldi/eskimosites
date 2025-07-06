@@ -64,7 +64,7 @@ export default function Loja() {
     (acc, item) => acc + item.product.price * item.quantity,
     0,
   );
-  const total = subtotal + deliveryFee;
+  //const total = subtotal + deliveryFee;
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
   const subcategories = (category: string) =>
@@ -917,7 +917,9 @@ export default function Loja() {
                 (sum, item) => sum + item.product.price * item.quantity,
                 0,
               );
-              const totalWithDelivery = subtotal + deliveryFee;
+              const totalWithDelivery =
+                subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
+
               return (
                 <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
                   <p>
@@ -925,8 +927,14 @@ export default function Loja() {
                   </p>
                   <p>
                     🚚 Entrega aproximada:{" "}
-                    <strong>R$ {deliveryFee.toFixed(2)}</strong>
+                    <strong>
+                      R${" "}
+                      {(deliveryType === "entregar" ? deliveryFee : 0).toFixed(
+                        2,
+                      )}
+                    </strong>
                   </p>
+
                   <p className="text-base font-bold text-green-700">
                     💰 Total: R$ {totalWithDelivery.toFixed(2)}
                   </p>
@@ -1149,10 +1157,17 @@ export default function Loja() {
                 🧁 Subtotal: <strong>R$ {subtotal.toFixed(2)}</strong>
               </p>
               <p>
-                🚚 Entrega: <strong>R$ {deliveryFee.toFixed(2)}</strong>
+                🚚 Entrega:{" "}
+                <strong>
+                  R${" "}
+                  {(deliveryType === "entregar" ? deliveryFee : 0).toFixed(2)}
+                </strong>
               </p>
               <p className="text-base font-bold text-green-700">
-                💰 Total: R$ {total.toFixed(2)}
+                💰 Total: R${" "}
+                {(
+                  subtotal + (deliveryType === "entregar" ? deliveryFee : 0)
+                ).toFixed(2)}
               </p>
             </div>
 
