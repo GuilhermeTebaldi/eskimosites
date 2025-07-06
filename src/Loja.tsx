@@ -379,6 +379,13 @@ export default function Loja() {
 
   const finalizeOrder = async () => {
     try {
+      if (!selectedStore) {
+        alert(
+          "Erro: Nenhuma unidade selecionada. Por favor, selecione a loja antes de finalizar o pedido.",
+        );
+        return;
+      }
+
       const payload = {
         customerName,
         address,
@@ -399,7 +406,7 @@ export default function Loja() {
         phoneNumber,
       };
 
-      console.log("📝 Payload do pedido:", payload); // 👈 LOG AQUI
+      console.log("📝 Payload do pedido:", payload);
 
       const response = await axios.post<{ id: number; message: string }>(
         `${API_URL}/orders`,
