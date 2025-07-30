@@ -18,8 +18,8 @@ export default function LinhaProdutosAtalhos({
     },
     {
       src: "https://eskimo.com.br/wp-content/uploads/2023/04/Linha-Kids.png",
-      category: "Kids",
-      subcategory: "",
+      category: "Picolé",
+      subcategory: "Kids",
     },
     {
       src: "https://eskimo.com.br/wp-content/uploads/2023/09/best-cup.png",
@@ -42,7 +42,7 @@ export default function LinhaProdutosAtalhos({
     },
     {
       src: "https://i.pinimg.com/736x/37/63/61/3763617ce64cd76bb452bc8adcfbe628.jpg",
-      category: "Seletto",
+      category: "seletto",
       subcategory: "",
     },
   ];
