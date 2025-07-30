@@ -503,7 +503,7 @@ export default function Loja() {
             </div>
           </div>
         )}
-        {/* Botões de Seleção de Unidade */}
+        {/* Botões de Seleção de Unidade e atualizacao do carrinho */}
         <div className="relative z-50 flex justify-center gap-4 py-2">
           {isStoreSelectorExpanded ? (
             <>
