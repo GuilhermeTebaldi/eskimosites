@@ -101,6 +101,12 @@ export default function Loja() {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
+
+  // 🧹 Limpa o carrinho sempre que a loja mudar
+  useEffect(() => {
+    setCart([]);
+  }, [selectedStore]);
+
   // 1️⃣ Obtém localização e define unidade mais próxima
   useEffect(() => {
     if (navigator.geolocation) {
@@ -503,7 +509,13 @@ export default function Loja() {
             <>
               <button
                 onClick={() => {
-                  setSelectedStore("efapi");
+                  if (selectedStore !== "efapi") {
+                    setSelectedStore("efapi");
+                  } else {
+                    setSelectedStore(null);
+                    setTimeout(() => setSelectedStore("efapi"), 0);
+                  }
+                  setCart([]); // 🔥 limpa o carrinho sempre
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
@@ -518,7 +530,13 @@ export default function Loja() {
 
               <button
                 onClick={() => {
-                  setSelectedStore("palmital");
+                  if (selectedStore !== "palmital") {
+                    setSelectedStore("palmital");
+                  } else {
+                    setSelectedStore(null);
+                    setTimeout(() => setSelectedStore("palmital"), 0);
+                  }
+                  setCart([]); // 🔥 limpa o carrinho sempre
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
@@ -533,7 +551,13 @@ export default function Loja() {
 
               <button
                 onClick={() => {
-                  setSelectedStore("passo");
+                  if (selectedStore !== "passo") {
+                    setSelectedStore("passo");
+                  } else {
+                    setSelectedStore(null);
+                    setTimeout(() => setSelectedStore("passo"), 0);
+                  }
+                  setCart([]); // 🔥 limpa o carrinho sempre
                   setShowInstruction(false);
                   setIsStoreSelectorExpanded(false);
                 }}
