@@ -42,7 +42,7 @@ export default function LinhaProdutosAtalhos({
     },
     {
       src: "https://i.pinimg.com/736x/37/63/61/3763617ce64cd76bb452bc8adcfbe628.jpg",
-      category: "seletto",
+      category: "selleto",
       subcategory: "",
     },
   ];
