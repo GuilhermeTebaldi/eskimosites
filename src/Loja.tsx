@@ -43,6 +43,8 @@ export default function Loja() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
+
   const [customerName, setCustomerName] = useState("");
   const [deliveryType, setDeliveryType] = useState("retirar");
   const [address, setAddress] = useState("");
@@ -1213,18 +1215,55 @@ export default function Loja() {
             <p className="mb-6 select-all font-mono text-xs text-gray-500">
               chavepix@email.com
             </p>
+
+            {/* Botão que abre a confirmação */}
             <button
-              onClick={finalizeOrder}
+              onClick={() => setShowPaymentConfirm(true)}
               className="mb-2 w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
             >
               Confirmar Pagamento
             </button>
+
             <button
               onClick={() => setShowPayment(false)}
               className="w-full rounded-full bg-gray-200 py-2 text-gray-600 transition hover:bg-gray-300"
             >
               Cancelar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação elegante */}
+      {showPaymentConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
+          <div className="animate-zoom-fade w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <h3 className="mb-3 text-lg font-bold text-gray-800">
+              Confirmação
+            </h3>
+            <p className="mb-4 text-sm text-gray-600">
+              Você confirma que <strong>já realizou o pagamento via PIX</strong>
+              ?
+              <br />
+              Esse passo finaliza o seu pedido.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setShowPaymentConfirm(false)}
+                className="rounded-full bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+              >
+                Voltar
+              </button>
+              <button
+                onClick={() => {
+                  setShowPaymentConfirm(false);
+                  finalizeOrder();
+                }}
+                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
+              >
+                Sim, Confirmar
+              </button>
+            </div>
           </div>
         </div>
       )}
