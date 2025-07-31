@@ -357,12 +357,20 @@ export default function Loja() {
   const updateQuantity = (id: number, delta: number) => {
     setCart((prev) =>
       prev
-        .map((item) =>
-          item.product.id === id
-            ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-            : item,
-        )
-        .filter((item) => item.quantity > 0),
+        .map((item) => {
+          if (item.product.id === id) {
+            const novaQtd = item.quantity + delta;
+            if (novaQtd <= 0) {
+              return null; // sinaliza para remover
+            }
+            return { ...item, quantity: novaQtd };
+          }
+          return item;
+        })
+        .filter(
+          (item): item is { product: Product; quantity: number } =>
+            item !== null,
+        ),
     );
   };
 
