@@ -645,7 +645,7 @@ export default function Loja() {
 
               // 🔥 Quando abre subcategoria, expande a barra
               if (e.target.value) {
-                setHeaderHeight(280);
+                setHeaderHeight(290);
               }
             }}
           >
@@ -671,7 +671,7 @@ export default function Loja() {
                   setCurrentPage(1);
 
                   // 🔥 Garante que a barra esteja totalmente aberta ao selecionar subcategoria
-                  setHeaderHeight(280);
+                  setHeaderHeight(290);
                 }}
               >
                 <option value="">Escolha seu tipo</option>
