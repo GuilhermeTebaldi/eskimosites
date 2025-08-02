@@ -1049,7 +1049,7 @@ export default function Loja() {
                   value={address}
                   onChange={(e) => {
                     setAddress(e.target.value);
-                    if (e.target.value !== "Outro") setCustomAddress(""); // limpa se sair de Outro
+                    if (e.target.value !== "Outro") setCustomAddress(""); // limpa custom quando não for Outro
                   }}
                 >
                   <option value="">Escolha seu bairro</option>
