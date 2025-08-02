@@ -628,7 +628,7 @@ export default function Loja() {
                 setHeaderHeight(280);
               } else {
                 const temSub = subcategories(e.target.value).length > 0;
-                setHeaderHeight(temSub ? 300 : 290);
+                setHeaderHeight(temSub ? 290 : 290);
               }
             }}
           >
@@ -654,7 +654,7 @@ export default function Loja() {
                   setCurrentPage(1);
 
                   // 🔥 Sempre mantém 310 quando há subcategoria ativa
-                  setHeaderHeight(310);
+                  setHeaderHeight(290);
                 }}
               >
                 <option value="">Escolha seu tipo</option>
