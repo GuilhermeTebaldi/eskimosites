@@ -504,6 +504,17 @@ export default function Loja() {
 
   return (
     <div className="loja-container">
+      {/* carrocel de produtos na pasta LinhaProdutosAtalhos.tsx */}
+      <div className="h-[260px]" />
+      <LinhaProdutosAtalhos
+        onSelectCategorySubcategory={(category, subcategory) => {
+          setQuickFilterCategory(category);
+          setQuickFilterSubcategory(subcategory || null);
+          setSearch(""); // <-- limpar a busca!!
+          setCurrentPage(1);
+        }}
+      />
+
       {/* Cabeçalho */}
       <div
         onClick={resetHeader}
@@ -521,17 +532,6 @@ export default function Loja() {
             src="https://upload.wikimedia.org/wikipedia/commons/9/96/Logo_eskim%C3%B3_Sorvetes_Vermelha.png"
             alt="Eskimo Logo"
             className="h-10 w-auto object-contain"
-          />
-        </div>
-        {/* 🔥 COLE O CARROSSEL AQUI */}
-        <div className="w-full px-2">
-          <LinhaProdutosAtalhos
-            onSelectCategorySubcategory={(category, subcategory) => {
-              setQuickFilterCategory(category);
-              setQuickFilterSubcategory(subcategory || null);
-              setSearch("");
-              setCurrentPage(1);
-            }}
           />
         </div>
 
