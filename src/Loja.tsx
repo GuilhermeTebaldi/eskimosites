@@ -640,8 +640,13 @@ export default function Loja() {
               setSelectedCategory(e.target.value || null);
               setSelectedSubcategory(null);
               setShowSubcategories(true);
-              setSearch(""); // ✅ limpa busca ao trocar categoria
+              setSearch("");
               setCurrentPage(1);
+
+              // 🔥 Quando abre subcategoria, expande a barra
+              if (e.target.value) {
+                setHeaderHeight(280);
+              }
             }}
           >
             <option value="">Menu de Sabores</option>
@@ -662,10 +667,20 @@ export default function Loja() {
                   setQuickFilterCategory(null);
                   setQuickFilterSubcategory(null);
                   setSelectedSubcategory(e.target.value || null);
-                  setSearch(""); // ✅ limpa busca ao trocar subcategoria
+                  setSearch("");
                   setCurrentPage(1);
+
+                  // 🔥 Garante que a barra esteja totalmente aberta ao selecionar subcategoria
+                  setHeaderHeight(280);
                 }}
-              ></select>
+              >
+                <option value="">Escolha seu tipo</option>
+                {subcategories(selectedCategory).map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
             )}
 
           <div className="text-xs text-gray-500">
