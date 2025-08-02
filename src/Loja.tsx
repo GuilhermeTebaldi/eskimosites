@@ -482,13 +482,19 @@ export default function Loja() {
       />
 
       {/* Cabeçalho */}
-      <div className="fixed left-0 right-0 top-0 z-50 bg-white/80 shadow-md backdrop-blur">
-        <div className="flex flex-col items-center gap-2 p-2">
-          {/* ✅ Logo reposicionada mais elegante */}
+      <div
+        className="fixed left-0 right-0 top-0 z-50 bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md"
+        style={{
+          backgroundImage:
+            "url('https://i.pinimg.com/736x/81/6f/70/816f70cc68d9b3b3a82e9f58e912f9ef.jpg')",
+        }}
+      >
+        {/* Área da logo */}
+        <div className="flex items-center justify-center py-2">
           <img
             src="https://upload.wikimedia.org/wikipedia/commons/9/96/Logo_eskim%C3%B3_Sorvetes_Vermelha.png"
             alt="Eskimo Logo"
-            className="mt-1 h-12 object-contain"
+            className="h-10 w-auto object-contain"
           />
         </div>
 

@@ -47,6 +47,15 @@ body {
   justify-items: center;
 }
 
+/* 📱 Sempre 2 colunas no celular */
+@media (max-width: 640px) {
+  .produtos-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px;
+    padding: 0 8px;
+  }
+}
+
 /* Animação de entrada em cascata */
 .product-card {
   opacity: 0;
@@ -88,10 +97,17 @@ body {
   perspective: 1000px;
   width: 100%;
   max-width: 200px;
+  z-index: 1; /* ✅ Cada card tem seu próprio plano */
 }
 .product-card:hover {
-  transform: rotateX(6deg) rotateY(-6deg) scale(1.03);
+  transform: scale(1.03);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15);
+}
+
+/* ✅ Impede hover/click de invadir o card do lado */
+.product-card:hover,
+.product-card:focus-within {
+  z-index: 10;
 }
 
 /* Brilho animado */
@@ -110,6 +126,7 @@ body {
   );
   transform: rotate(25deg);
   opacity: 0;
+  pointer-events: none; /* ✅ Brilho não interfere no clique */
   transition: opacity 0.4s;
 }
 .product-card:hover::before {
@@ -136,6 +153,7 @@ body {
   overflow: hidden;
   background: #fffdfd;
   transition: transform 0.3s ease;
+  z-index: 2;
 }
 .product-card:hover .product-image-wrapper {
   transform: scale(1.05);
@@ -144,6 +162,7 @@ body {
   max-height: 100%;
   max-width: 100%;
   transition: transform 0.5s ease;
+  z-index: 2;
 }
 .product-card:hover .product-image {
   transform: scale(1.12) rotate(1.5deg);
