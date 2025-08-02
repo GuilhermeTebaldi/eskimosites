@@ -504,17 +504,6 @@ export default function Loja() {
 
   return (
     <div className="loja-container">
-      {/* carrocel de produtos na pasta LinhaProdutosAtalhos.tsx */}
-
-      <LinhaProdutosAtalhos
-        onSelectCategorySubcategory={(category, subcategory) => {
-          setQuickFilterCategory(category);
-          setQuickFilterSubcategory(subcategory || null);
-          setSearch(""); // <-- limpar a busca!!
-          setCurrentPage(1);
-        }}
-      />
-
       {/* Cabeçalho */}
       <div
         onClick={resetHeader}
