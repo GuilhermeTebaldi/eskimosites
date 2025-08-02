@@ -512,11 +512,12 @@ export default function Loja() {
       {/* Cabeçalho */}
       <div
         onClick={resetHeader}
-        className="fixed left-0 right-0 top-0 z-50 bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md transition-all duration-300"
+        className="fixed left-0 right-0 top-0 z-50 flex flex-col items-center justify-start bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md transition-all duration-300"
         style={{
           backgroundImage:
             "url('https://i.pinimg.com/736x/81/6f/70/816f70cc68d9b3b3a82e9f58e912f9ef.jpg')",
           height: `${headerHeight}px`,
+          overflow: "hidden",
         }}
       >
         {/* Área da logo */}
@@ -537,7 +538,7 @@ export default function Loja() {
           </div>
         )}
 
-        {/* Mensagem de Escolha (só aparece antes de clicar) */}
+        {/* Mensagem de Escolha */}
         {showInstruction && (
           <div className="flex justify-center">
             <div className="mb-3 animate-pulse text-sm text-gray-900">
@@ -545,7 +546,8 @@ export default function Loja() {
             </div>
           </div>
         )}
-        {/* Botões de Seleção de Unidade e atualizacao do carrinho */}
+
+        {/* Botões de Seleção de Unidade */}
         <div className="relative z-50 flex justify-center gap-4 py-2">
           {isStoreSelectorExpanded ? (
             <>
@@ -622,6 +624,7 @@ export default function Loja() {
           )}
         </div>
 
+        {/* Pesquisa e categorias */}
         <div className="flex flex-col items-center gap-2 px-4 pb-3">
           <input
             type="text"
@@ -634,12 +637,12 @@ export default function Loja() {
             className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
             value={selectedCategory || ""}
             onChange={(e) => {
-              setQuickFilterCategory(null); // 🔥 limpa o atalho
-              setQuickFilterSubcategory(null); // 🔥 limpa o atalho
+              setQuickFilterCategory(null);
+              setQuickFilterSubcategory(null);
               setSelectedCategory(e.target.value || null);
               setSelectedSubcategory(null);
               setShowSubcategories(true);
-              setSearch(""); // <-- limpar a busca!!
+              setSearch("");
               setCurrentPage(1);
             }}
           >
@@ -650,6 +653,7 @@ export default function Loja() {
               </option>
             ))}
           </select>
+
           {selectedCategory &&
             showSubcategories &&
             subcategories(selectedCategory).length > 0 && (
@@ -657,10 +661,10 @@ export default function Loja() {
                 className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
                 value={selectedSubcategory || ""}
                 onChange={(e) => {
-                  setQuickFilterCategory(null); // 🔥 limpa o atalho
-                  setQuickFilterSubcategory(null); // 🔥 limpa o atalho
+                  setQuickFilterCategory(null);
+                  setQuickFilterSubcategory(null);
                   setSelectedSubcategory(e.target.value || null);
-                  setSearch(""); // <-- limpar a busca!!
+                  setSearch("");
                   setCurrentPage(1);
                 }}
               >
@@ -672,6 +676,7 @@ export default function Loja() {
                 ))}
               </select>
             )}
+
           <div className="text-xs text-gray-500">
             {filtered.length} produto(s) encontrado(s)
           </div>

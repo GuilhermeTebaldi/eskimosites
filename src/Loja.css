@@ -205,3 +205,8 @@ button:hover {
 .fixed {
   transition: height 0.3s ease-in-out;
 }
+.fixed > * {
+  transition:
+    opacity 0.3s ease-in-out,
+    transform 0.3s ease-in-out;
+}
