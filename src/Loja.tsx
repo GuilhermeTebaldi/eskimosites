@@ -1,5 +1,6 @@
 // Loja.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+
 import axios from "axios";
 import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos";
 import { Link } from "react-router-dom";
@@ -20,6 +21,21 @@ interface Product {
 const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Loja() {
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsStoreSelectorExpanded(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const [orderId, setOrderId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -36,9 +52,10 @@ export default function Loja() {
   const [quickFilterSubcategory, setQuickFilterSubcategory] = useState<
     string | null
   >(null);
-  const [animateButtons, setAnimateButtons] = useState(true);
+  // const [animateButtons, setAnimateButtons] = useState(true);
   const [search, setSearch] = useState("");
-  const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(true);
+  const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -326,14 +343,6 @@ export default function Loja() {
   }, [products]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setAnimateButtons(false);
-    }, 2000); // 2 segundos = duração da animação
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     if (selectedStore) {
       setLoading(true);
       axios
@@ -528,15 +537,6 @@ export default function Loja() {
           />
         </div>
 
-        {/* Nome da unidade selecionada */}
-        {selectedStore && (
-          <div className="flex justify-center py-1">
-            <div className="text-sm font-semibold text-gray-700">
-              🏠 {selectedStore}
-            </div>
-          </div>
-        )}
-
         {/* Mensagem de Escolha */}
         {showInstruction && (
           <div className="flex justify-center">
@@ -547,80 +547,56 @@ export default function Loja() {
         )}
 
         {/* Botões de Seleção de Unidade */}
-        <div className="relative z-50 flex justify-center gap-4 py-2">
-          {isStoreSelectorExpanded ? (
-            <>
-              <button
-                onClick={() => {
-                  if (selectedStore !== "efapi") {
-                    setSelectedStore("efapi");
-                  } else {
-                    setSelectedStore(null);
-                    setTimeout(() => setSelectedStore("efapi"), 0);
-                  }
-                  setCart([]); // 🔥 limpa o carrinho sempre
-                  setShowInstruction(false);
-                  setIsStoreSelectorExpanded(false);
-                }}
-                className={`${animateButtons ? "energy-animate" : ""} w-38 rounded-md border px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
-                  selectedStore === "efapi"
-                    ? "border-yellow-700 bg-yellow-300 text-gray-800"
-                    : "border-yellow-700 bg-white text-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                🍦 Efapi
-              </button>
-
-              <button
-                onClick={() => {
-                  if (selectedStore !== "palmital") {
-                    setSelectedStore("palmital");
-                  } else {
-                    setSelectedStore(null);
-                    setTimeout(() => setSelectedStore("palmital"), 0);
-                  }
-                  setCart([]); // 🔥 limpa o carrinho sempre
-                  setShowInstruction(false);
-                  setIsStoreSelectorExpanded(false);
-                }}
-                className={`${animateButtons ? "energy-animate" : ""} w-38 rounded-md border px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
-                  selectedStore === "palmital"
-                    ? "border-yellow-700 bg-yellow-300 text-gray-800"
-                    : "border-yellow-700 bg-white text-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                🍦 Palmital
-              </button>
-
-              <button
-                onClick={() => {
-                  if (selectedStore !== "passo") {
-                    setSelectedStore("passo");
-                  } else {
-                    setSelectedStore(null);
-                    setTimeout(() => setSelectedStore("passo"), 0);
-                  }
-                  setCart([]); // 🔥 limpa o carrinho sempre
-                  setShowInstruction(false);
-                  setIsStoreSelectorExpanded(false);
-                }}
-                className={`${animateButtons ? "energy-animate" : ""} w-38 rounded-md border px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
-                  selectedStore === "passo"
-                    ? "border-yellow-700 bg-yellow-300 text-gray-800"
-                    : "border-yellow-700 bg-white text-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                🍦 Passo dos Fortes
-              </button>
-            </>
-          ) : (
+        <div
+          ref={dropdownRef}
+          className="relative z-50 flex justify-center py-1"
+        >
+          <div className="relative inline-block">
+            {/* Botão principal */}
             <button
-              onClick={() => setIsStoreSelectorExpanded(true)}
-              className="rounded-full bg-yellow-500 px-6 py-1 text-xs text-gray-100 shadow transition-all duration-300 hover:bg-gray-400"
+              onClick={() =>
+                setIsStoreSelectorExpanded(!isStoreSelectorExpanded)
+              }
+              className="rounded border bg-white px-3 py-1 text-xs text-gray-700 shadow hover:bg-gray-100"
             >
-              🏪 Trocar Unidade
+              🏪{" "}
+              {selectedStore ? `Unidade: ${selectedStore}` : "Escolher Unidade"}
             </button>
-          )}
+
+            {/* Dropdown */}
+            {isStoreSelectorExpanded && (
+              <div className="absolute left-0 mt-1 w-32 rounded border bg-white shadow-lg">
+                {["efapi", "palmital", "passo"].map((store) => (
+                  <button
+                    key={store}
+                    onClick={() => {
+                      if (selectedStore !== store) {
+                        setSelectedStore(store);
+                      } else {
+                        setSelectedStore(null);
+                        setTimeout(() => setSelectedStore(store), 0);
+                      }
+                      setCart([]);
+                      setShowInstruction(false);
+                      setIsStoreSelectorExpanded(false); // ✅ fecha menu ao clicar
+                    }}
+                    className={`block w-full px-2 py-1 text-left text-xs ${
+                      selectedStore === store
+                        ? "bg-yellow-300 text-gray-900"
+                        : "hover:bg-gray-100"
+                    }`}
+                  >
+                    🍦{" "}
+                    {store === "efapi"
+                      ? "Efapi"
+                      : store === "palmital"
+                        ? "Palmital"
+                        : "Passo"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Pesquisa e categorias */}
