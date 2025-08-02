@@ -1108,6 +1108,14 @@ export default function Loja() {
                   <option value="Vila Real">Vila Real</option>
                   <option value="Vila Rica">Vila Rica</option>
                 </select>
+                {address === "Outro" && (
+                  <input
+                    type="text"
+                    placeholder="Digite seu bairro"
+                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                    onChange={(e) => setAddress(e.target.value)}
+                  />
+                )}
                 <input
                   type="text"
                   placeholder="* Rua (obrigatório)"
