@@ -1048,12 +1048,14 @@ export default function Loja() {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                 >
+                  <option value="Escolha seu bairro">Escolha seu bairro</option>
                   <option value="Alvorada">Alvorada</option>
                   <option value="Bela Vista">Bela Vista</option>
                   <option value="Belvedere">Belvedere</option>
                   <option value="Centro">Centro</option>
                   <option value="Colônia Cella">Colônia Cella</option>
                   <option value="Cristo Rei">Cristo Rei</option>
+                  <option value="Desbravador">Desbravador</option>
                   <option value="Dom Gerônimo">Dom Gerônimo</option>
                   <option value="Efapi">Efapi</option>
                   <option value="Eldorado">Eldorado</option>
@@ -1063,19 +1065,30 @@ export default function Loja() {
                   <option value="Jardim do Lago">Jardim do Lago</option>
                   <option value="Jardim Europa">Jardim Europa</option>
                   <option value="Jardim Itália">Jardim Itália</option>
+                  <option value="Jardim Itália II">Jardim Itália II</option>
                   <option value="Jardim Paraíso">Jardim Paraíso</option>
                   <option value="Jardim Peperi">Jardim Peperi</option>
+                  <option value="Jardim Sul">Jardim Sul</option>
                   <option value="Líder">Líder</option>
                   <option value="Maria Goretti">Maria Goretti</option>
                   <option value="Monte Castelo">Monte Castelo</option>
                   <option value="Palmital">Palmital</option>
+                  <option value="Palmital II">Palmital II</option>
                   <option value="Parque das Palmeiras">
                     Parque das Palmeiras
                   </option>
+                  <option value="Parque das Palmeiras II">
+                    Parque das Palmeiras II
+                  </option>
                   <option value="Paraíso">Paraíso</option>
+                  <option value="Paraíso II">Paraíso II</option>
+                  <option value="Passo dos Ferreira">Passo dos Ferreira</option>
                   <option value="Passo dos Fortes">Passo dos Fortes</option>
+                  <option value="Pinheirinho">Pinheirinho</option>
                   <option value="Presidente Médici">Presidente Médici</option>
+                  <option value="Presidente Vargas">Presidente Vargas</option>
                   <option value="Quedas do Palmital">Quedas do Palmital</option>
+                  <option value="Quinta da Serra">Quinta da Serra</option>
                   <option value="Residencial Viena">Residencial Viena</option>
                   <option value="Saic">Saic</option>
                   <option value="Santa Maria">Santa Maria</option>
@@ -1084,14 +1097,17 @@ export default function Loja() {
                   <option value="Santo Antônio">Santo Antônio</option>
                   <option value="São Carlos">São Carlos</option>
                   <option value="São Cristóvão">São Cristóvão</option>
+                  <option value="São José">São José</option>
                   <option value="São Lucas">São Lucas</option>
                   <option value="São Pedro">São Pedro</option>
                   <option value="Seminário">Seminário</option>
                   <option value="Trevo">Trevo</option>
                   <option value="Universitário">Universitário</option>
+                  <option value="Vila Esperança">Vila Esperança</option>
+                  <option value="Vila Mantelli">Vila Mantelli</option>
                   <option value="Vila Real">Vila Real</option>
+                  <option value="Vila Rica">Vila Rica</option>
                 </select>
-
                 <input
                   type="text"
                   placeholder="* Rua (obrigatório)"
