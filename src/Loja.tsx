@@ -44,6 +44,7 @@ export default function Loja() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
+  const [customAddress, setCustomAddress] = useState("");
 
   const [customerName, setCustomerName] = useState("");
   const [deliveryType, setDeliveryType] = useState("retirar");
@@ -1046,7 +1047,10 @@ export default function Loja() {
                 <select
                   className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
                   value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    if (e.target.value !== "Outro") setCustomAddress(""); // limpa se sair de Outro
+                  }}
                 >
                   <option value="">Escolha seu bairro</option>
                   <option value="Alvorada">Alvorada</option>
@@ -1109,15 +1113,18 @@ export default function Loja() {
                   <option value="Vila Rica">Vila Rica</option>
                   <option value="Outro">Outro...</option>
                 </select>
-                {/* Campo extra quando seleciona "Outro" */}
+
+                {/* ✅ Input separado quando seleciona Outro */}
                 {address === "Outro" && (
                   <input
                     type="text"
                     placeholder="Digite seu bairro"
+                    value={customAddress}
+                    onChange={(e) => setCustomAddress(e.target.value)}
                     className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
-                    onChange={(e) => setAddress(e.target.value)}
                   />
                 )}
+
                 <input
                   type="text"
                   placeholder="* Rua (obrigatório)"
@@ -1164,7 +1171,6 @@ export default function Loja() {
                   } focus:border-red-400 focus:ring focus:ring-red-200`}
                 />
 
-                {/* Mensagem indicativa abaixo do campo */}
                 <p className="mt-1 text-xs text-gray-600">
                   ⚠️ Este número será usado para você consultar seu pedido
                   depois.
