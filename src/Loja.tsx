@@ -80,13 +80,13 @@ export default function Loja() {
 
       if (currentY <= 0) {
         // ✅ Se chegou no topo, abre totalmente
-        setHeaderHeight(290);
+        setHeaderHeight(300);
       } else if (currentY > lastScrollY && currentY > 20) {
         // Scroll para baixo → encolhe
         setHeaderHeight((prev) => Math.max(60, prev - 10));
       } else if (currentY < lastScrollY) {
         // Scroll para cima → aumenta, mas não passa de 200
-        setHeaderHeight((prev) => Math.min(290, prev + 12));
+        setHeaderHeight((prev) => Math.min(300, prev + 12));
       }
 
       setLastScrollY(currentY);
@@ -98,7 +98,7 @@ export default function Loja() {
 
   // 🔥 Ao clicar na barra → volta ao tamanho original
   const resetHeader = () => {
-    setHeaderHeight(290);
+    setHeaderHeight(300);
   };
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
