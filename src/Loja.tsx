@@ -515,7 +515,7 @@ export default function Loja() {
         }}
       />
 
-      {/* Cabeçalho */}
+      {/* Cabeçalho jnjn*/}
       <div
         onClick={resetHeader}
         className="fixed left-0 right-0 top-0 z-50 flex flex-col items-center justify-start bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md transition-all duration-300"
