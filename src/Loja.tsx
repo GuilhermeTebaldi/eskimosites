@@ -742,7 +742,7 @@ export default function Loja() {
             const paginados = produtosOrdenados.slice(inicio, fim);
 
             return (
-              <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="produtos-grid">
                 {paginados.map((product) => (
                   <div key={product.id} className="product-card">
                     <div
