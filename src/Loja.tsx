@@ -71,7 +71,7 @@ export default function Loja() {
   );
   //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
   // 🔥 Controle de altura da barra com base no scroll
-  const [headerHeight, setHeaderHeight] = useState(200);
+  const [headerHeight, setHeaderHeight] = useState(280);
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
