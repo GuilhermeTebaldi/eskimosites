@@ -5,6 +5,7 @@ import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos";
 import { Link } from "react-router-dom";
 // @ts-expect-error: JS component without types
 import PenguinBlink from "./components/PenguinBlink";
+import "./Loja.css";
 
 interface Product {
   id: number;
@@ -59,7 +60,7 @@ export default function Loja() {
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [quantityToAdd, setQuantityToAdd] = useState(1);
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
-  const [clickedProductId, setClickedProductId] = useState<number | null>(null);
+  //const [clickedProductId, setClickedProductId] = useState<number | null>(null);
   const [deliveryRate, setDeliveryRate] = useState<number>(0);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
 
@@ -460,7 +461,7 @@ export default function Loja() {
   };
 
   return (
-    <div className="relative min-h-screen bg-white font-sans text-gray-800">
+    <div className="loja-container">
       <div className="fixed left-4 top-20 z-50">
         <button
           onClick={() => setSelectedStore(null)}
@@ -743,37 +744,23 @@ export default function Loja() {
             return (
               <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
                 {paginados.map((product) => (
-                  <div
-                    key={product.id}
-                    className={`flex flex-col items-center transition-all duration-300 sm:rounded-xl sm:bg-white sm:p-4 sm:shadow ${
-                      clickedProductId === product.id
-                        ? "scale-110"
-                        : "hover:scale-105"
-                    }`}
-                  >
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="mb-2 h-48 w-full cursor-pointer object-contain"
+                  <div key={product.id} className="product-card">
+                    <div
+                      className="product-image-wrapper"
                       onClick={() => setSelectedProduct(product)}
-                    />
-                    <h3
-                      className="cursor-pointer text-center text-sm font-semibold text-gray-800 transition-all duration-300 hover:text-red-600"
-                      onClick={() => {
-                        if (clickedProductId === product.id) {
-                          setSelectedProduct(product);
-                          setClickedProductId(null);
-                        } else {
-                          setClickedProductId(product.id);
-                        }
-                      }}
                     >
-                      {product.name}
-                    </h3>
-                    {/* PREÇO embaixo do nome */}
-                    <p className="text-black-900 mt-1 text-center text-xs font-bold">
-                      R$ {product.price.toFixed(2)}
-                    </p>
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="product-image"
+                      />
+                    </div>
+                    <div className="product-info">
+                      <h3 className="product-title">{product.name}</h3>
+                      <p className="product-price">
+                        R$ {product.price.toFixed(2)}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
