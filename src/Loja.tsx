@@ -490,14 +490,6 @@ export default function Loja() {
 
   return (
     <div className="loja-container">
-      <div className="fixed left-4 top-20 z-50">
-        <button
-          onClick={() => setSelectedStore(null)}
-          className="rounded-full bg-blue-500 px-6 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-blue-600"
-        >
-          🔙 Voltar para Unidades
-        </button>
-      </div>
       {/* carrocel de produtos na pasta LinhaProdutosAtalhos.tsx */}
       <div className="h-[280px]" />
       <LinhaProdutosAtalhos
@@ -631,8 +623,12 @@ export default function Loja() {
             placeholder="Buscar produto..."
             className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1); // ✅ força atualizar página ao buscar
+            }}
           />
+
           <select
             className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
             value={selectedCategory || ""}
@@ -642,7 +638,7 @@ export default function Loja() {
               setSelectedCategory(e.target.value || null);
               setSelectedSubcategory(null);
               setShowSubcategories(true);
-              setSearch("");
+              setSearch(""); // ✅ limpa busca ao trocar categoria
               setCurrentPage(1);
             }}
           >
@@ -664,7 +660,7 @@ export default function Loja() {
                   setQuickFilterCategory(null);
                   setQuickFilterSubcategory(null);
                   setSelectedSubcategory(e.target.value || null);
-                  setSearch("");
+                  setSearch(""); // ✅ limpa busca ao trocar subcategoria
                   setCurrentPage(1);
                 }}
               >
