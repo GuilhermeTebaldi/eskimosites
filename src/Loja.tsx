@@ -70,6 +70,34 @@ export default function Loja() {
     0,
   );
   //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
+  // 🔥 Controle de altura da barra com base no scroll
+  const [headerHeight, setHeaderHeight] = useState(200);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+
+      // Scroll para baixo → encolhe
+      if (currentY > lastScrollY && currentY > 20) {
+        setHeaderHeight((prev) => Math.max(60, prev - 10));
+      }
+      // Scroll para cima → aumenta de volta
+      if (currentY < lastScrollY) {
+        setHeaderHeight((prev) => Math.min(200, prev + 10));
+      }
+
+      setLastScrollY(currentY);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
+
+  // 🔥 Ao clicar na barra → volta ao tamanho original
+  const resetHeader = () => {
+    setHeaderHeight(200);
+  };
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
   const subcategories = (category: string) =>
@@ -483,10 +511,12 @@ export default function Loja() {
 
       {/* Cabeçalho */}
       <div
-        className="fixed left-0 right-0 top-0 z-50 bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md"
+        onClick={resetHeader}
+        className="fixed left-0 right-0 top-0 z-50 bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md transition-all duration-300"
         style={{
           backgroundImage:
             "url('https://i.pinimg.com/736x/81/6f/70/816f70cc68d9b3b3a82e9f58e912f9ef.jpg')",
+          height: `${headerHeight}px`,
         }}
       >
         {/* Área da logo */}
