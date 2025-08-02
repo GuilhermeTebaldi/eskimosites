@@ -78,12 +78,14 @@ export default function Loja() {
     const handleScroll = () => {
       const currentY = window.scrollY;
 
-      // Scroll para baixo → encolhe
-      if (currentY > lastScrollY && currentY > 20) {
+      if (currentY <= 0) {
+        // ✅ Se chegou no topo, abre totalmente
+        setHeaderHeight(200);
+      } else if (currentY > lastScrollY && currentY > 20) {
+        // Scroll para baixo → encolhe
         setHeaderHeight((prev) => Math.max(60, prev - 10));
-      }
-      // Scroll para cima → aumenta de volta
-      if (currentY < lastScrollY) {
+      } else if (currentY < lastScrollY) {
+        // Scroll para cima → aumenta, mas não passa de 200
         setHeaderHeight((prev) => Math.min(200, prev + 10));
       }
 
