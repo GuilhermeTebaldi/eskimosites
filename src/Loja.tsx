@@ -665,14 +665,7 @@ export default function Loja() {
                   setSearch(""); // ✅ limpa busca ao trocar subcategoria
                   setCurrentPage(1);
                 }}
-              >
-                <option value="">Escolha seu tipo</option>
-                {subcategories(selectedCategory).map((sub) => (
-                  <option key={sub} value={sub}>
-                    {sub}
-                  </option>
-                ))}
-              </select>
+              ></select>
             )}
 
           <div className="text-xs text-gray-500">
