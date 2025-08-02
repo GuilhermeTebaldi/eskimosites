@@ -88,7 +88,8 @@ export default function Loja() {
   );
   //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
   // 🔥 Controle de altura da barra com base no scroll
-  const [headerHeight, setHeaderHeight] = useState(280);
+  // 🔥 Controle de altura da barra com base no scroll
+  const [headerHeight, setHeaderHeight] = useState(220);
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
@@ -96,16 +97,13 @@ export default function Loja() {
       const currentY = window.scrollY;
       const temCategoria = !!selectedCategory;
       const temSub = temCategoria && subcategories(selectedCategory).length > 0;
-      const maxHeight = temSub ? 310 : temCategoria ? 300 : 280;
+      const maxHeight = temSub ? 280 : temCategoria ? 260 : 220;
 
       if (currentY <= 0) {
-        // 🔥 Topo → abre totalmente
         setHeaderHeight(maxHeight);
       } else if (currentY > lastScrollY && currentY > 20) {
-        // 🔥 Scroll pra baixo → fecha direto
-        setHeaderHeight(60);
+        setHeaderHeight(50);
       } else if (currentY < lastScrollY) {
-        // 🔥 Scroll pra cima → abre direto para altura máxima
         setHeaderHeight(maxHeight);
       }
 
@@ -120,7 +118,7 @@ export default function Loja() {
   const resetHeader = () => {
     const temCategoria = !!selectedCategory;
     const temSub = temCategoria && subcategories(selectedCategory).length > 0;
-    setHeaderHeight(temSub ? 310 : temCategoria ? 300 : 280);
+    setHeaderHeight(temSub ? 280 : temCategoria ? 260 : 220);
   };
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
