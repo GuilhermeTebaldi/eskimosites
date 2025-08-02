@@ -71,7 +71,7 @@ export default function Loja() {
   );
   //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
   // 🔥 Controle de altura da barra com base no scroll
-  const [headerHeight, setHeaderHeight] = useState(280);
+  const [headerHeight, setHeaderHeight] = useState(300);
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
@@ -80,13 +80,13 @@ export default function Loja() {
 
       if (currentY <= 0) {
         // ✅ Se chegou no topo, abre totalmente
-        setHeaderHeight(280);
+        setHeaderHeight(290);
       } else if (currentY > lastScrollY && currentY > 20) {
         // Scroll para baixo → encolhe
         setHeaderHeight((prev) => Math.max(60, prev - 10));
       } else if (currentY < lastScrollY) {
         // Scroll para cima → aumenta, mas não passa de 200
-        setHeaderHeight((prev) => Math.min(280, prev + 12));
+        setHeaderHeight((prev) => Math.min(290, prev + 12));
       }
 
       setLastScrollY(currentY);
@@ -98,7 +98,7 @@ export default function Loja() {
 
   // 🔥 Ao clicar na barra → volta ao tamanho original
   const resetHeader = () => {
-    setHeaderHeight(280);
+    setHeaderHeight(290);
   };
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
@@ -645,7 +645,7 @@ export default function Loja() {
 
               // 🔥 Quando abre subcategoria, expande a barra
               if (e.target.value) {
-                setHeaderHeight(290);
+                setHeaderHeight(300);
               }
             }}
           >
@@ -671,7 +671,7 @@ export default function Loja() {
                   setCurrentPage(1);
 
                   // 🔥 Garante que a barra esteja totalmente aberta ao selecionar subcategoria
-                  setHeaderHeight(290);
+                  setHeaderHeight(310);
                 }}
               >
                 <option value="">Escolha seu tipo</option>
