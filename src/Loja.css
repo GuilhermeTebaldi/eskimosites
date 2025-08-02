@@ -1,7 +1,7 @@
 /* Container principal */
 .loja-container {
   min-height: 100vh;
-  background: linear-gradient(to bottom right, #fffaf0, #fefefe);
+  background: #fff; /* Fundo branco clean */
   font-family: "Poppins", sans-serif;
   color: #2c2c2c;
   padding-bottom: 100px;
@@ -10,11 +10,11 @@
 
 /* Card de produto */
 .product-card {
-  background: #ffffffd9;
-  backdrop-filter: blur(6px);
-  border-radius: 18px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-  padding: 12px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+  padding: 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -24,8 +24,8 @@
   cursor: pointer;
 }
 .product-card:hover {
-  transform: scale(1.05);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
 }
 
 /* Imagem */
@@ -36,43 +36,44 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #fdfdfd;
 }
 .product-image {
   max-height: 100%;
   max-width: 100%;
   object-fit: contain;
-  transition: transform 0.3s ease;
+  transition: transform 0.4s ease;
 }
 .product-card:hover .product-image {
-  transform: scale(1.08);
+  transform: scale(1.1);
 }
 
 /* Nome e preço */
 .product-info {
   text-align: center;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 .product-title {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #333;
   margin-bottom: 4px;
 }
 .product-price {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: bold;
   color: #e63946;
 }
 
-/* Barra de busca */
+/* Barra de busca e selects */
 input[type="text"],
 select {
   border-radius: 12px !important;
   border: 1px solid #ddd !important;
   padding: 10px 14px !important;
   font-size: 0.9rem;
+  background: #fff;
   transition: all 0.3s ease;
 }
 input[type="text"]:focus,
@@ -80,6 +81,15 @@ select:focus {
   border-color: #f87171 !important;
   box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2);
   outline: none;
+}
+
+/* Botões com efeito premium */
+button {
+  transition: all 0.25s ease;
+}
+button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* Modal blur */
