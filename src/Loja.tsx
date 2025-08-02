@@ -89,8 +89,7 @@ export default function Loja() {
   //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
   // 🔥 Controle de altura da barra com base no scroll
   // 🔥 Controle de altura da barra com base no scroll
-  const [headerHeight, setHeaderHeight] = useState(320);
-
+  const [headerHeight, setHeaderHeight] = useState(220);
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
@@ -98,7 +97,7 @@ export default function Loja() {
       const currentY = window.scrollY;
       const temCategoria = !!selectedCategory;
       const temSub = temCategoria && subcategories(selectedCategory).length > 0;
-      const maxHeight = temSub ? 380 : temCategoria ? 360 : 320;
+      const maxHeight = temSub ? 280 : temCategoria ? 260 : 220;
 
       if (currentY <= 0) {
         setHeaderHeight(maxHeight);
@@ -119,7 +118,7 @@ export default function Loja() {
   const resetHeader = () => {
     const temCategoria = !!selectedCategory;
     const temSub = temCategoria && subcategories(selectedCategory).length > 0;
-    setHeaderHeight(temSub ? 380 : temCategoria ? 360 : 320);
+    setHeaderHeight(temSub ? 280 : temCategoria ? 260 : 220);
   };
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
@@ -505,6 +504,17 @@ export default function Loja() {
 
   return (
     <div className="loja-container">
+      {/* carrocel de produtos na pasta LinhaProdutosAtalhos.tsx */}
+      <div className="h-[280px]" />
+      <LinhaProdutosAtalhos
+        onSelectCategorySubcategory={(category, subcategory) => {
+          setQuickFilterCategory(category);
+          setQuickFilterSubcategory(subcategory || null);
+          setSearch(""); // <-- limpar a busca!!
+          setCurrentPage(1);
+        }}
+      />
+
       {/* Cabeçalho */}
       <div
         onClick={resetHeader}
@@ -522,18 +532,6 @@ export default function Loja() {
             src="https://upload.wikimedia.org/wikipedia/commons/9/96/Logo_eskim%C3%B3_Sorvetes_Vermelha.png"
             alt="Eskimo Logo"
             className="h-10 w-auto object-contain"
-          />
-        </div>
-
-        {/* Carrossel colado na barra */}
-        <div className="w-full px-2">
-          <LinhaProdutosAtalhos
-            onSelectCategorySubcategory={(category, subcategory) => {
-              setQuickFilterCategory(category);
-              setQuickFilterSubcategory(subcategory || null);
-              setSearch("");
-              setCurrentPage(1);
-            }}
           />
         </div>
 
@@ -630,7 +628,7 @@ export default function Loja() {
                 setHeaderHeight(280);
               } else {
                 const temSub = subcategories(e.target.value).length > 0;
-                setHeaderHeight(temSub ? 290 : 290);
+                setHeaderHeight(temSub ? 300 : 290);
               }
             }}
           >
