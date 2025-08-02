@@ -88,7 +88,7 @@ export default function Loja() {
           const max = selectedCategory
             ? subcategories(selectedCategory).length > 0
               ? 310
-              : 290
+              : 300
             : 200;
           return Math.max(min, Math.min(prev - 10, max));
         });
@@ -98,7 +98,7 @@ export default function Loja() {
           const max = selectedCategory
             ? subcategories(selectedCategory).length > 0
               ? 310
-              : 290
+              : 300
             : 200;
           return Math.min(max, prev + 10);
         });
@@ -661,7 +661,7 @@ export default function Loja() {
               // 🔥 Ajusta altura dependendo da presença de subcategorias
               if (e.target.value) {
                 const temSub = subcategories(e.target.value).length > 0;
-                setHeaderHeight(temSub ? 310 : 290);
+                setHeaderHeight(temSub ? 310 : 310);
               } else {
                 setHeaderHeight(200); // volta pro tamanho padrão se não selecionar nada
               }
