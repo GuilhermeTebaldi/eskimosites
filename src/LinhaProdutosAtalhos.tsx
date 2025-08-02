@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 
 export default function LinhaProdutosAtalhos({
   onSelectCategorySubcategory,
@@ -42,37 +42,35 @@ export default function LinhaProdutosAtalhos({
     },
   ];
 
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState<number>(0);
 
-  const nextImage = () => {
-    setIndex((prev) => (prev + 1) % imagens.length);
-  };
-
-  const prevImage = () => {
-    setIndex((prev) => (prev - 1 + imagens.length) % imagens.length);
-  };
+  const nextImage = () =>
+    setIndex((prev: number) => (prev + 1) % imagens.length);
+  const prevImage = () =>
+    setIndex((prev: number) => (prev - 1 + imagens.length) % imagens.length);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      nextImage();
-    }, 5000);
+    const interval = setInterval(() => nextImage(), 5000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="relative flex w-full flex-col items-center gap-4 py-6">
-      <div className="relative flex w-full max-w-md items-center justify-center">
+    <div className="relative -mt-4 flex w-full flex-col items-center">
+      {/* Container do carrossel */}
+      <div className="relative flex w-full max-w-md items-center justify-center rounded-lg bg-white/90 py-2 shadow">
+        {/* Botão esquerda */}
         <button
           onClick={prevImage}
-          className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl text-gray-600 hover:text-red-600"
+          className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl text-gray-500 hover:text-red-600"
         >
           ‹
         </button>
 
+        {/* Imagem central */}
         <img
           src={imagens[index].src}
           alt="Linha Eskimo"
-          className="h-36 w-auto cursor-pointer object-contain"
+          className="h-28 w-auto cursor-pointer object-contain transition-transform duration-300 hover:scale-105"
           onClick={() =>
             onSelectCategorySubcategory(
               imagens[index].category,
@@ -81,19 +79,21 @@ export default function LinhaProdutosAtalhos({
           }
         />
 
+        {/* Botão direita */}
         <button
           onClick={nextImage}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-3xl text-gray-600 hover:text-red-600"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-3xl text-gray-500 hover:text-red-600"
         >
           ›
         </button>
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* Indicadores */}
+      <div className="mt-1 flex items-center gap-1">
         {imagens.map((_, i) => (
           <div
             key={i}
-            className={`h-1.5 w-5 rounded-full transition-all ${
+            className={`h-1.5 w-4 rounded-full transition-all ${
               i === index ? "bg-red-500" : "bg-gray-300"
             }`}
           />
