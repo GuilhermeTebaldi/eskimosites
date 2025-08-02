@@ -71,31 +71,28 @@ export default function Loja() {
   );
   //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
   // 🔥 Controle de altura da barra com base no scroll
-  const [headerHeight, setHeaderHeight] = useState(300);
+  const [headerHeight, setHeaderHeight] = useState(280);
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
-    let ticking = false;
     const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const currentY = window.scrollY;
-          const temCategoria = !!selectedCategory;
-          const temSub =
-            temCategoria && subcategories(selectedCategory).length > 0;
-          const maxHeight = temSub ? 310 : temCategoria ? 300 : 280;
+      const currentY = window.scrollY;
+      const temCategoria = !!selectedCategory;
+      const temSub = temCategoria && subcategories(selectedCategory).length > 0;
+      const maxHeight = temSub ? 310 : temCategoria ? 300 : 280;
 
-          if (currentY <= 0) setHeaderHeight(maxHeight);
-          else if (currentY > lastScrollY && currentY > 20)
-            setHeaderHeight((prev) => Math.max(60, prev - 10));
-          else if (currentY < lastScrollY)
-            setHeaderHeight((prev) => Math.min(maxHeight, prev + 10));
-
-          setLastScrollY(currentY);
-          ticking = false;
-        });
-        ticking = true;
+      if (currentY <= 0) {
+        // 🔥 Topo → abre totalmente
+        setHeaderHeight(maxHeight);
+      } else if (currentY > lastScrollY && currentY > 20) {
+        // 🔥 Scroll pra baixo → fecha direto
+        setHeaderHeight(60);
+      } else if (currentY < lastScrollY) {
+        // 🔥 Scroll pra cima → abre direto para altura máxima
+        setHeaderHeight(maxHeight);
       }
+
+      setLastScrollY(currentY);
     };
 
     window.addEventListener("scroll", handleScroll);
