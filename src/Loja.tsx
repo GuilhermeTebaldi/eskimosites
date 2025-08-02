@@ -1048,7 +1048,7 @@ export default function Loja() {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                 >
-                  <option value="Escolha seu bairro">Escolha seu bairro</option>
+                  <option value="">Escolha seu bairro</option>
                   <option value="Alvorada">Alvorada</option>
                   <option value="Bela Vista">Bela Vista</option>
                   <option value="Belvedere">Belvedere</option>
