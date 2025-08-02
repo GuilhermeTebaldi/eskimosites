@@ -408,7 +408,7 @@ export default function Loja() {
 
       const payload = {
         customerName,
-        address,
+        address: address === "Outro" ? customAddress : address,
         street,
         number,
         complement,
@@ -1049,7 +1049,7 @@ export default function Loja() {
                   value={address}
                   onChange={(e) => {
                     setAddress(e.target.value);
-                    if (e.target.value !== "Outro") setCustomAddress(""); // limpa custom quando não for Outro
+                    if (e.target.value !== "Outro") setCustomAddress(""); // limpa se sair de Outro
                   }}
                 >
                   <option value="">Escolha seu bairro</option>
