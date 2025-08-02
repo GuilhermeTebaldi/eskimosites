@@ -628,7 +628,7 @@ export default function Loja() {
                 setHeaderHeight(280);
               } else {
                 const temSub = subcategories(e.target.value).length > 0;
-                setHeaderHeight(temSub ? 300 : 290);
+                setHeaderHeight(temSub ? 290 : 290);
               }
             }}
           >
