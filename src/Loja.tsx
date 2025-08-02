@@ -505,7 +505,7 @@ export default function Loja() {
   return (
     <div className="loja-container">
       {/* carrocel de produtos na pasta LinhaProdutosAtalhos.tsx */}
-      <div className="h-[80px]" />
+
       <LinhaProdutosAtalhos
         onSelectCategorySubcategory={(category, subcategory) => {
           setQuickFilterCategory(category);
