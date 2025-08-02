@@ -1107,7 +1107,9 @@ export default function Loja() {
                   <option value="Vila Mantelli">Vila Mantelli</option>
                   <option value="Vila Real">Vila Real</option>
                   <option value="Vila Rica">Vila Rica</option>
+                  <option value="Outro">Outro...</option>
                 </select>
+
                 {address === "Outro" && (
                   <input
                     type="text"
