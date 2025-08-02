@@ -6,6 +6,7 @@ body {
   width: 100%;
   overflow-x: hidden;
   background: #fff;
+  -webkit-tap-highlight-color: transparent; /* ✅ Remove highlight no mobile */
 }
 
 /* Container principal fixo */
@@ -22,7 +23,7 @@ body {
   padding-bottom: 100px;
   display: flex;
   flex-direction: column;
-  align-items: center; /* ✅ Centraliza tudo */
+  align-items: center;
 }
 
 @keyframes bgFlow {
@@ -41,7 +42,7 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 16px;
   width: 100%;
-  max-width: 1200px; /* Centraliza no desktop */
+  max-width: 1200px;
   padding: 0 12px;
   box-sizing: border-box;
   justify-items: center;
@@ -56,7 +57,7 @@ body {
   }
 }
 
-/* Animação de entrada em cascata */
+/* Animação de entrada */
 .product-card {
   opacity: 0;
   transform: translateY(30px) scale(0.95);
@@ -82,14 +83,14 @@ body {
   }
 }
 
-/* Card com efeito 3D e vidro */
+/* Card estilo vidro */
 .product-card {
   position: relative;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(14px);
   border-radius: 24px;
   padding: 16px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.06);
   transition:
     transform 0.3s ease,
     box-shadow 0.3s ease;
@@ -97,20 +98,25 @@ body {
   perspective: 1000px;
   width: 100%;
   max-width: 200px;
-  z-index: 1; /* ✅ Cada card tem seu próprio plano */
+  z-index: 1;
+  isolation: isolate; /* ✅ Bloqueia hover invadindo vizinhos */
 }
 .product-card:hover {
   transform: scale(1.03);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.1);
 }
 
-/* ✅ Impede hover/click de invadir o card do lado */
-.product-card:hover,
-.product-card:focus-within {
-  z-index: 10;
+/* ✅ Hitbox precisa */
+.product-card * {
+  pointer-events: none;
+}
+.product-card .product-image-wrapper,
+.product-card .product-info,
+.product-card button {
+  pointer-events: auto;
 }
 
-/* Imagem com efeito de levitação */
+/* Imagem */
 .product-image-wrapper {
   width: 100%;
   height: 200px;
@@ -129,14 +135,13 @@ body {
 .product-image {
   max-height: 100%;
   max-width: 100%;
-  transition: transform 0.5s ease;
-  z-index: 2;
+  transition: transform 0.4s ease;
 }
 .product-card:hover .product-image {
   transform: scale(1.12) rotate(1.5deg);
 }
 
-/* Nome e preço refinados */
+/* Nome e preço */
 .product-title {
   font-size: 1rem;
   font-weight: 600;
@@ -148,7 +153,6 @@ body {
 .product-card:hover .product-title {
   color: #d90429;
 }
-
 .product-price {
   font-size: 1rem;
   font-weight: bold;
@@ -156,7 +160,7 @@ body {
   text-align: center;
 }
 
-/* Inputs e selects estilo vidro */
+/* Inputs e selects */
 input[type="text"],
 select {
   background: rgba(255, 255, 255, 0.6);
@@ -173,7 +177,7 @@ select:focus {
   outline: none;
 }
 
-/* Botões com gradiente animado */
+/* Botões com gradiente */
 button {
   background: linear-gradient(90deg, #ef233c, #ff6b6b);
   color: #fff;
@@ -190,7 +194,7 @@ button:hover {
   box-shadow: 0 8px 20px rgba(239, 35, 60, 0.3);
 }
 
-/* Carrinho lateral vidro premium */
+/* Carrinho vidro */
 .fixed.right-0.top-0.z-50 {
   background: rgba(255, 255, 255, 0.85) !important;
   backdrop-filter: blur(18px);
