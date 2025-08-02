@@ -1393,11 +1393,14 @@ export default function Loja() {
 
             <div className="mb-4 flex items-center justify-center gap-4">
               <button
-                onClick={() => setQuantityToAdd(quantityToAdd - 1)}
+                onClick={
+                  () => setQuantityToAdd((prev) => (prev > 1 ? prev - 1 : 1)) // 🔒 nunca menor que 1
+                }
                 className="text-2xl"
               >
                 ➖
               </button>
+
               <span className="text-xl">{quantityToAdd}</span>
               <button
                 onClick={() =>
@@ -1414,7 +1417,15 @@ export default function Loja() {
             </div>
 
             <button
-              onClick={() => addToCart(selectedProduct, quantityToAdd)}
+              onClick={() => {
+                if (quantityToAdd < 1) {
+                  alert(
+                    "⚠️ Selecione uma quantidade antes de adicionar ao carrinho!",
+                  );
+                  return;
+                }
+                addToCart(selectedProduct, quantityToAdd);
+              }}
               className="w-full rounded bg-red-600 py-2 text-white hover:bg-red-500"
             >
               Adicionar ao Carrinho
