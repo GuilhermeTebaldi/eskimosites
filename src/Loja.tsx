@@ -83,10 +83,25 @@ export default function Loja() {
         setHeaderHeight(300);
       } else if (currentY > lastScrollY && currentY > 20) {
         // Scroll para baixo → encolhe
-        setHeaderHeight((prev) => Math.max(60, prev - 10));
+        setHeaderHeight((prev) => {
+          const min = 60;
+          const max = selectedCategory
+            ? subcategories(selectedCategory).length > 0
+              ? 310
+              : 290
+            : 200;
+          return Math.max(min, Math.min(prev - 10, max));
+        });
       } else if (currentY < lastScrollY) {
         // Scroll para cima → aumenta, mas não passa de 200
-        setHeaderHeight((prev) => Math.min(300, prev + 12));
+        setHeaderHeight((prev) => {
+          const max = selectedCategory
+            ? subcategories(selectedCategory).length > 0
+              ? 310
+              : 290
+            : 200;
+          return Math.min(max, prev + 10);
+        });
       }
 
       setLastScrollY(currentY);
@@ -643,9 +658,12 @@ export default function Loja() {
               setSearch("");
               setCurrentPage(1);
 
-              // 🔥 Quando abre subcategoria, expande a barra
+              // 🔥 Ajusta altura dependendo da presença de subcategorias
               if (e.target.value) {
-                setHeaderHeight(300);
+                const temSub = subcategories(e.target.value).length > 0;
+                setHeaderHeight(temSub ? 310 : 290);
+              } else {
+                setHeaderHeight(200); // volta pro tamanho padrão se não selecionar nada
               }
             }}
           >
@@ -670,7 +688,7 @@ export default function Loja() {
                   setSearch("");
                   setCurrentPage(1);
 
-                  // 🔥 Garante que a barra esteja totalmente aberta ao selecionar subcategoria
+                  // 🔥 Sempre mantém 310 quando há subcategoria ativa
                   setHeaderHeight(310);
                 }}
               >
