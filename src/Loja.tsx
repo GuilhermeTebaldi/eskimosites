@@ -75,45 +75,38 @@ export default function Loja() {
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      const currentY = window.scrollY;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentY = window.scrollY;
+          const temCategoria = !!selectedCategory;
+          const temSub =
+            temCategoria && subcategories(selectedCategory).length > 0;
+          const maxHeight = temSub ? 310 : temCategoria ? 300 : 280;
 
-      if (currentY <= 0) {
-        // ✅ Se chegou no topo, abre totalmente
-        setHeaderHeight(300);
-      } else if (currentY > lastScrollY && currentY > 20) {
-        // Scroll para baixo → encolhe
-        setHeaderHeight((prev) => {
-          const min = 60;
-          const max = selectedCategory
-            ? subcategories(selectedCategory).length > 0
-              ? 310
-              : 300
-            : 200;
-          return Math.max(min, Math.min(prev - 10, max));
+          if (currentY <= 0) setHeaderHeight(maxHeight);
+          else if (currentY > lastScrollY && currentY > 20)
+            setHeaderHeight((prev) => Math.max(60, prev - 10));
+          else if (currentY < lastScrollY)
+            setHeaderHeight((prev) => Math.min(maxHeight, prev + 10));
+
+          setLastScrollY(currentY);
+          ticking = false;
         });
-      } else if (currentY < lastScrollY) {
-        // Scroll para cima → aumenta, mas não passa de 200
-        setHeaderHeight((prev) => {
-          const max = selectedCategory
-            ? subcategories(selectedCategory).length > 0
-              ? 310
-              : 300
-            : 200;
-          return Math.min(max, prev + 10);
-        });
+        ticking = true;
       }
-
-      setLastScrollY(currentY);
     };
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScrollY]);
+  }, [lastScrollY, selectedCategory, selectedSubcategory]);
 
   // 🔥 Ao clicar na barra → volta ao tamanho original
   const resetHeader = () => {
-    setHeaderHeight(300);
+    const temCategoria = !!selectedCategory;
+    const temSub = temCategoria && subcategories(selectedCategory).length > 0;
+    setHeaderHeight(temSub ? 310 : temCategoria ? 300 : 280);
   };
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
@@ -659,11 +652,12 @@ export default function Loja() {
               setCurrentPage(1);
 
               // 🔥 Ajusta altura dependendo da presença de subcategorias
-              if (e.target.value) {
-                const temSub = subcategories(e.target.value).length > 0;
-                setHeaderHeight(temSub ? 310 : 310);
+              if (!e.target.value) {
+                setShowSubcategories(false);
+                setHeaderHeight(280);
               } else {
-                setHeaderHeight(200); // volta pro tamanho padrão se não selecionar nada
+                const temSub = subcategories(e.target.value).length > 0;
+                setHeaderHeight(temSub ? 310 : 300);
               }
             }}
           >
