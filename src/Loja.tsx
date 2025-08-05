@@ -89,7 +89,7 @@ export default function Loja() {
   //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
   // 🔥 Controle de altura da barra com base no scroll
   // 🔥 Controle de altura da barra com base no scroll
-  const [headerHeight, setHeaderHeight] = useState(120);
+  const [headerHeight, setHeaderHeight] = useState(160);
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function Loja() {
       const currentY = window.scrollY;
       const temCategoria = !!selectedCategory;
       const temSub = temCategoria && subcategories(selectedCategory).length > 0;
-      const maxHeight = temSub ? 280 : temCategoria ? 260 : 220;
+      const maxHeight = temSub ? 100 : temCategoria ? 120 : 100;
 
       if (currentY <= 0) {
         setHeaderHeight(maxHeight);
@@ -659,18 +659,19 @@ export default function Loja() {
           </div>
         </div>
       </div>
-      {/* 🔍 Barra de pesquisa fixada fora da barra principal */}
+      {/* 🔍 Barra de pesquisa flutuante, sem fundo */}
       <div
-        className="fixed top-[var(--search-top)] z-40 w-full bg-white px-4 py-2 shadow transition-all duration-300"
+        className="fixed z-40 w-full transition-all duration-300"
         style={{
-          transform: `translateY(${headerHeight}px)`,
+          transform: `translateY(${headerHeight + 5}px)`,
+          background: "transparent",
         }}
       >
-        <div className="mx-auto w-full max-w-md">
+        <div className="mx-auto w-full max-w-md px-4">
           <input
             type="text"
             placeholder="Buscar produto..."
-            className="w-full rounded border px-4 py-2 shadow-sm"
+            className="focus:ring-9 w-full rounded border border-gray-300 bg-white px-4 py-2 shadow-md focus:outline-none focus:ring-blue-400"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
