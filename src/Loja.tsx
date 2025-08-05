@@ -523,7 +523,7 @@ export default function Loja() {
           backgroundImage:
             "url('https://i.pinimg.com/736x/81/6f/70/816f70cc68d9b3b3a82e9f58e912f9ef.jpg')",
           height: `${headerHeight}px`,
-          overflow: "hidden",
+          overflow: "visible", // ✅ Permite que o dropdown apareça
         }}
       >
         {/* Área da logo */}
@@ -602,7 +602,7 @@ export default function Loja() {
         </div>
       </div>
 
-      {/* 🔍 Barra de pesquisa + filtros flutuantes com estilo unificado */}
+      {/* 🔍 Barra de pesquisa + filtros no estilo vidro premium */}
       <div
         className="fixed z-40 w-full transition-all duration-300"
         style={{
@@ -610,12 +610,12 @@ export default function Loja() {
           background: "transparent",
         }}
       >
-        <div className="mx-auto w-full max-w-md space-y-2 px-4">
-          {/* Campo de busca */}
+        <div className="mx-auto w-full max-w-md space-y-3 px-4">
+          {/* Campo de busca com vidro */}
           <input
             type="text"
             placeholder="Buscar produto..."
-            className="w-full rounded border border-gray-300 bg-white px-4 py-2 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full rounded-xl border border-white/40 bg-white/60 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -623,11 +623,11 @@ export default function Loja() {
             }}
           />
 
-          {/* Filtros sempre visíveis - mesmo estilo do input */}
+          {/* Filtros - categoria e subcategoria */}
           <div className="flex gap-2">
             {/* Categoria */}
             <select
-              className="w-1/2 rounded border border-gray-300 bg-white px-4 py-2 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-1/2 rounded-xl border border-white/40 bg-white/60 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
               value={selectedCategory || ""}
               onChange={(e) => {
                 setQuickFilterCategory(null);
@@ -646,9 +646,9 @@ export default function Loja() {
               ))}
             </select>
 
-            {/* Subcategoria - sempre mostra mesmo se vazio */}
+            {/* Subcategoria */}
             <select
-              className="w-1/2 rounded border border-gray-300 bg-white px-4 py-2 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-1/2 rounded-xl border border-white/40 bg-white/60 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
               value={selectedSubcategory || ""}
               onChange={(e) => {
                 setQuickFilterCategory(null);
