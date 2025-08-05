@@ -874,17 +874,6 @@ export default function Loja() {
         <div className="mt-1 text-xs font-bold">Pedido</div>
       </Link>
 
-      {/* Botão Carrinho Quadrado Premium com Movimento */}
-      <button
-        onClick={() => setShowCart(!showCart)}
-        className="animate-pulse-slow fixed bottom-20 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-yellow-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
-      >
-        <div className="text-3xl">🛒</div>
-        <div className="mt-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-yellow-500 shadow-md">
-          {cart.reduce((sum, item) => sum + item.quantity, 0)}
-        </div>
-      </button>
-
       {/* Botão de Total Gasto */}
       {cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0) >
         0 && (
