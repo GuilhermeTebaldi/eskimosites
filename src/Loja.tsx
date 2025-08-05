@@ -613,10 +613,10 @@ export default function Loja() {
               // 🔥 Ajusta altura dependendo da presença de subcategorias
               if (!e.target.value) {
                 setShowSubcategories(false);
-                setHeaderHeight(280);
+                setHeaderHeight(130);
               } else {
                 const temSub = subcategories(e.target.value).length > 0;
-                setHeaderHeight(temSub ? 290 : 290);
+                setHeaderHeight(temSub ? 130 : 130);
               }
             }}
           >
