@@ -874,21 +874,16 @@ export default function Loja() {
         <div className="mt-1 text-xs font-bold">Pedido</div>
       </Link>
 
-      {/* Botão de Total Gasto */}
-      {cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0) >
-        0 && (
-        <button className="animate-pulse-slow fixed bottom-96 left-1 z-0 flex flex-col items-center justify-center rounded-xl bg-green-700 px-4 py-2 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95">
-          <div className="mt-0 flex h-4 w-16 items-center justify-center rounded bg-white text-sm font-bold text-green-700 shadow-md">
-            R$
-            {cart
-              .reduce(
-                (acc, item) => acc + item.product.price * item.quantity,
-                0,
-              )
-              .toFixed(2)}
-          </div>
-        </button>
-      )}
+      {/* Botão do Carrinho Quadrado com Movimento */}
+      <button
+        onClick={() => setShowCart(!showCart)}
+        className="animate-pulse-slow fixed bottom-20 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-yellow-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
+      >
+        <div className="text-3xl">🛒</div>
+        <div className="mt-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-yellow-500 shadow-md">
+          {cart.reduce((sum, item) => sum + item.quantity, 0)}
+        </div>
+      </button>
 
       {/* Modais */}
       {showCart && (
