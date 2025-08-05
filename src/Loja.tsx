@@ -54,7 +54,8 @@ export default function Loja() {
   >(null);
   // const [animateButtons, setAnimateButtons] = useState(true);
   const [search, setSearch] = useState("");
-  const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
+  const [_isStoreSelectorExpanded, setIsStoreSelectorExpanded] =
+    useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [showCart, setShowCart] = useState(false);
@@ -523,7 +524,7 @@ export default function Loja() {
           backgroundImage:
             "url('https://i.pinimg.com/736x/81/6f/70/816f70cc68d9b3b3a82e9f58e912f9ef.jpg')",
           height: `${headerHeight}px`,
-          overflow: "visible", // ✅ Permite que o dropdown apareça
+          overflow: "hidden", // ✅ Permite que o dropdown apareça
         }}
       >
         {/* Área da logo */}
@@ -544,56 +545,35 @@ export default function Loja() {
           </div>
         )}
 
-        {/* Botão de Unidade */}
-        <div
-          ref={dropdownRef}
-          className="relative z-50 flex justify-center py-1"
-        >
-          <div className="relative inline-block">
+        {/* Botões de Seleção de Unidade – lado a lado */}
+        <div className="z-50 flex flex-wrap justify-center gap-3 px-4 py-1">
+          {["efapi", "palmital", "passo"].map((store) => (
             <button
-              onClick={() =>
-                setIsStoreSelectorExpanded(!isStoreSelectorExpanded)
-              }
-              className="rounded border bg-white px-3 py-1 text-xs text-gray-700 shadow hover:bg-gray-100"
+              key={store}
+              onClick={() => {
+                if (selectedStore !== store) {
+                  setSelectedStore(store);
+                } else {
+                  setSelectedStore(null);
+                  setTimeout(() => setSelectedStore(store), 0);
+                }
+                setCart([]);
+                setShowInstruction(false);
+              }}
+              className={`rounded-full border px-4 py-1.5 text-sm font-semibold shadow transition-all duration-300 ${
+                selectedStore === store
+                  ? "border-yellow-600 bg-yellow-300 text-gray-900 ring-2 ring-yellow-500"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+              }`}
             >
-              🏪{" "}
-              {selectedStore ? `Unidade: ${selectedStore}` : "Escolher Unidade"}
+              🍦{" "}
+              {store === "efapi"
+                ? "Efapi"
+                : store === "palmital"
+                  ? "Palmital"
+                  : "Passo"}
             </button>
-
-            {/* Dropdown */}
-            {isStoreSelectorExpanded && (
-              <div className="absolute left-0 mt-1 w-32 rounded border bg-white shadow-lg">
-                {["efapi", "palmital", "passo"].map((store) => (
-                  <button
-                    key={store}
-                    onClick={() => {
-                      if (selectedStore !== store) {
-                        setSelectedStore(store);
-                      } else {
-                        setSelectedStore(null);
-                        setTimeout(() => setSelectedStore(store), 0);
-                      }
-                      setCart([]);
-                      setShowInstruction(false);
-                      setIsStoreSelectorExpanded(false);
-                    }}
-                    className={`block w-full px-2 py-1 text-left text-xs ${
-                      selectedStore === store
-                        ? "bg-yellow-300 text-gray-900"
-                        : "hover:bg-gray-100"
-                    }`}
-                  >
-                    🍦{" "}
-                    {store === "efapi"
-                      ? "Efapi"
-                      : store === "palmital"
-                        ? "Palmital"
-                        : "Passo"}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          ))}
         </div>
 
         {/* Quantidade de produtos encontrados */}
