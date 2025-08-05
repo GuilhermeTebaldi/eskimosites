@@ -89,7 +89,7 @@ export default function Loja() {
   //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
   // 🔥 Controle de altura da barra com base no scroll
   // 🔥 Controle de altura da barra com base no scroll
-  const [headerHeight, setHeaderHeight] = useState(220);
+  const [headerHeight, setHeaderHeight] = useState(120);
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
@@ -515,7 +515,7 @@ export default function Loja() {
         }}
       />
 
-      {/* Cabeçalho jnjn*/}
+      {/* Cabeçalho */}
       <div
         onClick={resetHeader}
         className="fixed left-0 right-0 top-0 z-50 flex flex-col items-center justify-start bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md transition-all duration-300"
@@ -597,19 +597,7 @@ export default function Loja() {
           </div>
         </div>
 
-        {/* Pesquisa e categorias */}
         <div className="flex flex-col items-center gap-2 px-4 pb-3">
-          <input
-            type="text"
-            placeholder="Buscar produto..."
-            className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1); // ✅ força atualizar página ao buscar
-            }}
-          />
-
           <select
             className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
             value={selectedCategory || ""}
@@ -669,6 +657,26 @@ export default function Loja() {
           <div className="text-xs text-gray-500">
             {filtered.length} produto(s) encontrado(s)
           </div>
+        </div>
+      </div>
+      {/* 🔍 Barra de pesquisa fixada fora da barra principal */}
+      <div
+        className="fixed top-[var(--search-top)] z-40 w-full bg-white px-4 py-2 shadow transition-all duration-300"
+        style={{
+          transform: `translateY(${headerHeight}px)`,
+        }}
+      >
+        <div className="mx-auto w-full max-w-md">
+          <input
+            type="text"
+            placeholder="Buscar produto..."
+            className="w-full rounded border px-4 py-2 shadow-sm"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       </div>
 
