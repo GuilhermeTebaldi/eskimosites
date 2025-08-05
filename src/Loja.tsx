@@ -305,6 +305,24 @@ export default function Loja() {
         });
     }
   }, [selectedStore]);
+  useEffect(() => {
+    if (selectedStore) {
+      setLoading(true);
+      axios
+        .get<Product[]>(
+          `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`,
+        )
+        .then((res) => {
+          setProducts(res.data || []);
+        })
+        .catch((err) => {
+          console.error("Erro ao buscar produtos da unidade:", err);
+        })
+        .then(() => {
+          setLoading(false);
+        });
+    }
+  }, [selectedStore]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let valor = e.target.value.replace(/\D/g, "");
