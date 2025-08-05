@@ -54,8 +54,7 @@ export default function Loja() {
   >(null);
   // const [animateButtons, setAnimateButtons] = useState(true);
   const [search, setSearch] = useState("");
-  const [_isStoreSelectorExpanded, setIsStoreSelectorExpanded] =
-    useState(false);
+  const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [showCart, setShowCart] = useState(false);
@@ -341,27 +340,6 @@ export default function Loja() {
     }
   }, [products]);
 
-  useEffect(() => {
-    if (selectedStore) {
-      setLoading(true);
-      axios
-        .get<Product[]>(
-          `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`,
-        )
-
-        .then((res) => {
-          setProducts(res.data || []);
-        })
-
-        .catch((err) => {
-          console.error("Erro ao buscar produtos da unidade:", err);
-        })
-        .then(() => {
-          setLoading(false);
-        });
-    }
-  }, [selectedStore]);
-
   const filtered = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = quickFilterCategory
@@ -546,7 +524,7 @@ export default function Loja() {
         )}
 
         {/* Botões de Seleção de Unidade – lado a lado */}
-        <div className="z-50 flex flex-wrap justify-center gap-3 px-4 py-1">
+        <div className="z-50 flex flex-wrap justify-center gap-4 px-5 py-1">
           {["efapi", "palmital", "passo"].map((store) => (
             <button
               key={store}
@@ -560,9 +538,9 @@ export default function Loja() {
                 setCart([]);
                 setShowInstruction(false);
               }}
-              className={`rounded-full border px-4 py-1.5 text-sm font-semibold shadow transition-all duration-300 ${
+              className={`rounded-full border px-5 py-1 text-sm font-semibold shadow transition-all duration-300 ${
                 selectedStore === store
-                  ? "border-yellow-600 bg-yellow-300 text-gray-900 ring-2 ring-yellow-500"
+                  ? "border-yellow-200 bg-yellow-300 text-gray-900 ring-1 ring-yellow-300"
                   : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
               }`}
             >
@@ -575,6 +553,15 @@ export default function Loja() {
             </button>
           ))}
         </div>
+        {isStoreSelectorExpanded && (
+          <div
+            ref={dropdownRef}
+            className="mt-2 rounded-xl border border-yellow-500 bg-white px-4 py-2 text-sm text-gray-800 shadow"
+          >
+            Não conseguimos identificar sua localização. Por favor, selecione
+            manualmente sua unidade acima.
+          </div>
+        )}
 
         {/* Quantidade de produtos encontrados */}
         <div className="mt-1 text-xs text-gray-500">
@@ -595,7 +582,7 @@ export default function Loja() {
           <input
             type="text"
             placeholder="Buscar produto..."
-            className="w-full rounded-xl border border-white/40 bg-white/60 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
+            className="w-full rounded-xl border border-white/40 bg-white/90 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -607,7 +594,7 @@ export default function Loja() {
           <div className="flex gap-2">
             {/* Categoria */}
             <select
-              className="w-1/2 rounded-xl border border-white/40 bg-white/60 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
+              className="w-full rounded-xl border border-white/40 bg-white/90 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
               value={selectedCategory || ""}
               onChange={(e) => {
                 setQuickFilterCategory(null);
@@ -628,7 +615,7 @@ export default function Loja() {
 
             {/* Subcategoria */}
             <select
-              className="w-1/2 rounded-xl border border-white/40 bg-white/60 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
+              className="w-full rounded-xl border border-white/40 bg-white/90 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
               value={selectedSubcategory || ""}
               onChange={(e) => {
                 setQuickFilterCategory(null);
