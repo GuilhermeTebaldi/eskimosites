@@ -74,7 +74,7 @@ export default function Loja() {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(
     null,
   );
-  const [showSubcategories, setShowSubcategories] = useState(false);
+  //const [showSubcategories, setShowSubcategories] = useState(false);
   const [quantityToAdd, setQuantityToAdd] = useState(1);
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
   //const [clickedProductId, setClickedProductId] = useState<number | null>(null);
@@ -89,7 +89,7 @@ export default function Loja() {
   //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
   // 🔥 Controle de altura da barra com base no scroll
   // 🔥 Controle de altura da barra com base no scroll
-  const [headerHeight, setHeaderHeight] = useState(160);
+  const [headerHeight, setHeaderHeight] = useState(120);
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function Loja() {
       const currentY = window.scrollY;
       const temCategoria = !!selectedCategory;
       const temSub = temCategoria && subcategories(selectedCategory).length > 0;
-      const maxHeight = temSub ? 100 : temCategoria ? 120 : 100;
+      const maxHeight = temSub ? 120 : temCategoria ? 120 : 120;
 
       if (currentY <= 0) {
         setHeaderHeight(maxHeight);
@@ -116,9 +116,9 @@ export default function Loja() {
 
   // 🔥 Ao clicar na barra → volta ao tamanho original
   const resetHeader = () => {
-    const temCategoria = !!selectedCategory;
-    const temSub = temCategoria && subcategories(selectedCategory).length > 0;
-    setHeaderHeight(temSub ? 280 : temCategoria ? 260 : 220);
+    //  const temCategoria = !!selectedCategory;
+    //const temSub = temCategoria && subcategories(selectedCategory).length > 0;
+    //  setHeaderHeight(temSub ? 280 : temCategoria ? 260 : 220);
   };
 
   const categories = Array.from(new Set(products.map((p) => p.categoryName)));
@@ -505,7 +505,7 @@ export default function Loja() {
   return (
     <div className="loja-container">
       {/* carrocel de produtos na pasta LinhaProdutosAtalhos.tsx */}
-      <div className="h-[250px]" />
+      <div className="h-[205px]" />
       <LinhaProdutosAtalhos
         onSelectCategorySubcategory={(category, subcategory) => {
           setQuickFilterCategory(category);
@@ -535,7 +535,7 @@ export default function Loja() {
           />
         </div>
 
-        {/* Mensagem de Escolha */}
+        {/* Mensagem de Escolha de Unidade */}
         {showInstruction && (
           <div className="flex justify-center">
             <div className="mb-3 animate-pulse text-sm text-gray-900">
@@ -544,13 +544,12 @@ export default function Loja() {
           </div>
         )}
 
-        {/* Botões de Seleção de Unidade */}
+        {/* Botão de Unidade */}
         <div
           ref={dropdownRef}
           className="relative z-50 flex justify-center py-1"
         >
           <div className="relative inline-block">
-            {/* Botão principal */}
             <button
               onClick={() =>
                 setIsStoreSelectorExpanded(!isStoreSelectorExpanded)
@@ -576,7 +575,7 @@ export default function Loja() {
                       }
                       setCart([]);
                       setShowInstruction(false);
-                      setIsStoreSelectorExpanded(false); // ✅ fecha menu ao clicar
+                      setIsStoreSelectorExpanded(false);
                     }}
                     className={`block w-full px-2 py-1 text-left text-xs ${
                       selectedStore === store
@@ -597,69 +596,13 @@ export default function Loja() {
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-2 px-4 pb-3">
-          <select
-            className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
-            value={selectedCategory || ""}
-            onChange={(e) => {
-              setQuickFilterCategory(null);
-              setQuickFilterSubcategory(null);
-              setSelectedCategory(e.target.value || null);
-              setSelectedSubcategory(null);
-              setShowSubcategories(true);
-              setSearch("");
-              setCurrentPage(1);
-
-              // 🔥 Ajusta altura dependendo da presença de subcategorias
-              if (!e.target.value) {
-                setShowSubcategories(false);
-                setHeaderHeight(130);
-              } else {
-                const temSub = subcategories(e.target.value).length > 0;
-                setHeaderHeight(temSub ? 130 : 130);
-              }
-            }}
-          >
-            <option value="">Menu de Sabores</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-
-          {selectedCategory &&
-            showSubcategories &&
-            subcategories(selectedCategory).length > 0 && (
-              <select
-                className="w-full max-w-md rounded border px-4 py-2 shadow-sm"
-                value={selectedSubcategory || ""}
-                onChange={(e) => {
-                  setQuickFilterCategory(null);
-                  setQuickFilterSubcategory(null);
-                  setSelectedSubcategory(e.target.value || null);
-                  setSearch("");
-                  setCurrentPage(1);
-
-                  // 🔥 Sempre mantém 310 quando há subcategoria ativa
-                  setHeaderHeight(290);
-                }}
-              >
-                <option value="">Escolha seu tipo</option>
-                {subcategories(selectedCategory).map((sub) => (
-                  <option key={sub} value={sub}>
-                    {sub}
-                  </option>
-                ))}
-              </select>
-            )}
-
-          <div className="text-xs text-gray-500">
-            {filtered.length} produto(s) encontrado(s)
-          </div>
+        {/* Quantidade de produtos encontrados */}
+        <div className="mt-1 text-xs text-gray-500">
+          {filtered.length} produto(s) encontrado(s)
         </div>
       </div>
-      {/* 🔍 Barra de pesquisa flutuante, sem fundo */}
+
+      {/* 🔍 Barra de pesquisa + filtros flutuantes com estilo unificado */}
       <div
         className="fixed z-40 w-full transition-all duration-300"
         style={{
@@ -667,17 +610,64 @@ export default function Loja() {
           background: "transparent",
         }}
       >
-        <div className="mx-auto w-full max-w-md px-4">
+        <div className="mx-auto w-full max-w-md space-y-2 px-4">
+          {/* Campo de busca */}
           <input
             type="text"
             placeholder="Buscar produto..."
-            className="focus:ring-9 w-full rounded border border-gray-300 bg-white px-4 py-2 shadow-md focus:outline-none focus:ring-blue-400"
+            className="w-full rounded border border-gray-300 bg-white px-4 py-2 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
               setCurrentPage(1);
             }}
           />
+
+          {/* Filtros sempre visíveis - mesmo estilo do input */}
+          <div className="flex gap-2">
+            {/* Categoria */}
+            <select
+              className="w-1/2 rounded border border-gray-300 bg-white px-4 py-2 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              value={selectedCategory || ""}
+              onChange={(e) => {
+                setQuickFilterCategory(null);
+                setQuickFilterSubcategory(null);
+                setSelectedCategory(e.target.value || null);
+                setSelectedSubcategory(null);
+                setSearch("");
+                setCurrentPage(1);
+              }}
+            >
+              <option value="">Categoria</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+
+            {/* Subcategoria - sempre mostra mesmo se vazio */}
+            <select
+              className="w-1/2 rounded border border-gray-300 bg-white px-4 py-2 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              value={selectedSubcategory || ""}
+              onChange={(e) => {
+                setQuickFilterCategory(null);
+                setQuickFilterSubcategory(null);
+                setSelectedSubcategory(e.target.value || null);
+                setSearch("");
+                setCurrentPage(1);
+              }}
+            >
+              <option value="">Tipo</option>
+              {(selectedCategory ? subcategories(selectedCategory) : []).map(
+                (sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ),
+              )}
+            </select>
+          </div>
         </div>
       </div>
 
