@@ -1236,10 +1236,9 @@ export default function Loja() {
             {/* Botões de ação */}
             <div className="mt-6 space-y-2">
               <button
-                onClick={async () => {
-                  await finalizeOrder(); // cria o pedido
-                  setShowPayment(false); // fecha modal Pix
-                  setShowConfirmation(true); // abre modal de confirmação
+                onClick={() => {
+                  setShowPayment(false); // só fecha o modal Pix
+                  setShowConfirmation(true); // mostra confirmação final
                 }}
                 className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
               >
