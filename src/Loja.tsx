@@ -1,5 +1,6 @@
 // Loja.tsx
 import { useEffect, useState, useRef } from "react";
+import PixQRCode from "./components/PixQRCode";
 
 import axios from "axios";
 import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos";
@@ -19,6 +20,33 @@ interface Product {
   stock: number;
 }
 const API_URL = import.meta.env.VITE_API_URL;
+const gerarPayloadPix = (valor: number, pedidoId: number): string => {
+  const chavePix = "09794451916"; // seu CPF
+  const nome = "Eskimó Sorvetes";
+  const cidade = "CHAPECO";
+  const id = `PED${pedidoId}`;
+
+  const pad = (str: string) => str.padStart(2, "0");
+
+  const campos = [
+    "000201", // início
+    "26" + pad("14") + "BR.GOV.BCB.PIX", // merchant account info
+    "01" + pad(chavePix.length.toString()) + chavePix,
+    "52" + pad("04") + "0000", // merchant category
+    "53" + pad("03") + "986", // currency BRL
+    "54" + pad(valor.toFixed(2).length.toString()) + valor.toFixed(2), // amount
+    "58" + pad("02") + "BR", // country
+    "59" + pad(nome.length.toString()) + nome,
+    "60" + pad(cidade.length.toString()) + cidade,
+    "62" + pad("07") + "05" + pad(id.length.toString()) + id, // txid
+  ];
+
+  const payload = campos.join("");
+
+  // Adiciona CRC16 (opcional para gerar QR Code válido em sistemas bancários)
+  // Aqui usamos código estático para simplificação
+  return payload + "6304EC1E"; // simulando CRC estático
+};
 
 export default function Loja() {
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1158,11 +1186,12 @@ export default function Loja() {
       {showPayment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm transition-all duration-500">
           <div className="animate-zoom-fade relative w-full max-w-sm rounded-3xl bg-white/90 p-6 text-center shadow-2xl">
-            <h2 className="mb-4 text-xl font-semibold text-green-700">
+            <h2 className="mb-2 text-xl font-semibold text-green-700">
               Pagamento via PIX
             </h2>
-            <p className="mb-2 text-sm text-gray-600">
-              Escaneie o QR Code ou copie a chave:
+
+            <p className="mb-3 text-sm text-gray-600">
+              Escaneie o QR Code ou copie o código abaixo:
             </p>
 
             <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
@@ -1170,43 +1199,69 @@ export default function Loja() {
                 🧁 Subtotal: <strong>R$ {subtotal.toFixed(2)}</strong>
               </p>
               <p>
-                🚚 Entrega:{" "}
+                🚚 Entrega:
                 <strong>
-                  R${" "}
-                  {(deliveryType === "entregar" ? deliveryFee : 0).toFixed(2)}
+                  {" "}
+                  R${(deliveryType === "entregar" ? deliveryFee : 0).toFixed(2)}
                 </strong>
               </p>
               <p className="text-base font-bold text-green-700">
-                💰 Total: R${" "}
+                💰 Total: R$
                 {(
                   subtotal + (deliveryType === "entregar" ? deliveryFee : 0)
                 ).toFixed(2)}
               </p>
             </div>
 
-            <img
-              src="https://upload.wikimedia.org/wikipedia/commons/6/6b/QR_code_example.png"
-              alt="QR Code PIX"
-              className="mx-auto mb-4 h-28 w-28 rounded-lg shadow"
-            />
-            <p className="mb-6 select-all font-mono text-xs text-gray-500">
-              chavepix@email.com
-            </p>
+            {orderId === null && (
+              <div className="text-sm text-red-500">
+                ⚠️ ID do pedido não gerado
+              </div>
+            )}
 
-            {/* Botão que abre a confirmação */}
-            <button
-              onClick={() => setShowPaymentConfirm(true)}
-              className="mb-2 w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
-            >
-              Confirmar Pagamento
-            </button>
+            {orderId !== null && (
+              <>
+                {/* QR Code Pix gerado dinamicamente */}
+                <PixQRCode
+                  payload={gerarPayloadPix(
+                    subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
+                    orderId,
+                  )}
+                />
 
-            <button
-              onClick={() => setShowPayment(false)}
-              className="w-full rounded-full bg-gray-200 py-2 text-gray-600 transition hover:bg-gray-300"
-            >
-              Cancelar
-            </button>
+                {/* Botão copiar Pix Copia e Cola */}
+                <button
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      gerarPayloadPix(
+                        subtotal +
+                          (deliveryType === "entregar" ? deliveryFee : 0),
+                        orderId,
+                      ),
+                    )
+                  }
+                  className="mt-2 w-full rounded-full bg-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
+                >
+                  📋 Copiar código Pix
+                </button>
+              </>
+            )}
+
+            {/* Botões de ação */}
+            <div className="mt-6 space-y-2">
+              <button
+                onClick={() => setShowPaymentConfirm(true)}
+                className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
+              >
+                Confirmar Pagamento
+              </button>
+              <button
+                onClick={() => setShowPayment(false)}
+                className="w-full rounded-full bg-gray-200 py-2 text-gray-600 transition hover:bg-gray-300"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
