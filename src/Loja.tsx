@@ -20,32 +20,28 @@ interface Product {
   stock: number;
 }
 const API_URL = import.meta.env.VITE_API_URL;
-const gerarPayloadPix = (valor: number, pedidoId: number): string => {
-  const chavePix = "09794451916"; // seu CPF
+const gerarPayloadPix = (valor: number): string => {
+  const chavePix = "09794451916"; // CPF da sua conta
   const nome = "Eskimó Sorvetes";
   const cidade = "CHAPECO";
-  const id = `PED${pedidoId}`;
+  const txid = "TEMP123"; // ID temporário
 
   const pad = (str: string) => str.padStart(2, "0");
 
-  const campos = [
-    "000201", // início
-    "26" + pad("14") + "BR.GOV.BCB.PIX", // merchant account info
+  const campos: string[] = [
+    "000201",
+    "26" + pad("14") + "BR.GOV.BCB.PIX",
     "01" + pad(chavePix.length.toString()) + chavePix,
-    "52" + pad("04") + "0000", // merchant category
-    "53" + pad("03") + "986", // currency BRL
-    "54" + pad(valor.toFixed(2).length.toString()) + valor.toFixed(2), // amount
-    "58" + pad("02") + "BR", // country
+    "52" + pad("04") + "0000",
+    "53" + pad("03") + "986",
+    "54" + pad(valor.toFixed(2).length.toString()) + valor.toFixed(2),
+    "58" + pad("02") + "BR",
     "59" + pad(nome.length.toString()) + nome,
     "60" + pad(cidade.length.toString()) + cidade,
-    "62" + pad("07") + "05" + pad(id.length.toString()) + id, // txid
+    "62" + pad("07") + "05" + pad(txid.length.toString()) + txid,
   ];
 
-  const payload = campos.join("");
-
-  // Adiciona CRC16 (opcional para gerar QR Code válido em sistemas bancários)
-  // Aqui usamos código estático para simplificação
-  return payload + "6304EC1E"; // simulando CRC estático
+  return campos.join("") + "6304EC1E";
 };
 
 export default function Loja() {
@@ -1216,7 +1212,6 @@ export default function Loja() {
                 <PixQRCode
                   payload={gerarPayloadPix(
                     subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
-                    orderId,
                   )}
                 />
 
@@ -1227,7 +1222,6 @@ export default function Loja() {
                       gerarPayloadPix(
                         subtotal +
                           (deliveryType === "entregar" ? deliveryFee : 0),
-                        orderId,
                       ),
                     )
                   }
@@ -1241,11 +1235,16 @@ export default function Loja() {
             {/* Botões de ação */}
             <div className="mt-6 space-y-2">
               <button
-                onClick={() => setShowPaymentConfirm(true)}
+                onClick={async () => {
+                  await finalizeOrder(); // cria o pedido
+                  setShowPayment(false); // fecha modal Pix
+                  setShowConfirmation(true); // abre modal de confirmação
+                }}
                 className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
               >
                 Confirmar Pagamento
               </button>
+
               <button
                 onClick={() => setShowPayment(false)}
                 className="w-full rounded-full bg-gray-200 py-2 text-gray-600 transition hover:bg-gray-300"
