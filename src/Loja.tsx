@@ -773,10 +773,10 @@ export default function Loja() {
               return a.name.localeCompare(b.name);
             });
 
-            // Paginação: 12 produtos por página
-            const inicio = (currentPage - 1) * productsPerPage;
-            const fim = inicio + productsPerPage;
-            const paginados = produtosOrdenados.slice(inicio, fim);
+            const paginados = produtosOrdenados.slice(
+              0,
+              currentPage * productsPerPage,
+            );
 
             return (
               <div className="produtos-grid">
@@ -806,92 +806,17 @@ export default function Loja() {
         )}
       </div>
 
-      {/* Paginação */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white py-2 shadow-inner">
-        <div className="mx-auto flex max-w-[360px] items-center justify-center gap-1 overflow-x-auto px-4">
-          {/* Botão Anterior */}
-          {currentPage > 1 && (
-            <button
-              onClick={() => {
-                setCurrentPage(currentPage - 1);
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-600 transition hover:bg-gray-200"
-            >
-              ‹
-            </button>
-          )}
-
-          {/* Primeira página */}
-          {currentPage > 3 && (
-            <>
-              <button
-                onClick={() => {
-                  setCurrentPage(1);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-600 transition hover:bg-gray-200"
-              >
-                1
-              </button>
-              <span className="px-1 text-gray-400">...</span>
-            </>
-          )}
-
-          {/* Páginas principais */}
-          {Array.from({ length: totalPages }, (_, i) => i + 1)
-            .filter((page) => {
-              if (currentPage <= 3) return page <= 5;
-              if (currentPage >= totalPages - 2) return page >= totalPages - 4;
-              return Math.abs(page - currentPage) <= 2;
-            })
-            .map((page) => (
-              <button
-                key={page}
-                onClick={() => {
-                  setCurrentPage(page);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className={`h-8 w-8 rounded border text-sm font-semibold transition-all ${
-                  page === currentPage
-                    ? "bg-red-600 text-white shadow"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-
-          {/* Última página */}
-          {currentPage < totalPages - 2 && (
-            <>
-              <span className="px-1 text-gray-400">...</span>
-              <button
-                onClick={() => {
-                  setCurrentPage(totalPages);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-600 transition hover:bg-gray-200"
-              >
-                {totalPages}
-              </button>
-            </>
-          )}
-
-          {/* Botão Próximo */}
-          {currentPage < totalPages && (
-            <button
-              onClick={() => {
-                setCurrentPage(currentPage + 1);
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="h-8 w-8 rounded border bg-gray-100 text-sm text-gray-900 transition hover:bg-gray-200"
-            >
-              ›
-            </button>
-          )}
+      {currentPage < totalPages && (
+        <div className="my-6 text-center">
+          <button
+            onClick={() => setCurrentPage(currentPage + 1)}
+            className="rounded-full bg-yellow-500 px-6 py-2 text-white shadow-lg transition-all hover:bg-yellow-600"
+          >
+            + Ver mais produtos
+          </button>
         </div>
-      </div>
+      )}
+
       {/* Botão "Meus Pedidos" */}
       <Link
         onClick={() => setShowCart(!showCart)}
