@@ -807,7 +807,7 @@ export default function Loja() {
       </div>
 
       {currentPage < totalPages && (
-        <div className="my-6 text-center">
+        <div className="mb-24 mt-4 text-center">
           <button
             onClick={() => setCurrentPage(currentPage + 1)}
             className="rounded-full bg-yellow-500 px-6 py-2 text-white shadow-lg transition-all hover:bg-yellow-600"
