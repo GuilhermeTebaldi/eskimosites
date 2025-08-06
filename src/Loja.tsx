@@ -469,13 +469,22 @@ export default function Loja() {
   };
 
   const finalizeOrder = async () => {
+    if (
+      !customerName.trim() ||
+      (deliveryType === "entregar" && !address.trim())
+    ) {
+      alert("Por favor, preencha todas as informações obrigatórias.");
+      return;
+    }
+
+    if (!selectedStore) {
+      alert(
+        "Erro: Nenhuma unidade selecionada. Por favor, selecione a loja antes de finalizar o pedido.",
+      );
+      return;
+    }
+
     try {
-      if (!selectedStore) {
-        alert(
-          "Erro: Nenhuma unidade selecionada. Por favor, selecione a loja antes de finalizar o pedido.",
-        );
-        return;
-      }
       const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
       const realTotal = subtotal + realDeliveryFee;
 
@@ -507,25 +516,17 @@ export default function Loja() {
         payload,
       );
 
-      console.log("📦 Resposta da API:", response.data);
-
       const { id } = response.data;
 
       if (typeof id === "number" && !isNaN(id)) {
         setOrderId(id);
+        setShowCheckout(false);
+        setShowPayment(true);
         console.log("✅ ID do pedido salvo:", id);
       } else {
         alert("Erro: número do pedido não foi retornado corretamente.");
         console.error("❌ ID inválido:", id);
-        return;
       }
-
-      setCart([]);
-      setShowPayment(false);
-      setShowConfirmation(true);
-      setCustomerName("");
-      setAddress("");
-      setDeliveryType("retirar");
     } catch (err) {
       console.error("❌ Erro ao enviar pedido:", err);
       alert("Erro ao enviar pedido.");
