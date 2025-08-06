@@ -20,6 +20,7 @@ interface Product {
   stock: number;
 }
 const API_URL = import.meta.env.VITE_API_URL;
+
 const gerarPayloadPix = (valor: number): string => {
   const chavePix = "09794451916"; // CPF da sua conta
   const nome = "Eskimó Sorvetes";
@@ -79,7 +80,7 @@ export default function Loja() {
   // const [animateButtons, setAnimateButtons] = useState(true);
   const [search, setSearch] = useState("");
   const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
-
+  const [componentKey, setComponentKey] = useState(0); //
   const [currentPage, setCurrentPage] = useState(1);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -466,6 +467,7 @@ export default function Loja() {
       return;
     }
     setShowCheckout(true);
+    setOrderId(null); // limpa ID se for iniciar novo pedido
   };
 
   const finalizeOrder = async () => {
@@ -535,7 +537,7 @@ export default function Loja() {
   };
 
   return (
-    <div className="loja-container">
+    <div key={componentKey} className="loja-container">
       {/* carrocel de produtos na pasta LinhaProdutosAtalhos.tsx */}
       <div className="h-[205px]" />
       <LinhaProdutosAtalhos
@@ -1335,6 +1337,7 @@ export default function Loja() {
                 setAddress("");
                 setCustomAddress("");
                 setDeliveryType("retirar");
+                setComponentKey((prev) => prev + 1); // 🔁 força recriação visual
 
                 // 🔄 Recarrega produtos para atualizar o estoque na tela
                 if (selectedStore) {
@@ -1348,6 +1351,8 @@ export default function Loja() {
                       }
                     });
                 }
+                // 🔁 força reset visual completo do componente
+                setComponentKey((prev) => prev + 1);
               }}
               className="rounded-full bg-green-600 px-6 py-2 text-white hover:bg-green-700"
             >
