@@ -1203,31 +1203,29 @@ export default function Loja() {
               </p>
             </div>
 
-            {orderId !== null && (
-              <>
-                {/* QR Code Pix gerado dinamicamente */}
-                <PixQRCode
-                  payload={gerarPayloadPix(
-                    subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
-                  )}
-                />
+            {/* QR Code Pix gerado dinamicamente */}
+            <>
+              <PixQRCode
+                payload={gerarPayloadPix(
+                  subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
+                )}
+              />
 
-                {/* Botão copiar Pix Copia e Cola */}
-                <button
-                  onClick={() =>
-                    navigator.clipboard.writeText(
-                      gerarPayloadPix(
-                        subtotal +
-                          (deliveryType === "entregar" ? deliveryFee : 0),
-                      ),
-                    )
-                  }
-                  className="mt-2 w-full rounded-full bg-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-                >
-                  📋 Copiar código Pix
-                </button>
-              </>
-            )}
+              {/* Botão copiar Pix Copia e Cola */}
+              <button
+                onClick={() =>
+                  navigator.clipboard.writeText(
+                    gerarPayloadPix(
+                      subtotal +
+                        (deliveryType === "entregar" ? deliveryFee : 0),
+                    ),
+                  )
+                }
+                className="mt-2 w-full rounded-full bg-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
+              >
+                📋 Copiar código Pix
+              </button>
+            </>
 
             {/* Botões de ação */}
             <div className="mt-6 space-y-2">
