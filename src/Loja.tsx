@@ -630,6 +630,7 @@ export default function Loja() {
               setSelectedSubcategory(null);
               setQuickFilterCategory(null);
               setQuickFilterSubcategory(null);
+              window.scrollTo({ top: 0, behavior: "smooth" }); // 🔥 sobe pro topo
             }}
           />
 
@@ -647,6 +648,7 @@ export default function Loja() {
                   setSelectedSubcategory(null);
                   setSearch("");
                   setCurrentPage(1);
+                  window.scrollTo({ top: 0, behavior: "smooth" }); // 🔥 sobe pro topo
                 }}
               >
                 <option value="">Categoria</option>
@@ -669,6 +671,7 @@ export default function Loja() {
                   setSelectedSubcategory(e.target.value || null);
                   setSearch("");
                   setCurrentPage(1);
+                  window.scrollTo({ top: 0, behavior: "smooth" }); // 🔥 sobe pro topo
                 }}
               >
                 <option value="">Tipo</option>
