@@ -376,10 +376,13 @@ export default function Loja() {
       searchableText.includes(term),
     );
 
-    const matchesCategory = quickFilterCategory
-      ? p.categoryName === quickFilterCategory
-      : selectedCategory
-        ? p.categoryName === selectedCategory
+    const matchesCategory =
+      search.trim() === ""
+        ? quickFilterCategory
+          ? p.categoryName === quickFilterCategory
+          : selectedCategory
+            ? p.categoryName === selectedCategory
+            : true
         : true;
 
     const matchesSubcategory = quickFilterSubcategory
@@ -623,6 +626,10 @@ export default function Loja() {
             onChange={(e) => {
               setSearch(e.target.value);
               setCurrentPage(1);
+              setSelectedCategory(null);
+              setSelectedSubcategory(null);
+              setQuickFilterCategory(null);
+              setQuickFilterSubcategory(null);
             }}
           />
 
