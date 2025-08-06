@@ -1203,12 +1203,6 @@ export default function Loja() {
               </p>
             </div>
 
-            {orderId === null && (
-              <div className="text-sm text-red-500">
-                ⚠️ ID do pedido não gerado
-              </div>
-            )}
-
             {orderId !== null && (
               <>
                 {/* QR Code Pix gerado dinamicamente */}
