@@ -1232,9 +1232,10 @@ export default function Loja() {
             {/* Botões de ação */}
             <div className="mt-6 space-y-2">
               <button
-                onClick={() => {
-                  setShowPayment(false); // Fecha o modal Pix
-                  setShowPaymentConfirm(true); // Abre o modal de confirmação
+                onClick={async () => {
+                  await finalizeOrder(); // 🔥 Cria o pedido
+                  setShowPayment(false); // fecha modal Pix
+                  setShowConfirmation(true); // abre modal confirmação
                 }}
                 className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
               >
@@ -1248,42 +1249,6 @@ export default function Loja() {
                 Cancelar
               </button>
             </div>
-            {showPaymentConfirm && (
-              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
-                <div className="animate-zoom-fade w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
-                  <h3 className="mb-3 text-lg font-bold text-gray-800">
-                    Confirmação
-                  </h3>
-                  <p className="mb-4 text-sm text-gray-600">
-                    Você confirma que{" "}
-                    <strong>já realizou o pagamento via PIX</strong>?
-                    <br />
-                    Esse passo finaliza o seu pedido.
-                  </p>
-                  <div className="flex justify-center gap-3">
-                    <button
-                      onClick={() => {
-                        setShowPaymentConfirm(false); // fecha este modal
-                        setShowPayment(true); // volta para o modal do Pix
-                      }}
-                      className="rounded-full bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      onClick={async () => {
-                        setShowPaymentConfirm(false); // fecha confirmação
-                        await finalizeOrder(); // 🔥 cria pedido
-                        setShowConfirmation(true); // mostra número do pedido
-                      }}
-                      className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
-                    >
-                      Sim, Confirmar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
