@@ -1321,7 +1321,34 @@ export default function Loja() {
             )}
 
             <button
-              onClick={() => setShowConfirmation(false)}
+              onClick={() => {
+                setShowConfirmation(false);
+                setOrderId(null); // limpa ID do pedido
+                setCart([]); // limpa carrinho
+                setShowCheckout(false); // fecha modal se algo ficou aberto
+                setShowPayment(false); // fecha modal Pix se algo ficou aberto
+                setCustomerName(""); // limpa nome
+                setStreet(""); // limpa rua
+                setNumber(""); // limpa número
+                setComplement(""); // limpa complemento
+                setPhoneNumber(""); // limpa WhatsApp
+                setAddress("");
+                setCustomAddress("");
+                setDeliveryType("retirar");
+
+                // 🔄 Recarrega produtos para atualizar o estoque na tela
+                if (selectedStore) {
+                  axios
+                    .get<
+                      Product[]
+                    >(`${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`)
+                    .then((res) => {
+                      if (Array.isArray(res.data)) {
+                        setProducts(res.data);
+                      }
+                    });
+                }
+              }}
               className="rounded-full bg-green-600 px-6 py-2 text-white hover:bg-green-700"
             >
               Voltar para Loja
