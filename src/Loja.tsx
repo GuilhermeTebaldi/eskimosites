@@ -813,9 +813,10 @@ export default function Loja() {
         <div className="mb-24 mt-4 text-center">
           <button
             onClick={() => setCurrentPage(currentPage + 1)}
-            className="rounded-full bg-yellow-500 px-6 py-2 text-white shadow-lg transition-all hover:bg-yellow-600"
+            className="inline-flex items-center gap-2 rounded-full bg-yellow-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-yellow-600 hover:shadow-xl active:scale-95"
           >
-            + Ver mais produtos
+            <span className="animate-bounce text-xl">↓</span>
+            Carregar mais
           </button>
         </div>
       )}
