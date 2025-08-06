@@ -469,6 +469,7 @@ export default function Loja() {
   };
 
   const finalizeOrder = async () => {
+    if (orderId !== null) return; // ✅ já existe um pedido criado
     if (
       !customerName.trim() ||
       (deliveryType === "entregar" && !address.trim())
@@ -1136,7 +1137,8 @@ export default function Loja() {
                   return;
                 }
 
-                await finalizeOrder(); // <- agora o pedido é criado primeiro
+                // ❌ NUNCA deve criar o pedido aqui
+                // await finalizeOrder(); ⛔️ REMOVER!
                 setShowCheckout(false);
                 setShowPayment(true);
               }}
@@ -1236,9 +1238,10 @@ export default function Loja() {
             {/* Botões de ação */}
             <div className="mt-6 space-y-2">
               <button
-                onClick={() => {
-                  setShowPayment(false); // só fecha o modal Pix
-                  setShowConfirmation(true); // mostra confirmação final
+                onClick={async () => {
+                  await finalizeOrder(); // 🔥 Cria o pedido
+                  setShowPayment(false); // fecha modal Pix
+                  setShowConfirmation(true); // abre modal confirmação
                 }}
                 className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
               >
