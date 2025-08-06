@@ -472,18 +472,6 @@ export default function Loja() {
     setShowCheckout(true);
   };
 
-  const confirmOrder = () => {
-    if (
-      !customerName.trim() ||
-      (deliveryType === "entregar" && !address.trim())
-    ) {
-      alert("Por favor, preencha todas as informações obrigatórias.");
-      return;
-    }
-    setShowCheckout(false);
-    setShowPayment(true);
-  };
-
   const finalizeOrder = async () => {
     try {
       if (!selectedStore) {
@@ -1150,7 +1138,10 @@ export default function Loja() {
                   await tentarRecalcularEntrega();
                   return;
                 }
-                confirmOrder();
+
+                await finalizeOrder(); // <- agora o pedido é criado primeiro
+                setShowCheckout(false);
+                setShowPayment(true);
               }}
               disabled={deliveryType === "entregar" && deliveryFee === 0}
               className={`mt-6 w-full rounded-full py-2 font-semibold transition ${
