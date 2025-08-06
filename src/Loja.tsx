@@ -358,18 +358,36 @@ export default function Loja() {
     }
   }, [products]);
 
+  const normalize = (text: string) =>
+    text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, ""); // remove acentos
+
+  // barra de pesquisa Busca por nome e descrição
   const filtered = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const searchTerms = normalize(search).split(" ").filter(Boolean);
+
+    const searchableText = normalize(
+      `${p.name} ${p.description} ${p.subcategoryName ?? ""}`,
+    );
+
+    const matchesSearch = searchTerms.every((term) =>
+      searchableText.includes(term),
+    );
+
     const matchesCategory = quickFilterCategory
       ? p.categoryName === quickFilterCategory
       : selectedCategory
         ? p.categoryName === selectedCategory
         : true;
+
     const matchesSubcategory = quickFilterSubcategory
       ? p.subcategoryName === quickFilterSubcategory
       : selectedSubcategory
         ? p.subcategoryName === selectedSubcategory
         : true;
+
     return matchesSearch && matchesCategory && matchesSubcategory;
   });
 
@@ -611,47 +629,51 @@ export default function Loja() {
           {/* Filtros - categoria e subcategoria */}
           <div className="flex gap-2">
             {/* Categoria */}
-            <select
-              className="w-full rounded-xl border border-white/40 bg-white/90 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
-              value={selectedCategory || ""}
-              onChange={(e) => {
-                setQuickFilterCategory(null);
-                setQuickFilterSubcategory(null);
-                setSelectedCategory(e.target.value || null);
-                setSelectedSubcategory(null);
-                setSearch("");
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">Categoria</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+            <div className="w-1/2 rounded-xl bg-white/90 shadow-md backdrop-blur-md">
+              <select
+                className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-sm text-gray-800 focus:outline-none"
+                value={selectedCategory || ""}
+                onChange={(e) => {
+                  setQuickFilterCategory(null);
+                  setQuickFilterSubcategory(null);
+                  setSelectedCategory(e.target.value || null);
+                  setSelectedSubcategory(null);
+                  setSearch("");
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="">Categoria</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Subcategoria */}
-            <select
-              className="w-full rounded-xl border border-white/40 bg-white/90 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
-              value={selectedSubcategory || ""}
-              onChange={(e) => {
-                setQuickFilterCategory(null);
-                setQuickFilterSubcategory(null);
-                setSelectedSubcategory(e.target.value || null);
-                setSearch("");
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">Tipo</option>
-              {(selectedCategory ? subcategories(selectedCategory) : []).map(
-                (sub) => (
-                  <option key={sub} value={sub}>
-                    {sub}
-                  </option>
-                ),
-              )}
-            </select>
+            <div className="w-1/2 rounded-xl bg-white/90 shadow-md backdrop-blur-md">
+              <select
+                className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-sm text-gray-800 focus:outline-none"
+                value={selectedSubcategory || ""}
+                onChange={(e) => {
+                  setQuickFilterCategory(null);
+                  setQuickFilterSubcategory(null);
+                  setSelectedSubcategory(e.target.value || null);
+                  setSearch("");
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="">Tipo</option>
+                {(selectedCategory ? subcategories(selectedCategory) : []).map(
+                  (sub) => (
+                    <option key={sub} value={sub}>
+                      {sub}
+                    </option>
+                  ),
+                )}
+              </select>
+            </div>
           </div>
         </div>
       </div>
