@@ -24,28 +24,26 @@ const API_URL = import.meta.env.VITE_API_URL;
 // Loja.tsx (ou onde estiver sua lógica Pix)
 const gerarPayloadPix = (valor: number): string => {
   const chavePix = "f7b44974-7a9f-4253-bdd0-f37341d11e9f";
-  const nome = "Guilherme Tebaldi"; // até 25 caracteres, sem acento
-  const cidade = "SAO PAULO"; // até 15 caracteres
-  const txid = "Km9MTvN9Gx"; // pode ser vazio
+  const nome = "Guilherme Tebaldi";
+  const cidade = "SAO PAULO";
+  const txid = "Km9MTvN9Gx";
 
   const pad = (input: number) => input.toString().padStart(2, "0");
 
-  const valorFormatado = valor.toFixed(2); // ex: "12.15"
+  const valorFormatado = valor.toFixed(2); // Ex: "12.15"
+  const tamanhoValor = valorFormatado.length; // Ex: 5
 
   const merchantAccountInfo = `0014BR.GOV.BCB.PIX01${pad(chavePix.length)}${chavePix}`;
   const gui = `26${pad(merchantAccountInfo.length)}${merchantAccountInfo}`;
 
-  const additionalDataField =
-    txid.length > 0
-      ? `62${pad(4 + txid.length)}050${pad(txid.length)}${txid}`
-      : "";
+  const additionalDataField = `62${pad(4 + txid.length)}050${pad(txid.length)}${txid}`;
 
   const payloadSemCRC =
     "000201" +
     gui +
     "52040000" +
     "5303986" +
-    `54${pad(valorFormatado.length)}${valorFormatado}` +
+    `54${pad(tamanhoValor)}${valorFormatado}` +
     "5802BR" +
     `59${pad(nome.length)}${nome}` +
     `60${pad(cidade.length)}${cidade}` +
@@ -64,8 +62,7 @@ const gerarPayloadPix = (valor: number): string => {
     return crc.toString(16).toUpperCase().padStart(4, "0");
   };
 
-  const payloadFinal = payloadSemCRC + crc16(payloadSemCRC);
-  return payloadFinal;
+  return payloadSemCRC + crc16(payloadSemCRC);
 };
 
 export default function Loja() {
