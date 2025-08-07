@@ -1283,39 +1283,6 @@ export default function Loja() {
           </div>
         </div>
       )}
-      {/* Modal de Confirmação elegante */}
-      {showPaymentConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
-          <div className="animate-zoom-fade w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
-            <h3 className="mb-3 text-lg font-bold text-gray-800">
-              Confirmação
-            </h3>
-            <p className="mb-4 text-sm text-gray-600">
-              Você confirma que <strong>já realizou o pagamento via PIX</strong>
-              ?
-              <br />
-              Esse passo finaliza o seu pedido.
-            </p>
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={() => setShowPaymentConfirm(false)}
-                className="rounded-full bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-              >
-                Voltar
-              </button>
-              <button
-                onClick={() => {
-                  setShowPaymentConfirm(false);
-                  finalizeOrder();
-                }}
-                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
-              >
-                Sim, Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal Confirmação */}
       {showConfirmation && (
