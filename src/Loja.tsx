@@ -23,41 +23,48 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 // Loja.tsx (ou onde estiver sua lógica Pix)
 const gerarPayloadPix = (valor: number): string => {
-  const chavePix: string = "09794451916"; // CPF
-  const nome: string = "Guilherme Tebaldi";
-  const cidade: string = "CHAPECO";
-  const identificador: string = ""; // opcional
+  const chavePix = "09794451916";
+  const nome = "GUILHERME TEBALDI"; // Máx. 25 caracteres
+  const cidade = "CHAPECO"; // Máx. 15 caracteres
+  const txid = "PEDIDO123"; // Pode ser vazio ""
 
-  const formatString = (value: string) => value.padStart(2, "0");
+  const removeChars = (str: string) =>
+    str
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase();
 
-  const payload =
-    "000201" + // Início do payload
-    "26" +
-    formatString((4 + chavePix.length).toString()) +
-    "0014BR.GOV.BCB.PIX01" +
-    formatString(chavePix.length.toString()) +
-    chavePix +
-    "52040000" + // Merchant Category Code
-    "5303986" + // Moeda (986 = BRL)
-    "54" +
-    formatString(valor.toFixed(2).replace(".", "").length.toString()) +
-    valor.toFixed(2).replace(".", "") + // Valor
-    "5802BR" + // País
-    "59" +
-    formatString(nome.length.toString()) +
-    nome +
-    "60" +
-    formatString(cidade.length.toString()) +
-    cidade +
-    (identificador
-      ? "62" +
-        formatString((4 + identificador.length).toString()) +
-        "0503" +
-        identificador
-      : "") +
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  const merchantAccountInfo = [
+    "0014BR.GOV.BCB.PIX",
+    "01" + pad(chavePix.length) + chavePix,
+  ].join("");
+
+  const gui = "26" + pad(merchantAccountInfo.length) + merchantAccountInfo;
+  const merchantCategoryCode = "52040000";
+  const transactionCurrency = "5303986";
+  const transactionAmount =
+    "54" + pad(valor.toFixed(2).length) + valor.toFixed(2);
+  const countryCode = "5802BR";
+  const merchantName = "59" + pad(nome.length) + removeChars(nome);
+  const merchantCity = "60" + pad(cidade.length) + removeChars(cidade);
+  const additionalDataField = txid
+    ? "62" + pad(4 + txid.length) + "0503" + txid
+    : "";
+
+  const payloadSemCRC =
+    "000201" +
+    gui +
+    merchantCategoryCode +
+    transactionCurrency +
+    transactionAmount +
+    countryCode +
+    merchantName +
+    merchantCity +
+    additionalDataField +
     "6304";
 
-  // Calcula CRC16 (obrigatório)
   const crc16 = (str: string): string => {
     let crc = 0xffff;
     for (const c of str) {
@@ -70,8 +77,7 @@ const gerarPayloadPix = (valor: number): string => {
     return crc.toString(16).toUpperCase().padStart(4, "0");
   };
 
-  const finalPayload = payload + crc16(payload);
-  return finalPayload;
+  return payloadSemCRC + crc16(payloadSemCRC);
 };
 
 export default function Loja() {
