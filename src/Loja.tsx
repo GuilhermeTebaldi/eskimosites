@@ -21,28 +21,57 @@ interface Product {
 }
 const API_URL = import.meta.env.VITE_API_URL;
 
+// Loja.tsx (ou onde estiver sua lógica Pix)
 const gerarPayloadPix = (valor: number): string => {
-  const chavePix = "09794451916"; // CPF da sua conta
-  const nome = "Eskimó Sorvetes";
-  const cidade = "CHAPECO";
-  const txid = "TEMP123"; // ID temporário
+  const chavePix: string = "09794451916"; // CPF
+  const nome: string = "Guilherme Tebaldi";
+  const cidade: string = "CHAPECO";
+  const identificador: string = ""; // opcional
 
-  const pad = (str: string) => str.padStart(2, "0");
+  const formatString = (value: string) => value.padStart(2, "0");
 
-  const campos: string[] = [
-    "000201",
-    "26" + pad("14") + "BR.GOV.BCB.PIX",
-    "01" + pad(chavePix.length.toString()) + chavePix,
-    "52" + pad("04") + "0000",
-    "53" + pad("03") + "986",
-    "54" + pad(valor.toFixed(2).length.toString()) + valor.toFixed(2),
-    "58" + pad("02") + "BR",
-    "59" + pad(nome.length.toString()) + nome,
-    "60" + pad(cidade.length.toString()) + cidade,
-    "62" + pad("07") + "05" + pad(txid.length.toString()) + txid,
-  ];
+  const payload =
+    "000201" + // Início do payload
+    "26" +
+    formatString((4 + chavePix.length).toString()) +
+    "0014BR.GOV.BCB.PIX01" +
+    formatString(chavePix.length.toString()) +
+    chavePix +
+    "52040000" + // Merchant Category Code
+    "5303986" + // Moeda (986 = BRL)
+    "54" +
+    formatString(valor.toFixed(2).replace(".", "").length.toString()) +
+    valor.toFixed(2).replace(".", "") + // Valor
+    "5802BR" + // País
+    "59" +
+    formatString(nome.length.toString()) +
+    nome +
+    "60" +
+    formatString(cidade.length.toString()) +
+    cidade +
+    (identificador
+      ? "62" +
+        formatString((4 + identificador.length).toString()) +
+        "0503" +
+        identificador
+      : "") +
+    "6304";
 
-  return campos.join("") + "6304EC1E";
+  // Calcula CRC16 (obrigatório)
+  const crc16 = (str: string): string => {
+    let crc = 0xffff;
+    for (const c of str) {
+      crc ^= c.charCodeAt(0) << 8;
+      for (let i = 0; i < 8; i++) {
+        crc = (crc << 1) ^ (crc & 0x8000 ? 0x1021 : 0);
+        crc &= 0xffff;
+      }
+    }
+    return crc.toString(16).toUpperCase().padStart(4, "0");
+  };
+
+  const finalPayload = payload + crc16(payload);
+  return finalPayload;
 };
 
 export default function Loja() {
