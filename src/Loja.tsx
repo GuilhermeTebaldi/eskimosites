@@ -23,46 +23,37 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 // Loja.tsx (ou onde estiver sua lógica Pix)
 const gerarPayloadPix = (valor: number): string => {
-  const chavePix = "09794451916";
-  const nome = "GUILHERME TEBALDI"; // Máx. 25 caracteres
-  const cidade = "CHAPECO"; // Máx. 15 caracteres
-  const txid = "PEDIDO123"; // Pode ser vazio ""
-
-  const removeChars = (str: string) =>
-    str
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toUpperCase();
+  const chavePix = "f7b44974-7a9f-4253-bdd0-f37341d11e9f";
+  const nome = "Guilherme Tebaldi"; // deixe exatamente assim
+  const cidade = "SAO PAULO"; // ou CHAPECO, se for o mesmo registrado
+  const txid = "Km9MTvN9Gx"; // pode ser dinâmico depois
 
   const pad = (n: number) => n.toString().padStart(2, "0");
 
-  const merchantAccountInfo = [
-    "0014BR.GOV.BCB.PIX",
-    "01" + pad(chavePix.length) + chavePix,
-  ].join("");
-
-  const gui = "26" + pad(merchantAccountInfo.length) + merchantAccountInfo;
-  const merchantCategoryCode = "52040000";
-  const transactionCurrency = "5303986";
-  const transactionAmount =
-    "54" + pad(valor.toFixed(2).length) + valor.toFixed(2);
-  const countryCode = "5802BR";
-  const merchantName = "59" + pad(nome.length) + removeChars(nome);
-  const merchantCity = "60" + pad(cidade.length) + removeChars(cidade);
-  const additionalDataField = txid
-    ? "62" + pad(4 + txid.length) + "0503" + txid
-    : "";
-
   const payloadSemCRC =
     "000201" +
-    gui +
-    merchantCategoryCode +
-    transactionCurrency +
-    transactionAmount +
-    countryCode +
-    merchantName +
-    merchantCity +
-    additionalDataField +
+    "26" +
+    pad(14 + chavePix.length) +
+    "0014BR.GOV.BCB.PIX01" +
+    pad(chavePix.length) +
+    chavePix +
+    "52040000" +
+    "5303986" +
+    "54" +
+    pad(valor.toFixed(2).length) +
+    valor.toFixed(2) +
+    "5802BR" +
+    "59" +
+    pad(nome.length) +
+    nome +
+    "60" +
+    pad(cidade.length) +
+    cidade +
+    "62" +
+    pad(4 + txid.length) +
+    "050" +
+    pad(txid.length) +
+    txid +
     "6304";
 
   const crc16 = (str: string): string => {
@@ -77,7 +68,8 @@ const gerarPayloadPix = (valor: number): string => {
     return crc.toString(16).toUpperCase().padStart(4, "0");
   };
 
-  return payloadSemCRC + crc16(payloadSemCRC);
+  const payloadFinal = payloadSemCRC + crc16(payloadSemCRC);
+  return payloadFinal;
 };
 
 export default function Loja() {
