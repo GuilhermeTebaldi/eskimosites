@@ -1282,7 +1282,7 @@ export default function Loja() {
 
       {/* Modal de Pedido Confirmado */}
       {showConfirmation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50">
           <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
             <span className="mb-6 block text-5xl text-green-600">✔️</span>
             <h2 className="mb-4 text-2xl font-bold text-green-700">
