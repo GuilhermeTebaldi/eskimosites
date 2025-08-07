@@ -1206,31 +1206,36 @@ export default function Loja() {
             </div>
 
             {/* QR Code Pix gerado dinamicamente */}
-            <PixQRCode
-              payload={gerarPayloadPix(
-                subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
-              )}
-            />
+            <>
+              <PixQRCode
+                payload={gerarPayloadPix(
+                  subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
+                )}
+              />
 
-            {/* Botão copiar Pix Copia e Cola */}
-            <button
-              onClick={() =>
-                navigator.clipboard.writeText(
-                  gerarPayloadPix(
-                    subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
-                  ),
-                )
-              }
-              className="mt-2 w-full rounded-full bg-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-            >
-              📋 Copiar código Pix
-            </button>
+              {/* Botão copiar Pix Copia e Cola */}
+              <button
+                onClick={() =>
+                  navigator.clipboard.writeText(
+                    gerarPayloadPix(
+                      subtotal +
+                        (deliveryType === "entregar" ? deliveryFee : 0),
+                    ),
+                  )
+                }
+                className="mt-2 w-full rounded-full bg-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
+              >
+                📋 Copiar código Pix
+              </button>
+            </>
 
             {/* Botões de ação */}
             <div className="mt-6 space-y-2">
               <button
-                onClick={() => {
-                  setShowPaymentConfirm(true); // abre modal de confirmação
+                onClick={async () => {
+                  await finalizeOrder(); // 🔥 Cria o pedido
+                  setShowPayment(false); // fecha modal Pix
+                  setShowConfirmation(true); // abre modal confirmação
                 }}
                 className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
               >
@@ -1269,11 +1274,9 @@ export default function Loja() {
                 Voltar
               </button>
               <button
-                onClick={async () => {
+                onClick={() => {
                   setShowPaymentConfirm(false);
-                  setShowPayment(false);
-                  await finalizeOrder();
-                  setShowConfirmation(true);
+                  finalizeOrder();
                 }}
                 className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
               >
