@@ -24,18 +24,16 @@ const API_URL = import.meta.env.VITE_API_URL;
 // Loja.tsx (ou onde estiver sua lógica Pix)
 const gerarPayloadPix = (valor: number): string => {
   const chavePix = "f7b44974-7a9f-4253-bdd0-f37341d11e9f";
-  const nome = "Guilherme Tebaldi";
-  const cidade = "SAO PAULO";
-  const txid = "Km9MTvN9Gx";
+  const nome = "Guilherme Tebaldi"; // igual ao do Nubank
+  const cidade = "SAO PAULO"; // igual ao do Nubank
+  const txid = "XGw0P72vZ8"; // pode ser dinâmico depois
 
   const pad = (input: number) => input.toString().padStart(2, "0");
-
   const valorFormatado = valor.toFixed(2); // Ex: "12.15"
   const tamanhoValor = valorFormatado.length; // Ex: 5
 
   const merchantAccountInfo = `0014BR.GOV.BCB.PIX01${pad(chavePix.length)}${chavePix}`;
   const gui = `26${pad(merchantAccountInfo.length)}${merchantAccountInfo}`;
-
   const additionalDataField = `62${pad(4 + txid.length)}050${pad(txid.length)}${txid}`;
 
   const payloadSemCRC =
