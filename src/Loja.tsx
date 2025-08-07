@@ -1283,7 +1283,6 @@ export default function Loja() {
           </div>
         </div>
       )}
-
       {/* Modal de Confirmação elegante */}
       {showPaymentConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
