@@ -1175,7 +1175,7 @@ export default function Loja() {
       )}
 
       {/* Modal de Pagamento via PIX */}
-      {showPayment && (
+      {showPayment && !showConfirmation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm transition-all duration-500">
           <div className="animate-zoom-fade relative w-full max-w-sm rounded-3xl bg-white/90 p-6 text-center shadow-2xl">
             <h2 className="mb-2 text-xl font-semibold text-green-700">
