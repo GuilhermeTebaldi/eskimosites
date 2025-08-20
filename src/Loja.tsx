@@ -272,40 +272,52 @@ function Toast({
   message: string;
   onClose: () => void;
 }) {
+  const palette: Record<string, string> = {
+    success: "ring-emerald-200 from-emerald-50/95 to-white/90 text-emerald-900",
+    warning: "ring-amber-200 from-amber-50/95 to-white/90 text-amber-900",
+    error: "ring-rose-200 from-rose-50/95 to-white/90 text-rose-900",
+    info: "ring-slate-200 from-slate-50/95 to-white/90 text-slate-900",
+  };
+  const icon =
+    type === "success"
+      ? "✅"
+      : type === "warning"
+        ? "⚠️"
+        : type === "error"
+          ? "❌"
+          : "ℹ️";
   return (
-    <div className="fixed left-1/2 top-4 z-[120] -translate-x-1/2">
+    <div className="pointer-events-none fixed bottom-6 left-1/2 z-[120] w-[min(92vw,520px)] -translate-x-1/2 px-3">
       <div
+        role="alert"
+        aria-live="polite"
         className={[
-          "animate-[fade-in_0.2s_ease-out]",
-          "rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md",
-          type === "success" &&
-            "border-green-200 bg-green-50/90 text-green-800",
-          type === "warning" &&
-            "border-yellow-200 bg-yellow-50/90 text-yellow-800",
-          type === "error" && "border-red-200 bg-red-50/90 text-red-800",
-          type === "info" && "border-gray-200 bg-white/90 text-gray-800",
-        ]
-          .filter(Boolean)
-          .join(" ")}
+          "pointer-events-auto select-none",
+          "rounded-2xl shadow-2xl ring-1 backdrop-blur",
+          "bg-gradient-to-br",
+          palette[type],
+          "px-4 py-3",
+          "animate-[fade-in_0.18s_ease-out]",
+        ].join(" ")}
       >
         <div className="flex items-start gap-3">
-          <span className="text-xl">
-            {type === "success"
-              ? "✅"
-              : type === "warning"
-                ? "⚠️"
-                : type === "error"
-                  ? "❌"
-                  : "ℹ️"}
+          <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-base shadow">
+            {icon}
           </span>
-          <div className="text-sm font-medium">{message}</div>
+          <div className="flex-1 text-sm font-medium leading-snug">
+            {message}
+          </div>
           <button
             aria-label="Fechar aviso"
             onClick={onClose}
-            className="ml-2 rounded-md px-2 text-xs opacity-70 hover:opacity-100"
+            className="-mr-1 ml-2 rounded-lg px-2 text-xs opacity-70 outline-none transition hover:opacity-100 focus-visible:ring"
           >
             ✕
           </button>
+        </div>
+        {/* barra de acento (sem animação para não depender de keyframes globais) */}
+        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-black/5">
+          <div className="h-full w-1/2 rounded-full bg-black/10" />
         </div>
       </div>
     </div>
