@@ -1319,18 +1319,72 @@ export default function Loja() {
                 </button>
                 <button
                   onClick={async () => {
-                    if (deliveryType === "entregar" && deliveryFee === 0) {
-                      await recalc();
+                    // ✅ Validações obrigatórias ANTES de abrir o PIX
+                    if (cart.length === 0) {
+                      showToast("Seu carrinho está vazio!", "warning");
+                      return;
+                    }
+                    if (!selectedStore) {
                       showToast(
-                        "Ative sua localização para calcular a taxa.",
+                        "Selecione a unidade para continuar.",
                         "warning",
                       );
                       return;
                     }
+                    if (!customerName.trim()) {
+                      showToast("Informe seu nome completo.", "warning");
+                      return;
+                    }
+                    if (
+                      !phoneNumber ||
+                      phoneNumber.replace(/\D/g, "").length < 13
+                    ) {
+                      showToast(
+                        "Informe seu WhatsApp com DDD (ex: 49991234567).",
+                        "warning",
+                      );
+                      return;
+                    }
+
+                    if (deliveryType === "entregar") {
+                      if (!address.trim()) {
+                        showToast("Escolha seu bairro.", "warning");
+                        return;
+                      }
+                      if (address === "Outro" && !customAddress.trim()) {
+                        showToast(
+                          "Digite seu bairro no campo 'Outro'.",
+                          "warning",
+                        );
+                        return;
+                      }
+                      if (!street.trim()) {
+                        showToast("Informe a rua.", "warning");
+                        return;
+                      }
+                      if (!number.trim()) {
+                        showToast("Informe o número.", "warning");
+                        return;
+                      }
+                      if (deliveryFee === 0) {
+                        await recalc();
+                        showToast(
+                          "Ative sua localização para calcular a taxa de entrega.",
+                          "warning",
+                        );
+                        return;
+                      }
+                    }
+
+                    // Passou nas validações → abre PIX
                     dispatch({ type: "OPEN_PIX" });
                   }}
                   disabled={deliveryType === "entregar" && deliveryFee === 0}
-                  className={`rounded px-4 py-2 font-semibold transition ${deliveryType === "entregar" && deliveryFee === 0 ? "cursor-not-allowed bg-gray-300 text-gray-500" : "bg-red-500 text-white hover:bg-red-600 active:scale-95"}`}
+                  className={`rounded px-4 py-2 font-semibold transition ${
+                    deliveryType === "entregar" && deliveryFee === 0
+                      ? "cursor-not-allowed bg-gray-300 text-gray-500"
+                      : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
+                  }`}
                 >
                   Ir para Pagamento
                 </button>
