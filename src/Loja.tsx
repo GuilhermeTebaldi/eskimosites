@@ -1,27 +1,14 @@
-// Loja_refatorada.tsx — versão refatorada em um ÚNICO ARQUIVO
-// Mantém as dependências externas existentes (PixQRCode, LinhaProdutosAtalhos, PenguinBlink, Loja.css)
-// Implementa: organização por subcomponentes internos, hooks/utilitários locais,
-// useReducer para o fluxo (checkout → pix → confirmar), memos, callbacks estáveis,
-// unifica efeitos duplicados, acessibilidade, persistência em localStorage,
-// formatação de moeda, imagens lazy, clamp de quantidade e melhorias diversas.
-
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
+// Loja.tsx
+import { useEffect, useState, useRef } from "react";
 import PixQRCode from "./components/PixQRCode";
+
 import axios from "axios";
 import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos";
 import { Link } from "react-router-dom";
+// @ts-expect-error: JS component without types
+import PenguinBlink from "./components/PenguinBlink";
 import "./Loja.css";
 
-/************************************
- * Tipos
- ************************************/
 interface Product {
   id: number;
   name: string;
@@ -32,453 +19,53 @@ interface Product {
   subcategoryName?: string;
   stock: number;
 }
+const API_URL = import.meta.env.VITE_API_URL;
 
-interface CartItem {
-  product: Product;
-  quantity: number;
-}
-
-/************************************
- * Constantes & helpers
- ************************************/
-const API_URL: string | undefined = import.meta.env.VITE_API_URL;
-if (!API_URL) throw new Error("VITE_API_URL não definido");
-
-const UI = {
-  HEADER_MAX: 120,
-  HEADER_MIN: 50,
-  PRODUCTS_PER_PAGE: 12,
-} as const;
-
-const fmtBRL = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
-
-const clampQty = (qty: number, max: number) => Math.max(0, Math.min(qty, max));
-
-// Normaliza texto (sem acento, minúsculo)
-const normalize = (text: string) =>
-  text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-
-// Distância Haversine (km)
-function getDistanceFromLatLonInKm(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-// Geolocalização como Promise
-const getPosition = () =>
-  new Promise<GeolocationPosition>((resolve, reject) => {
-    if (!navigator.geolocation)
-      return reject(new Error("Geolocalização indisponível"));
-    navigator.geolocation.getCurrentPosition(resolve, reject);
-  });
-
-/************************************
- * PIX helpers (fora do componente)
- ************************************/
-const PIX = {
-  CHAVE: "guilhermemagiccloseup@gmail.com",
-  NOME: "Guilherme Tebaldi",
-  CIDADE: "SAO PAULO",
-};
-
-const pad2 = (n: number) => n.toString().padStart(2, "0");
-
-const crc16 = (str: string): string => {
-  let crc = 0xffff;
-  for (const c of str) {
-    crc ^= c.charCodeAt(0) << 8;
-    for (let i = 0; i < 8; i++) {
-      crc = (crc << 1) ^ (crc & 0x8000 ? 0x1021 : 0);
-      crc &= 0xffff;
-    }
-  }
-  return crc.toString(16).toUpperCase().padStart(4, "0");
-};
-
+// Loja.tsx (ou onde estiver sua lógica Pix)
 const gerarPayloadPix = (valor: number): string => {
-  const chavePix = PIX.CHAVE;
-  const nome = PIX.NOME;
-  const cidade = PIX.CIDADE;
-  const txid = "tePdSk5zg9"; // poderia ser único por pedido
+  const chavePix = "guilhermemagiccloseup@gmail.com";
+  const nome = "Guilherme Tebaldi";
+  const cidade = "SAO PAULO";
+  const txid = "tePdSk5zg9"; // pode gerar um novo automaticamente
 
+  const pad = (n: number) => n.toString().padStart(2, "0");
   const valorFormatado = valor.toFixed(2);
   const tamanhoValor = valorFormatado.length;
 
-  const merchantAccountInfo = `0014BR.GOV.BCB.PIX01${pad2(chavePix.length)}${chavePix}`;
-  const gui = `26${pad2(merchantAccountInfo.length)}${merchantAccountInfo}`;
-  const additionalDataField = `62${pad2(4 + txid.length)}050${pad2(txid.length)}${txid}`;
+  const merchantAccountInfo = `0014BR.GOV.BCB.PIX01${pad(chavePix.length)}${chavePix}`;
+  const gui = `26${pad(merchantAccountInfo.length)}${merchantAccountInfo}`;
+  const additionalDataField = `62${pad(4 + txid.length)}050${pad(txid.length)}${txid}`;
 
   const payloadSemCRC =
     "000201" +
     gui +
     "52040000" +
     "5303986" +
-    `54${pad2(tamanhoValor)}${valorFormatado}` +
+    `54${pad(tamanhoValor)}${valorFormatado}` +
     "5802BR" +
-    `59${pad2(nome.length)}${nome}` +
-    `60${pad2(cidade.length)}${cidade}` +
+    `59${pad(nome.length)}${nome}` +
+    `60${pad(cidade.length)}${cidade}` +
     additionalDataField +
     "6304";
+
+  const crc16 = (str: string): string => {
+    let crc = 0xffff;
+    for (const c of str) {
+      crc ^= c.charCodeAt(0) << 8;
+      for (let i = 0; i < 8; i++) {
+        crc = (crc << 1) ^ (crc & 0x8000 ? 0x1021 : 0);
+        crc &= 0xffff;
+      }
+    }
+    return crc.toString(16).toUpperCase().padStart(4, "0");
+  };
 
   return payloadSemCRC + crc16(payloadSemCRC);
 };
 
-/************************************
- * Hooks utilitários
- ************************************/
-function useLocalStorageCart(
-  keyCart = "eskimo_cart",
-  keyStore = "eskimo_store",
-) {
-  const [storedCart, setStoredCart] = useState<CartItem[]>([]);
-  const [storedStore, setStoredStore] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const rawCart = localStorage.getItem(keyCart);
-      if (rawCart) setStoredCart(JSON.parse(rawCart));
-      const st = localStorage.getItem(keyStore);
-      if (st) setStoredStore(st);
-    } catch {
-      /* noop */
-    }
-  }, [keyCart, keyStore]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(keyCart, JSON.stringify(storedCart));
-    } catch {
-      /* noop */
-    }
-  }, [keyCart, storedCart]);
-
-  useEffect(() => {
-    try {
-      if (storedStore) localStorage.setItem(keyStore, storedStore);
-    } catch {
-      /* noop */
-    }
-  }, [keyStore, storedStore]);
-
-  return { storedCart, setStoredCart, storedStore, setStoredStore } as const;
-}
-
-function useDeliveryFee(
-  deliveryRate: number,
-  selectedStore: string | null,
-  storeLocations: { name: string; lat: number; lng: number }[],
-) {
-  const [deliveryFee, setDeliveryFee] = useState(0);
-
-  const recalc = useCallback(async () => {
-    if (!(deliveryRate > 0 && selectedStore)) return;
-    const loja = storeLocations.find((s) => s.name === selectedStore);
-    if (!loja) return;
-    try {
-      const pos = await getPosition();
-      const d = getDistanceFromLatLonInKm(
-        pos.coords.latitude,
-        pos.coords.longitude,
-        loja.lat,
-        loja.lng,
-      );
-      setDeliveryFee(parseFloat((d * deliveryRate).toFixed(2)));
-    } catch (e) {
-      console.error("Erro ao obter localização:", e);
-    }
-  }, [deliveryRate, selectedStore, storeLocations]);
-
-  useEffect(() => {
-    recalc();
-  }, [recalc]);
-  return { deliveryFee, recalc } as const;
-}
-
-/************************************
- * Reducer do fluxo (wizard)
- ************************************/
-type Stage = "idle" | "checkout" | "pix"; // confirmação é um diálogo dentro do PIX
-interface UIState {
-  stage: Stage;
-  confirmOpen: boolean;
-  placing: boolean;
-}
-
-type UIAction =
-  | { type: "OPEN_CHECKOUT" }
-  | { type: "OPEN_PIX" }
-  | { type: "OPEN_CONFIRM" }
-  | { type: "CLOSE_CONFIRM" }
-  | { type: "START_PLACING" }
-  | { type: "STOP_PLACING" }
-  | { type: "RESET" };
-
-const uiInitial: UIState = {
-  stage: "idle",
-  confirmOpen: false,
-  placing: false,
-};
-
-function uiReducer(state: UIState, action: UIAction): UIState {
-  switch (action.type) {
-    case "OPEN_CHECKOUT":
-      return { stage: "checkout", confirmOpen: false, placing: false };
-    case "OPEN_PIX":
-      return { stage: "pix", confirmOpen: false, placing: false };
-    case "OPEN_CONFIRM":
-      return { ...state, confirmOpen: true };
-    case "CLOSE_CONFIRM":
-      return { ...state, confirmOpen: false };
-    case "START_PLACING":
-      return { ...state, placing: true };
-    case "STOP_PLACING":
-      return { ...state, placing: false };
-    case "RESET":
-      return uiInitial;
-    default:
-      return state;
-  }
-}
-
-/************************************
- * Subcomponentes internos simples
- ************************************/
-function Toast({
-  type,
-  message,
-  onClose,
-}: {
-  type: "info" | "success" | "warning" | "error";
-  message: string;
-  onClose: () => void;
-}) {
-  const palette: Record<string, string> = {
-    success: "ring-emerald-200 from-emerald-50/95 to-white/90 text-emerald-900",
-    warning: "ring-amber-200 from-amber-50/95 to-white/90 text-amber-900",
-    error: "ring-rose-200 from-rose-50/95 to-white/90 text-rose-900",
-    info: "ring-slate-200 from-slate-50/95 to-white/90 text-slate-900",
-  };
-  const icon =
-    type === "success"
-      ? "✅"
-      : type === "warning"
-        ? "⚠️"
-        : type === "error"
-          ? "❌"
-          : "ℹ️";
-  return (
-    <div className="pointer-events-none fixed bottom-6 left-1/2 z-[120] w-[min(92vw,520px)] -translate-x-1/2 px-3">
-      <div
-        role="alert"
-        aria-live="polite"
-        className={[
-          "pointer-events-auto select-none",
-          "rounded-2xl shadow-2xl ring-1 backdrop-blur",
-          "bg-gradient-to-br",
-          palette[type],
-          "px-4 py-3",
-          "animate-[fade-in_0.18s_ease-out]",
-        ].join(" ")}
-      >
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-base shadow">
-            {icon}
-          </span>
-          <div className="flex-1 text-sm font-medium leading-snug">
-            {message}
-          </div>
-          <button
-            aria-label="Fechar aviso"
-            onClick={onClose}
-            className="-mr-1 ml-2 rounded-lg px-2 text-xs opacity-70 outline-none transition hover:opacity-100 focus-visible:ring"
-          >
-            ✕
-          </button>
-        </div>
-        {/* barra de acento (sem animação para não depender de keyframes globais) */}
-        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-black/5">
-          <div className="h-full w-1/2 rounded-full bg-black/10" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/************************************
- * Componente principal
- ************************************/
 export default function Loja() {
-  // refs para acessibilidade
-  const checkoutFirstInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // reducer do fluxo
-  const [ui, dispatch] = useReducer(uiReducer, uiInitial);
-  const [placingProgress, setPlacingProgress] = useState(0);
-
-  // estado geral
-  const [orderId, setOrderId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [showInstruction, setShowInstruction] = useState(true);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-
-  const { storedCart, setStoredCart, storedStore, setStoredStore } =
-    useLocalStorageCart();
-  const [cart, setCart] = useState<CartItem[]>(storedCart);
-  const [selectedStore, setSelectedStore] = useState<string | null>(
-    storedStore,
-  );
-
-  const [toast, setToast] = useState<{
-    type: "info" | "success" | "warning" | "error";
-    message: string;
-  } | null>(null);
-
-  const toastTimerRef = useRef<number | null>(null);
-  const showToast = useCallback(
-    (
-      message: string,
-      type: "info" | "success" | "warning" | "error" = "info",
-      timeoutMs = 2600,
-    ) => {
-      setToast({ type, message });
-      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = window.setTimeout(() => {
-        setToast(null);
-        toastTimerRef.current = null;
-      }, timeoutMs);
-    },
-    [],
-  );
-  useEffect(
-    () => () => {
-      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    },
-    [],
-  );
-
-  const [showError, setShowError] = useState(false);
-  const [errorText, setErrorText] = useState<string>(
-    "Ocorreu um erro ao enviar seu pedido. Tente novamente.",
-  );
-  const [showConfirmation, setShowConfirmation] = useState(false);
-
-  const [quickFilterCategory, setQuickFilterCategory] = useState<string | null>(
-    null,
-  );
-  const [quickFilterSubcategory, setQuickFilterSubcategory] = useState<
-    string | null
-  >(null);
-  const [search, setSearch] = useState("");
-  const [componentKey, setComponentKey] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [customAddress, setCustomAddress] = useState("");
-
-  const [customerName, setCustomerName] = useState("");
-  const [deliveryType, setDeliveryType] = useState("retirar");
-  const [address, setAddress] = useState("");
-  const [street, setStreet] = useState("");
-  const [number, setNumber] = useState("");
-  const [complement, setComplement] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(
-    null,
-  );
-  const [quantityToAdd, setQuantityToAdd] = useState(1);
-
-  const [deliveryRate, setDeliveryRate] = useState<number>(0);
-
-  // lojas (constante)
-  const storeLocations = useMemo(
-    () => [
-      { name: "efapi", lat: -27.112815, lng: -52.670769 },
-      { name: "palmital", lat: -27.1152884, lng: -52.6166752 },
-      { name: "passo", lat: -27.077056, lng: -52.6122383 },
-    ],
-    [],
-  );
-
-  // hook da taxa de entrega
-  const { deliveryFee, recalc } = useDeliveryFee(
-    deliveryRate,
-    selectedStore,
-    storeLocations,
-  );
-
-  // persistir carrinho e unidade
-  useEffect(() => {
-    setStoredCart(cart);
-  }, [cart, setStoredCart]);
-  useEffect(() => {
-    if (selectedStore) setStoredStore(selectedStore);
-  }, [selectedStore, setStoredStore]);
-
-  // qtd no carrinho para um produto
-  const getQtyInCart = useCallback(
-    (productId: number) =>
-      cart.find((i) => i.product.id === productId)?.quantity ?? 0,
-    [cart],
-  );
-
-  // subtotal
-  const subtotal = useMemo(
-    () =>
-      cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0),
-    [cart],
-  );
-
-  // restante do selecionado
-  const remainingForSelected = useMemo(
-    () =>
-      selectedProduct
-        ? Math.max(selectedProduct.stock - getQtyInCart(selectedProduct.id), 0)
-        : 0,
-    [selectedProduct, getQtyInCart],
-  );
-
-  // formatação moeda memoizada (para uso inline sem recomputar options)
-  const toBRL = useCallback((v: number) => fmtBRL.format(v), []);
-
-  // header com scroll (usa ref para evitar re-render em cada scroll)
-  const [headerHeight, setHeaderHeight] = useState<number>(UI.HEADER_MAX);
-  const lastScrollYRef = useRef(0);
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentY = window.scrollY;
-      const maxHeight = UI.HEADER_MAX; // simplificado
-      if (currentY <= 0) setHeaderHeight(maxHeight);
-      else if (currentY > lastScrollYRef.current && currentY > 20)
-        setHeaderHeight(UI.HEADER_MIN);
-      else if (currentY < lastScrollYRef.current) setHeaderHeight(maxHeight);
-      lastScrollYRef.current = currentY;
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // clique fora para fechar dropdown de unidade
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -491,329 +78,520 @@ export default function Loja() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState<boolean>(false);
+  const [placingProgress, setPlacingProgress] = useState<number>(0);
 
-  // bloquear scroll & barra de progresso durante "placing"
+  const [orderId, setOrderId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [showInstruction, setShowInstruction] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [cart, setCart] = useState<{ product: Product; quantity: number }[]>(
+    [],
+  );
+  // 🔔 Toast/Notificação elegante
+  const [toast, setToast] = useState<{
+    type: "info" | "success" | "warning" | "error";
+    message: string;
+  } | null>(null);
+
+  const toastTimerRef = useRef<number | null>(null);
+
+  const showToast = (
+    message: string,
+    type: "info" | "success" | "warning" | "error" = "info",
+    timeoutMs = 2600,
+  ) => {
+    setToast({ type, message });
+
+    // limpa timeout anterior, se existir
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    // agenda para esconder
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, timeoutMs);
+  };
+
+  const [showError, setShowError] = useState(false);
+  const [errorText, setErrorText] = useState<string>(
+    "Ocorreu um erro ao enviar seu pedido. Tente novamente.",
+  );
+
+  const [quickFilterCategory, setQuickFilterCategory] = useState<string | null>(
+    null,
+  );
+  const [quickFilterSubcategory, setQuickFilterSubcategory] = useState<
+    string | null
+  >(null);
+  // const [animateButtons, setAnimateButtons] = useState(true);
+  const [search, setSearch] = useState("");
+  const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
+  const [componentKey, setComponentKey] = useState(0); //
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showCart, setShowCart] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
+  const [customAddress, setCustomAddress] = useState("");
+
+  const [customerName, setCustomerName] = useState("");
+  const [deliveryType, setDeliveryType] = useState("retirar");
+  const [address, setAddress] = useState("");
+  const [street, setStreet] = useState("");
+  const [number, setNumber] = useState("");
+  const [complement, setComplement] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(
+    null,
+  );
+  //const [showSubcategories, setShowSubcategories] = useState(false);
+  const [quantityToAdd, setQuantityToAdd] = useState(1);
+  const [selectedStore, setSelectedStore] = useState<string | null>(null);
+  //const [clickedProductId, setClickedProductId] = useState<number | null>(null);
+  const [deliveryRate, setDeliveryRate] = useState<number>(0);
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  // 🔎 Quanto desse produto já está no carrinho
+  const getQtyInCart = (productId: number) =>
+    cart.find((i) => i.product.id === productId)?.quantity ?? 0;
+
+  const productsPerPage = 12;
+  const subtotal = cart.reduce(
+    (acc, item) => acc + item.product.price * item.quantity,
+    0,
+  );
+  // 🔎 Restante disponível do produto atualmente aberto no modal
+  const remainingForSelected = selectedProduct
+    ? Math.max(selectedProduct.stock - getQtyInCart(selectedProduct.id), 0)
+    : 0;
+
+  //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
+  // 🔥 Controle de altura da barra com base no scroll
+  // 🔥 Controle de altura da barra com base no scroll
+  const [headerHeight, setHeaderHeight] = useState(120);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
   useEffect(() => {
-    if (!ui.placing) {
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      const temCategoria = !!selectedCategory;
+      const temSub = temCategoria && subcategories(selectedCategory).length > 0;
+      const maxHeight = temSub ? 120 : temCategoria ? 120 : 120;
+
+      if (currentY <= 0) {
+        setHeaderHeight(maxHeight);
+      } else if (currentY > lastScrollY && currentY > 20) {
+        setHeaderHeight(50);
+      } else if (currentY < lastScrollY) {
+        setHeaderHeight(maxHeight);
+      }
+
+      setLastScrollY(currentY);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY, selectedCategory, selectedSubcategory]);
+
+  // 🔥 Ao clicar na barra → volta ao tamanho original
+  const resetHeader = () => {
+    //  const temCategoria = !!selectedCategory;
+    //const temSub = temCategoria && subcategories(selectedCategory).length > 0;
+    //  setHeaderHeight(temSub ? 280 : temCategoria ? 260 : 220);
+  };
+
+  const categories = Array.from(new Set(products.map((p) => p.categoryName)));
+  const subcategories = (category: string) =>
+    Array.from(
+      new Set(
+        products
+          .filter((p) => p.categoryName === category && p.subcategoryName)
+          .map((p) => p.subcategoryName!),
+      ),
+    );
+
+  const storeLocations = [
+    { name: "efapi", lat: -27.112815, lng: -52.670769 },
+    { name: "palmital", lat: -27.1152884, lng: -52.6166752 },
+    { name: "passo", lat: -27.077056, lng: -52.6122383 },
+  ];
+
+  function getDistanceFromLatLonInKm(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+  useEffect(() => {
+    if (!isPlacingOrder) {
       document.body.classList.remove("overflow-hidden");
       return;
     }
+
+    // trava scroll da página
     document.body.classList.add("overflow-hidden");
+
+    // começa a “preencher” a barra até ~90% enquanto espera a API
     setPlacingProgress(0);
-    const interval = window.setInterval(
-      () => setPlacingProgress((p) => Math.min(p + Math.random() * 7 + 3, 90)),
-      300,
-    );
+    const interval = window.setInterval(() => {
+      setPlacingProgress((prev) => Math.min(prev + Math.random() * 7 + 3, 90));
+    }, 300);
+
+    // previne fechar/atualizar durante a criação do pedido
     const beforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", beforeUnload);
+
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("beforeunload", beforeUnload);
       document.body.classList.remove("overflow-hidden");
     };
-  }, [ui.placing]);
+  }, [isPlacingOrder]);
 
-  // limpar carrinho quando trocar de loja
+  // 🧹 Limpa o carrinho sempre que a loja mudar
   useEffect(() => {
     setCart([]);
   }, [selectedStore]);
 
-  // detectar loja mais próxima
+  // 1️⃣ Obtém localização e define unidade mais próxima
   useEffect(() => {
-    (async () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+
+          let closestStore = storeLocations[0];
+          let closestDistance = getDistanceFromLatLonInKm(
+            userLat,
+            userLng,
+            storeLocations[0].lat,
+            storeLocations[0].lng,
+          );
+
+          for (let i = 1; i < storeLocations.length; i++) {
+            const store = storeLocations[i];
+            const distance = getDistanceFromLatLonInKm(
+              userLat,
+              userLng,
+              store.lat,
+              store.lng,
+            );
+
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              closestStore = store;
+            }
+          }
+
+          setSelectedStore(closestStore.name);
+          setShowInstruction(false);
+        },
+        (error) => {
+          console.log("Não foi possível obter a localização:", error);
+          setShowInstruction(true);
+          setIsStoreSelectorExpanded(true);
+        },
+      );
+    }
+  }, []);
+  const tentarRecalcularEntrega = async () => {
+    if (
+      deliveryType === "entregar" &&
+      deliveryRate > 0 &&
+      navigator.geolocation &&
+      selectedStore
+    ) {
       try {
-        const pos = await getPosition();
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject),
+        );
+
         const userLat = pos.coords.latitude;
         const userLng = pos.coords.longitude;
-        let closest = storeLocations[0];
-        let min = getDistanceFromLatLonInKm(
+        const loja = storeLocations.find((s) => s.name === selectedStore);
+        if (!loja) return;
+
+        const distancia = getDistanceFromLatLonInKm(
           userLat,
           userLng,
-          closest.lat,
-          closest.lng,
+          loja.lat,
+          loja.lng,
         );
-        for (let i = 1; i < storeLocations.length; i++) {
-          const s = storeLocations[i];
-          const d = getDistanceFromLatLonInKm(userLat, userLng, s.lat, s.lng);
-          if (d < min) {
-            min = d;
-            closest = s;
-          }
-        }
-        setSelectedStore(closest.name);
-        setShowInstruction(false);
-      } catch (err) {
-        console.log("Não foi possível obter a localização:", err);
-        setShowInstruction(true);
-        setIsStoreSelectorExpanded(true);
+        const taxa = distancia * deliveryRate;
+        setDeliveryFee(parseFloat(taxa.toFixed(2)));
+      } catch (error) {
+        console.error("❌ Falha ao obter localização:", error);
       }
-    })();
-  }, [storeLocations]);
+    }
+  };
 
-  // buscar deliveryRate
+  // ✅ Cálculo consolidado da taxa de entrega com segurança e sincronia
+  useEffect(() => {
+    const calcularTaxa = async () => {
+      if (
+        deliveryRate > 0 &&
+        navigator.geolocation &&
+        selectedStore &&
+        storeLocations.length > 0
+      ) {
+        try {
+          const pos = await new Promise<GeolocationPosition>(
+            (resolve, reject) =>
+              navigator.geolocation.getCurrentPosition(resolve, reject),
+          );
+
+          const userLat = pos.coords.latitude;
+          const userLng = pos.coords.longitude;
+          const loja = storeLocations.find((s) => s.name === selectedStore);
+          if (!loja) return;
+
+          const distancia = getDistanceFromLatLonInKm(
+            userLat,
+            userLng,
+            loja.lat,
+            loja.lng,
+          );
+          const taxa = distancia * deliveryRate;
+          setDeliveryFee(parseFloat(taxa.toFixed(2)));
+        } catch (error) {
+          console.error("Erro ao calcular taxa de entrega:", error);
+        }
+      }
+    };
+
+    calcularTaxa();
+  }, [deliveryRate, selectedStore]);
+
   useEffect(() => {
     axios
       .get<{ deliveryRate: number }>(`${API_URL}/settings`)
-      .then((res) => setDeliveryRate(res.data?.deliveryRate ?? 0))
-      .catch((err) => console.error("Erro ao buscar deliveryRate:", err));
+      .then((res) => {
+        const rate = res.data?.deliveryRate ?? 0;
+        setDeliveryRate(rate);
+        //setDeliveryFee(0); // 👈 FORÇA TAXA ZERADA PRA TESTAR
+      })
+      .catch((err) => {
+        console.error("Erro ao buscar deliveryRate:", err);
+      });
   }, []);
 
-  // buscar produtos (UNIFICADO, sem duplicação)
   useEffect(() => {
-    if (!selectedStore) return;
-    let isMounted = true;
-    setLoading(true);
-    (async () => {
-      try {
-        const res = await axios.get<Product[]>(
+    if (selectedStore) {
+      setLoading(true);
+      axios
+        .get<Product[]>(
           `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`,
-        );
-        if (isMounted) setProducts(Array.isArray(res.data) ? res.data : []);
-      } catch (err) {
-        console.error("Erro ao buscar produtos:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    })();
-    return () => {
-      isMounted = false;
-    };
+        )
+        .then((res) => {
+          if (Array.isArray(res.data)) {
+            setProducts(res.data);
+          } else {
+            console.warn("Resposta inesperada da API:", res.data);
+            setProducts([]);
+          }
+        })
+        .catch((err) => {
+          console.error("Erro ao buscar produtos:", err);
+          setLoading(false); // ✅ também aqui
+        });
+    }
+  }, [selectedStore]);
+  useEffect(() => {
+    if (selectedStore) {
+      setLoading(true);
+      axios
+        .get<Product[]>(
+          `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`,
+        )
+        .then((res) => {
+          setProducts(res.data || []);
+        })
+        .catch((err) => {
+          console.error("Erro ao buscar produtos da unidade:", err);
+        })
+        .then(() => {
+          setLoading(false);
+        });
+    }
   }, [selectedStore]);
 
-  // categorias e subcategorias memorizadas
-  const categories = useMemo(
-    () => Array.from(new Set(products.map((p) => p.categoryName))),
-    [products],
-  );
-  const subcategoriesByCategory = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const p of products) {
-      if (!p.subcategoryName) continue;
-      if (!map.has(p.categoryName)) map.set(p.categoryName, []);
-      const arr = map.get(p.categoryName)!;
-      if (!arr.includes(p.subcategoryName)) arr.push(p.subcategoryName);
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let valor = e.target.value.replace(/\D/g, "");
+    if (!valor.startsWith("55")) {
+      valor = "55" + valor;
     }
-    return map;
-  }, [products]);
-  const getSubcategories = useCallback(
-    (category: string) => subcategoriesByCategory.get(category) ?? [],
-    [subcategoriesByCategory],
-  );
+    if (valor.length <= 13) {
+      setPhoneNumber(valor);
+    }
+  };
 
-  // filtros memorizados
-  const filtered = useMemo(() => {
-    const searchTerms = normalize(search).split(" ").filter(Boolean);
-    return products.filter((p) => {
-      const searchableText = normalize(
-        `${p.name} ${p.description} ${p.subcategoryName ?? ""}`,
-      );
-      const matchesSearch = searchTerms.every((term) =>
-        searchableText.includes(term),
-      );
-      const matchesCategory =
-        search.trim() === ""
-          ? quickFilterCategory
-            ? p.categoryName === quickFilterCategory
-            : selectedCategory
-              ? p.categoryName === selectedCategory
-              : true
-          : true;
-      const matchesSubcategory = quickFilterSubcategory
-        ? p.subcategoryName === quickFilterSubcategory
-        : selectedSubcategory
-          ? p.subcategoryName === selectedSubcategory
-          : true;
-      return matchesSearch && matchesCategory && matchesSubcategory;
-    });
-  }, [
-    products,
-    search,
-    quickFilterCategory,
-    quickFilterSubcategory,
-    selectedCategory,
-    selectedSubcategory,
-  ]);
+  useEffect(() => {
+    if (products.length > 0) {
+      const categoriasSubcategorias: Record<string, Set<string>> = {};
 
-  const produtosOrdenados = useMemo(() => {
-    const ordemCategorias = [
-      "Picolé",
-      "Pote de Sorvete",
-      "Tortas",
-      "Açaí",
-      "Sundae",
-      "Extras",
-      "selleto",
-      "Complementos",
-    ];
-    const ordemSubcategorias: Record<string, string[]> = {
-      Picolé: [
-        "Frutas",
-        "Cremes",
-        "Diamond",
-        "Ituzinho",
-        "Kids",
-        "Grego",
-        "Sem Subcategoria",
-      ],
-      "Pote de Sorvete": [
-        "2L",
-        "1,5L",
-        "Best Cup",
-        "Grand Nevado",
-        "Sem Subcategoria",
-      ],
-      Tortas: ["Sem Subcategoria"],
-      Açaí: ["guaraná", "banana"],
-      Sundae: ["Sem Subcategoria"],
-      Extras: ["Cobertura", "Cascão"],
-      selleto: ["Sem Subcategoria"],
-      Complementos: ["Sem Subcategoria"],
-    };
-    const getCatIdx = (c: string) => {
-      const idx = ordemCategorias.indexOf(c);
-      return idx === -1 ? 999 : idx;
-    };
-    const getSubIdx = (c?: string, s?: string) => {
-      if (!c || !s) return 999;
-      const arr = ordemSubcategorias[c as keyof typeof ordemSubcategorias];
-      if (!arr) return 999;
-      const i = arr.indexOf(s);
-      return i === -1 ? 999 : i;
-    };
-    return [...filtered].sort((a, b) => {
-      const cA = getCatIdx(a.categoryName);
-      const cB = getCatIdx(b.categoryName);
-      if (cA !== cB) return cA - cB;
-      const sA = getSubIdx(a.categoryName, a.subcategoryName);
-      const sB = getSubIdx(b.categoryName, b.subcategoryName);
-      if (sA !== sB) return sA - sB;
-      return a.name.localeCompare(b.name);
-    });
-  }, [filtered]);
+      products.forEach((product) => {
+        const categoria = product.categoryName || "Sem Categoria";
+        const subcategoria = product.subcategoryName || "Sem Subcategoria";
 
-  const paginados = useMemo(
-    () => produtosOrdenados.slice(0, currentPage * UI.PRODUCTS_PER_PAGE),
-    [produtosOrdenados, currentPage],
-  );
-  const totalPages = useMemo(
-    () => Math.ceil(filtered.length / UI.PRODUCTS_PER_PAGE),
-    [filtered.length],
-  );
-
-  // máscara e envio limpo do telefone
-  const handlePhoneChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      let valor = e.target.value.replace(/\D/g, "");
-      if (!valor.startsWith("55")) valor = "55" + valor;
-      if (valor.length <= 13) setPhoneNumber(valor);
-    },
-    [],
-  );
-
-  // Handlers de carrinho estáveis
-  const addToCart = useCallback(
-    (product: Product, quantity: number = 1) => {
-      setCart((prev) => {
-        const existing = prev.find((i) => i.product.id === product.id);
-        const currentInCart = existing?.quantity ?? 0;
-        const remaining = product.stock - currentInCart;
-        if (remaining <= 0) {
-          showToast("Estoque máximo já está no seu carrinho.", "warning");
-          return prev;
+        if (!categoriasSubcategorias[categoria]) {
+          categoriasSubcategorias[categoria] = new Set();
         }
-        const toAdd = Math.min(quantity, remaining);
-        if (existing)
-          return prev.map((i) =>
-            i.product.id === product.id
-              ? { ...i, quantity: i.quantity + toAdd }
-              : i,
-          );
-        return [...prev, { product, quantity: toAdd }];
+        categoriasSubcategorias[categoria].add(subcategoria);
       });
-      setSelectedProduct(null);
-      setQuantityToAdd(1);
-    },
-    [showToast],
-  );
 
-  const removeFromCart = useCallback(
-    (id: number) => setCart((prev) => prev.filter((i) => i.product.id !== id)),
-    [],
-  );
+      console.log("📝 Categorias e Subcategorias:");
+      Object.keys(categoriasSubcategorias).forEach((categoria) => {
+        console.log(`Categoria: ${categoria}`);
+        categoriasSubcategorias[categoria].forEach((sub) => {
+          console.log(`  - Subcategoria: ${sub}`);
+        });
+      });
+    }
+  }, [products]);
 
-  const updateQuantity = useCallback((id: number, delta: number) => {
+  const normalize = (text: string) =>
+    text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, ""); // remove acentos
+
+  // barra de pesquisa Busca por nome e descrição
+  const filtered = products.filter((p) => {
+    const searchTerms = normalize(search).split(" ").filter(Boolean);
+
+    const searchableText = normalize(
+      `${p.name} ${p.description} ${p.subcategoryName ?? ""}`,
+    );
+
+    const matchesSearch = searchTerms.every((term) =>
+      searchableText.includes(term),
+    );
+
+    const matchesCategory =
+      search.trim() === ""
+        ? quickFilterCategory
+          ? p.categoryName === quickFilterCategory
+          : selectedCategory
+            ? p.categoryName === selectedCategory
+            : true
+        : true;
+
+    const matchesSubcategory = quickFilterSubcategory
+      ? p.subcategoryName === quickFilterSubcategory
+      : selectedSubcategory
+        ? p.subcategoryName === selectedSubcategory
+        : true;
+
+    return matchesSearch && matchesCategory && matchesSubcategory;
+  });
+
+  const totalPages = Math.ceil(filtered.length / productsPerPage);
+
+  const addToCart = (product: Product, quantity: number = 1) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.product.id === product.id);
+      const currentInCart = existing?.quantity ?? 0;
+      const remaining = product.stock - currentInCart; // quanto ainda posso levar
+
+      if (remaining <= 0) {
+        showToast("Estoque máximo já está no seu carrinho.", "warning");
+        return prev;
+      }
+
+      const toAdd = Math.min(quantity, remaining); // nunca passa do restante
+
+      if (existing) {
+        return prev.map((item) =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + toAdd }
+            : item,
+        );
+      }
+
+      return [...prev, { product, quantity: toAdd }];
+    });
+
+    setSelectedProduct(null);
+    setQuantityToAdd(1);
+  };
+
+  const removeFromCart = (id: number) => {
+    setCart((prev) => prev.filter((item) => item.product.id !== id));
+  };
+
+  const updateQuantity = (id: number, delta: number) => {
     setCart((prev) =>
       prev
         .map((item) => {
-          if (item.product.id !== id) return item;
-          const max = item.product.stock;
-          const next = clampQty(item.quantity + delta, max);
-          return next === 0 ? null : { ...item, quantity: next };
+          if (item.product.id === id) {
+            const novaQtd = item.quantity + delta;
+            if (novaQtd <= 0) {
+              return null; // sinaliza para remover
+            }
+            return { ...item, quantity: novaQtd };
+          }
+          return item;
         })
-        .filter((i): i is CartItem => i !== null),
+        .filter(
+          (item): item is { product: Product; quantity: number } =>
+            item !== null,
+        ),
     );
-  }, []);
-
-  // abrir checkout — removido (usamos dispatch direto nos botões)
-
-  // foco no primeiro input ao abrir checkout
-  useEffect(() => {
-    if (ui.stage === "checkout")
-      setTimeout(() => checkoutFirstInputRef.current?.focus(), 0);
-  }, [ui.stage]);
-
-  // ESC fecha diálogos
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (ui.confirmOpen) dispatch({ type: "CLOSE_CONFIRM" });
-        else if (ui.stage === "pix") dispatch({ type: "OPEN_CHECKOUT" });
-        else dispatch({ type: "RESET" });
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [ui.stage, ui.confirmOpen]);
-
-  // finalizar pedido
-  const getServerMessage = (err: unknown): string | undefined => {
-    if (typeof err === "object" && err !== null) {
-      const withResponse = err as {
-        response?: { data?: unknown; status?: number };
-        message?: unknown;
-      };
-      const data = withResponse.response?.data;
-      if (typeof data === "object" && data !== null) {
-        const maybeMsg = (data as { message?: unknown }).message;
-        if (typeof maybeMsg === "string") return maybeMsg;
-      }
-      if (typeof withResponse.message === "string") return withResponse.message;
-    }
-    return undefined;
   };
 
-  const finalizeOrder = useCallback(async (): Promise<boolean> => {
-    if (orderId !== null) return true;
+  const openCheckout = () => {
+    if (cart.length === 0) {
+      alert("Seu carrinho está vazio!");
+      return;
+    }
+    setShowCheckout(true);
+    setOrderId(null); // limpa ID se for iniciar novo pedido
+  };
+
+  const finalizeOrder = async (): Promise<boolean> => {
+    if (orderId !== null) return true; // já existe
+
+    // segurança extra
     if (cart.some((i) => i.quantity > i.product.stock)) {
-      showToast(
+      alert(
         "Há itens no carrinho acima do estoque disponível. Ajuste as quantidades.",
-        "warning",
       );
       return false;
     }
+
     if (
       !customerName.trim() ||
       (deliveryType === "entregar" && !address.trim())
     ) {
-      showToast("Preencha as informações obrigatórias.", "warning");
+      alert("Por favor, preencha todas as informações obrigatórias.");
       return false;
     }
+
     if (!selectedStore) {
-      showToast("Nenhuma unidade selecionada.", "error");
+      alert(
+        "Erro: Nenhuma unidade selecionada. Por favor, selecione a loja antes de finalizar o pedido.",
+      );
       return false;
     }
 
@@ -822,11 +600,11 @@ export default function Loja() {
       const realTotal = subtotal + realDeliveryFee;
 
       const payload = {
-        customerName: customerName.trim(),
-        address: (address === "Outro" ? customAddress : address).trim(),
-        street: street.trim(),
-        number: number.trim(),
-        complement: complement.trim(),
+        customerName,
+        address: address === "Outro" ? customAddress : address,
+        street,
+        number,
+        complement,
         deliveryType,
         store: selectedStore,
         items: cart.map((item) => ({
@@ -846,75 +624,67 @@ export default function Loja() {
         `${API_URL}/orders`,
         payload,
       );
+
       const id = response.data?.id;
       if (typeof id === "number" && Number.isFinite(id)) {
         setOrderId(id);
         return true;
+      } else {
+        setErrorText("Erro: número do pedido não foi retornado corretamente.");
+        return false;
       }
-      setErrorText("Erro: número do pedido não foi retornado corretamente.");
-      return false;
     } catch (err: unknown) {
       console.error("❌ Erro ao enviar pedido:", err);
-      const status = (err as { response?: { status?: number } })?.response
-        ?.status;
-      if (status === 409)
-        setErrorText(
-          "Conflito: outro cliente reservou esse estoque. Atualize o carrinho.",
-        );
-      else if (status === 422)
-        setErrorText("Dados inválidos. Verifique os campos e tente novamente.");
-      else setErrorText(getServerMessage(err) ?? "Erro ao enviar pedido.");
+      const msg = getServerMessage(err) ?? "Erro ao enviar pedido.";
+      setErrorText(msg);
       return false;
     }
-  }, [
-    orderId,
-    cart,
-    customerName,
-    deliveryType,
-    address,
-    selectedStore,
-    deliveryFee,
-    subtotal,
-    customAddress,
-    street,
-    number,
-    complement,
-    phoneNumber,
-  ]);
+  };
+  const getServerMessage = (err: unknown): string | undefined => {
+    if (typeof err === "object" && err !== null) {
+      const withResponse = err as {
+        response?: { data?: unknown };
+        message?: unknown;
+      };
 
-  // total PIX & payload memorizados
-  const totalPix = useMemo(
-    () => subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
-    [subtotal, deliveryFee, deliveryType],
-  );
-  const payloadPix = useMemo(() => gerarPayloadPix(totalPix), [totalPix]);
+      // tenta pegar message de err.response.data.message
+      const data = withResponse.response?.data;
+      if (typeof data === "object" && data !== null) {
+        const maybeMsg = (data as { message?: unknown }).message;
+        if (typeof maybeMsg === "string") return maybeMsg;
+      }
 
-  // ---- RENDER ----
+      // fallback: err.message
+      if (typeof withResponse.message === "string") return withResponse.message;
+    }
+    return undefined;
+  };
+
   return (
     <div key={componentKey} className="loja-container">
-      {/* espaçamento para o header */}
+      {/* carrocel de produtos na pasta LinhaProdutosAtalhos.tsx */}
       <div className="h-[205px]" />
-
       <LinhaProdutosAtalhos
         onSelectCategorySubcategory={(category, subcategory) => {
           setQuickFilterCategory(category);
           setQuickFilterSubcategory(subcategory || null);
-          setSearch("");
+          setSearch(""); // <-- limpar a busca!!
           setCurrentPage(1);
-          window.scrollTo({ top: 0, behavior: "smooth" });
         }}
       />
 
       {/* Cabeçalho */}
       <div
+        onClick={resetHeader}
         className="fixed left-0 right-0 top-0 z-50 flex flex-col items-center justify-start bg-gradient-to-b from-white/0 via-white/10 to-white bg-cover bg-center bg-no-repeat shadow-md transition-all duration-300"
         style={{
           backgroundImage:
             "url('https://i.pinimg.com/736x/81/6f/70/816f70cc68d9b3b3a82e9f58e912f9ef.jpg')",
           height: `${headerHeight}px`,
-          overflow: "hidden",
+          overflow: "hidden", // ✅ Permite que o dropdown apareça
         }}
       >
+        {/* Área da logo */}
         <div className="flex items-center justify-center py-2">
           <img
             src="https://upload.wikimedia.org/wikipedia/commons/9/96/Logo_eskim%C3%B3_Sorvetes_Vermelha.png"
@@ -923,6 +693,7 @@ export default function Loja() {
           />
         </div>
 
+        {/* Mensagem de Escolha de Unidade */}
         {showInstruction && (
           <div className="flex justify-center">
             <div className="mb-3 animate-pulse text-sm text-gray-900">
@@ -931,23 +702,26 @@ export default function Loja() {
           </div>
         )}
 
-        {/* Seleção de unidade */}
+        {/* Botões de Seleção de Unidade – lado a lado */}
         <div className="z-50 flex flex-wrap justify-center gap-4 px-5 py-1">
           {["efapi", "palmital", "passo"].map((store) => (
             <button
               key={store}
               onClick={() => {
-                if (selectedStore !== store) setSelectedStore(store);
-                else {
+                if (selectedStore !== store) {
+                  setSelectedStore(store);
+                } else {
                   setSelectedStore(null);
                   setTimeout(() => setSelectedStore(store), 0);
                 }
                 setCart([]);
                 setShowInstruction(false);
-                window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className={`rounded-full border px-5 py-1 text-sm font-semibold shadow transition-all duration-300 ${selectedStore === store ? "border-yellow-200 bg-yellow-300 text-gray-900 ring-1 ring-yellow-300" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"}`}
-              aria-label={`Selecionar unidade ${store}`}
+              className={`rounded-full border px-5 py-1 text-sm font-semibold shadow transition-all duration-300 ${
+                selectedStore === store
+                  ? "border-yellow-200 bg-yellow-300 text-gray-900 ring-1 ring-yellow-300"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+              }`}
             >
               🍦{" "}
               {store === "efapi"
@@ -968,12 +742,13 @@ export default function Loja() {
           </div>
         )}
 
+        {/* Quantidade de produtos encontrados */}
         <div className="mt-1 text-xs text-gray-500">
           {filtered.length} produto(s) encontrado(s)
         </div>
       </div>
 
-      {/* 🔍 Barra de pesquisa + filtros */}
+      {/* 🔍 Barra de pesquisa + filtros no estilo vidro premium */}
       <div
         className="fixed z-40 w-full transition-all duration-300"
         style={{
@@ -982,6 +757,7 @@ export default function Loja() {
         }}
       >
         <div className="mx-auto w-full max-w-md space-y-3 px-4">
+          {/* Campo de busca com vidro */}
           <input
             type="text"
             placeholder="Buscar produto..."
@@ -994,12 +770,13 @@ export default function Loja() {
               setSelectedSubcategory(null);
               setQuickFilterCategory(null);
               setQuickFilterSubcategory(null);
-              window.scrollTo({ top: 0, behavior: "smooth" });
+              window.scrollTo({ top: 0, behavior: "smooth" }); // 🔥 sobe pro topo
             }}
-            aria-label="Buscar produto"
           />
 
+          {/* Filtros - categoria e subcategoria */}
           <div className="flex gap-2">
+            {/* Categoria */}
             <div className="w-1/2 rounded-xl bg-white/90 shadow-md backdrop-blur-md">
               <select
                 className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-sm text-gray-800 focus:outline-none"
@@ -1011,9 +788,8 @@ export default function Loja() {
                   setSelectedSubcategory(null);
                   setSearch("");
                   setCurrentPage(1);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
+                  window.scrollTo({ top: 0, behavior: "smooth" }); // 🔥 sobe pro topo
                 }}
-                aria-label="Selecionar categoria"
               >
                 <option value="">Categoria</option>
                 {categories.map((cat) => (
@@ -1024,6 +800,7 @@ export default function Loja() {
               </select>
             </div>
 
+            {/* Subcategoria */}
             <div className="w-1/2 rounded-xl bg-white/90 shadow-md backdrop-blur-md">
               <select
                 className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-sm text-gray-800 focus:outline-none"
@@ -1034,26 +811,24 @@ export default function Loja() {
                   setSelectedSubcategory(e.target.value || null);
                   setSearch("");
                   setCurrentPage(1);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
+                  window.scrollTo({ top: 0, behavior: "smooth" }); // 🔥 sobe pro topo
                 }}
-                aria-label="Selecionar subcategoria"
               >
                 <option value="">Tipo</option>
-                {(selectedCategory
-                  ? getSubcategories(selectedCategory)
-                  : []
-                ).map((sub) => (
-                  <option key={sub} value={sub}>
-                    {sub}
-                  </option>
-                ))}
+                {(selectedCategory ? subcategories(selectedCategory) : []).map(
+                  (sub) => (
+                    <option key={sub} value={sub}>
+                      {sub}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Grade de produtos */}
+      {/* Produtos organizados por Categoria/Subcategoria */}
       <div className="px-6 pb-40">
         {loading ? (
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
@@ -1061,49 +836,135 @@ export default function Loja() {
               <div
                 key={idx}
                 className="h-64 w-full animate-pulse rounded-xl bg-gray-100"
-              />
+              ></div>
             ))}
           </div>
         ) : (
-          <div className="produtos-grid">
-            {paginados.map((product) => (
-              <div key={product.id} className="product-card">
-                <div
-                  className="product-image-wrapper"
-                  onClick={() => {
-                    const remaining = product.stock - getQtyInCart(product.id);
-                    if (remaining <= 0) {
-                      showToast(
-                        "Estoque máximo já está no seu carrinho.",
-                        "warning",
-                      );
-                      return;
-                    }
-                    setSelectedProduct(product);
-                    setQuantityToAdd(1);
-                  }}
-                >
-                  <img
-                    loading="lazy"
-                    src={product.imageUrl}
-                    alt={product.name}
-                    className="product-image"
-                  />
-                </div>
-                <div className="product-info">
-                  <h3 className="product-title">{product.name}</h3>
-                  <p className="product-price">{toBRL(product.price)}</p>
-                </div>
+          (() => {
+            const ordemCategorias = [
+              "Picolé",
+              "Pote de Sorvete",
+              "Tortas",
+              "Açaí",
+              "Sundae",
+              "Extras",
+              "selleto",
+              "Complementos",
+            ];
+
+            const ordemSubcategorias: Record<string, string[]> = {
+              Picolé: [
+                "Frutas",
+                "Cremes",
+                "Diamond",
+                "Ituzinho",
+                "Kids",
+                "Grego",
+                "Sem Subcategoria",
+              ],
+              "Pote de Sorvete": [
+                "2L",
+                "1,5L",
+                "Best Cup",
+                "Grand Nevado",
+                "Sem Subcategoria",
+              ],
+              Tortas: ["Sem Subcategoria"],
+              Açaí: ["guaraná", "banana"],
+              Sundae: ["Sem Subcategoria"],
+              Extras: ["Cobertura", "Cascão"],
+              selleto: ["Sem Subcategoria"],
+              Complementos: ["Sem Subcategoria"],
+            };
+
+            const produtosOrdenados = [...filtered].sort((a, b) => {
+              const catA =
+                ordemCategorias.indexOf(a.categoryName) !== -1
+                  ? ordemCategorias.indexOf(a.categoryName)
+                  : 999;
+              const catB =
+                ordemCategorias.indexOf(b.categoryName) !== -1
+                  ? ordemCategorias.indexOf(b.categoryName)
+                  : 999;
+
+              if (catA !== catB) return catA - catB;
+
+              const subcatA =
+                typeof a.categoryName === "string" &&
+                typeof a.subcategoryName === "string" &&
+                ordemSubcategorias[
+                  a.categoryName as keyof typeof ordemSubcategorias
+                ]
+                  ? ordemSubcategorias[
+                      a.categoryName as keyof typeof ordemSubcategorias
+                    ].indexOf(a.subcategoryName)
+                  : 999;
+
+              const subcatB =
+                typeof b.categoryName === "string" &&
+                typeof b.subcategoryName === "string" &&
+                ordemSubcategorias[
+                  b.categoryName as keyof typeof ordemSubcategorias
+                ]
+                  ? ordemSubcategorias[
+                      b.categoryName as keyof typeof ordemSubcategorias
+                    ].indexOf(b.subcategoryName)
+                  : 999;
+
+              if (subcatA !== subcatB) return subcatA - subcatB;
+
+              return a.name.localeCompare(b.name);
+            });
+
+            const paginados = produtosOrdenados.slice(
+              0,
+              currentPage * productsPerPage,
+            );
+
+            return (
+              <div className="produtos-grid">
+                {paginados.map((product) => (
+                  <div key={product.id} className="product-card">
+                    <div
+                      className="product-image-wrapper"
+                      onClick={() => {
+                        const remaining =
+                          product.stock - getQtyInCart(product.id);
+                        if (remaining <= 0) {
+                          showToast(
+                            "Estoque máximo já está no seu carrinho.",
+                            "warning",
+                          );
+                          return;
+                        }
+                        setSelectedProduct(product);
+                        setQuantityToAdd(1);
+                      }}
+                    >
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="product-image"
+                      />
+                    </div>
+                    <div className="product-info">
+                      <h3 className="product-title">{product.name}</h3>
+                      <p className="product-price">
+                        R$ {product.price.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()
         )}
       </div>
 
       {currentPage < totalPages && (
         <div className="mb-24 mt-4 text-center">
           <button
-            onClick={() => setCurrentPage((p) => p + 1)}
+            onClick={() => setCurrentPage(currentPage + 1)}
             className="inline-flex items-center gap-2 rounded-full bg-yellow-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-yellow-600 hover:shadow-xl active:scale-95"
           >
             <span className="animate-bounce text-xl">↓</span>
@@ -1112,11 +973,9 @@ export default function Loja() {
         </div>
       )}
 
-      {/* Botões flutuantes */}
+      {/* Botão "Meus Pedidos" */}
       <Link
-        onClick={() => {
-          /* apenas navega */
-        }}
+        onClick={() => setShowCart(!showCart)}
         to="/meus-pedidos"
         className="fixed bottom-48 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-blue-500 p-2 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
       >
@@ -1125,14 +984,10 @@ export default function Loja() {
         <div className="mt-1 text-xs font-bold">Pedido</div>
       </Link>
 
+      {/* Botão do Carrinho Quadrado com Movimento */}
       <button
-        onClick={() =>
-          dispatch({
-            type: ui.stage === "idle" ? "OPEN_CHECKOUT" : "OPEN_CHECKOUT",
-          })
-        }
+        onClick={() => setShowCart(!showCart)}
         className="animate-pulse-slow fixed bottom-20 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-yellow-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
-        aria-label="Abrir carrinho"
       >
         <div className="text-3xl">🛒</div>
         <div className="mt-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-yellow-500 shadow-md">
@@ -1140,18 +995,110 @@ export default function Loja() {
         </div>
       </button>
 
-      {/* Drawer simples de carrinho (versão leve) */}
-      {ui.stage === "checkout" && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-        >
+      {/* Modais */}
+      {showCart && (
+        <div className="fixed right-0 top-0 z-50 h-full w-80 bg-white p-6 shadow-lg">
+          <h2 className="mb-4 text-xl font-bold">meu Carrinho</h2>
+          {/* 🐧 Pinguim piscando */}
+          <PenguinBlink />
+          <ul className="flex-1 space-y-4 overflow-y-auto">
+            {cart.map((item) => (
+              <li
+                key={item.product.id}
+                className="flex items-center justify-between"
+              >
+                <div>
+                  <span>
+                    {item.product.name} x{item.quantity}
+                  </span>
+                  <div>
+                    <button
+                      onClick={() => updateQuantity(item.product.id, -1)}
+                      className="text-red-500"
+                    >
+                      ➖
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (item.quantity < item.product.stock) {
+                          updateQuantity(item.product.id, 1);
+                        }
+                      }}
+                      className={`text-green-600 ${
+                        item.quantity >= item.product.stock
+                          ? "cursor-not-allowed opacity-50"
+                          : ""
+                      }`}
+                      disabled={item.quantity >= item.product.stock}
+                    >
+                      ➕
+                    </button>
+                  </div>
+                  {/* Mostrar estoque disponível */}
+                  <p className="text-xs text-gray-500">
+                    Disponível: {item.product.stock}
+                  </p>
+                </div>
+                <button
+                  onClick={() => removeFromCart(item.product.id)}
+                  className="text-red-600 hover:underline"
+                >
+                  Excluir
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6 border-t pt-4">
+            {/* Exibe Subtotal, Frete e Total */}
+            {(() => {
+              const subtotal = cart.reduce(
+                (sum, item) => sum + item.product.price * item.quantity,
+                0,
+              );
+
+              return (
+                <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
+                  <p>
+                    🧁 Produtos: <strong>R$ {subtotal.toFixed(2)}</strong>
+                  </p>
+                  <p>
+                    🚚 Entrega aproximada:{" "}
+                    <strong>R$ {deliveryFee.toFixed(2)}</strong>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    (Será cobrada apenas se escolher entrega)
+                  </p>
+                  <p className="text-base font-bold text-green-700">
+                    💰 Total com entrega: R${" "}
+                    {(subtotal + deliveryFee).toFixed(2)}
+                  </p>
+                </div>
+              );
+            })()}
+
+            <button
+              onClick={openCheckout}
+              className="mt-2 w-full rounded bg-red-500 py-2 text-gray-50 hover:bg-red-700"
+            >
+              Finalizar Compra
+            </button>
+            <button
+              onClick={() => setShowCart(false)}
+              className="mt-2 w-full rounded bg-gray-100 py-2 text-gray-700 hover:bg-gray-300"
+            >
+              Continuar Comprando
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Finalizar Pedido */}
+      {showCheckout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm transition-all duration-500">
           <div className="animate-zoom-fade relative w-full max-w-sm rounded-3xl bg-white/90 p-6 shadow-2xl">
             <button
-              onClick={() => dispatch({ type: "RESET" })}
+              onClick={() => setShowCheckout(false)}
               className="absolute right-4 top-4 text-2xl text-gray-400 transition hover:text-red-500"
-              aria-label="Fechar"
             >
               ✕
             </button>
@@ -1160,13 +1107,12 @@ export default function Loja() {
             </h2>
             {deliveryType === "entregar" && (
               <p className="mt-2 text-sm text-gray-700">
-                🚚 Entrega: {toBRL(deliveryFee)}
+                🚚 Entrega: R$ {deliveryFee.toFixed(2)}
               </p>
             )}
 
             {/* Nome */}
             <input
-              ref={checkoutFirstInputRef}
               type="text"
               placeholder="Seu nome completo"
               className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
@@ -1184,6 +1130,7 @@ export default function Loja() {
               <option value="entregar">Entrega em Casa</option>
             </select>
 
+            {/* Campos para entrega */}
             {deliveryType === "entregar" && (
               <div className="flex flex-col gap-3">
                 <select
@@ -1191,74 +1138,72 @@ export default function Loja() {
                   value={address}
                   onChange={(e) => {
                     setAddress(e.target.value);
-                    if (e.target.value !== "Outro") setCustomAddress("");
+                    if (e.target.value !== "Outro") setCustomAddress(""); // limpa se sair de Outro
                   }}
                 >
                   <option value="">Escolha seu bairro</option>
-                  {/* (lista original mantida) */}
-                  {[
-                    "Alvorada",
-                    "Bela Vista",
-                    "Belvedere",
-                    "Centro",
-                    "Colônia Cella",
-                    "Cristo Rei",
-                    "Desbravador",
-                    "Dom Gerônimo",
-                    "Efapi",
-                    "Eldorado",
-                    "Engenho Braun",
-                    "Esplanada",
-                    "Jardim América",
-                    "Jardim do Lago",
-                    "Jardim Europa",
-                    "Jardim Itália",
-                    "Jardim Itália II",
-                    "Jardim Paraíso",
-                    "Jardim Peperi",
-                    "Jardim Sul",
-                    "Líder",
-                    "Maria Goretti",
-                    "Monte Castelo",
-                    "Palmital",
-                    "Palmital II",
-                    "Parque das Palmeiras",
-                    "Parque das Palmeiras II",
-                    "Paraíso",
-                    "Paraíso II",
-                    "Passo dos Ferreira",
-                    "Passo dos Fortes",
-                    "Pinheirinho",
-                    "Presidente Médici",
-                    "Presidente Vargas",
-                    "Quedas do Palmital",
-                    "Quinta da Serra",
-                    "Residencial Viena",
-                    "Saic",
-                    "Santa Maria",
-                    "Santa Paulina",
-                    "Santa Terezinha",
-                    "Santo Antônio",
-                    "São Carlos",
-                    "São Cristóvão",
-                    "São José",
-                    "São Lucas",
-                    "São Pedro",
-                    "Seminário",
-                    "Trevo",
-                    "Universitário",
-                    "Vila Esperança",
-                    "Vila Mantelli",
-                    "Vila Real",
-                    "Vila Rica",
-                    "Outro",
-                  ].map((b) => (
-                    <option key={b} value={b}>
-                      {b === "Outro" ? "Outro..." : b}
-                    </option>
-                  ))}
+                  <option value="Alvorada">Alvorada</option>
+                  <option value="Bela Vista">Bela Vista</option>
+                  <option value="Belvedere">Belvedere</option>
+                  <option value="Centro">Centro</option>
+                  <option value="Colônia Cella">Colônia Cella</option>
+                  <option value="Cristo Rei">Cristo Rei</option>
+                  <option value="Desbravador">Desbravador</option>
+                  <option value="Dom Gerônimo">Dom Gerônimo</option>
+                  <option value="Efapi">Efapi</option>
+                  <option value="Eldorado">Eldorado</option>
+                  <option value="Engenho Braun">Engenho Braun</option>
+                  <option value="Esplanada">Esplanada</option>
+                  <option value="Jardim América">Jardim América</option>
+                  <option value="Jardim do Lago">Jardim do Lago</option>
+                  <option value="Jardim Europa">Jardim Europa</option>
+                  <option value="Jardim Itália">Jardim Itália</option>
+                  <option value="Jardim Itália II">Jardim Itália II</option>
+                  <option value="Jardim Paraíso">Jardim Paraíso</option>
+                  <option value="Jardim Peperi">Jardim Peperi</option>
+                  <option value="Jardim Sul">Jardim Sul</option>
+                  <option value="Líder">Líder</option>
+                  <option value="Maria Goretti">Maria Goretti</option>
+                  <option value="Monte Castelo">Monte Castelo</option>
+                  <option value="Palmital">Palmital</option>
+                  <option value="Palmital II">Palmital II</option>
+                  <option value="Parque das Palmeiras">
+                    Parque das Palmeiras
+                  </option>
+                  <option value="Parque das Palmeiras II">
+                    Parque das Palmeiras II
+                  </option>
+                  <option value="Paraíso">Paraíso</option>
+                  <option value="Paraíso II">Paraíso II</option>
+                  <option value="Passo dos Ferreira">Passo dos Ferreira</option>
+                  <option value="Passo dos Fortes">Passo dos Fortes</option>
+                  <option value="Pinheirinho">Pinheirinho</option>
+                  <option value="Presidente Médici">Presidente Médici</option>
+                  <option value="Presidente Vargas">Presidente Vargas</option>
+                  <option value="Quedas do Palmital">Quedas do Palmital</option>
+                  <option value="Quinta da Serra">Quinta da Serra</option>
+                  <option value="Residencial Viena">Residencial Viena</option>
+                  <option value="Saic">Saic</option>
+                  <option value="Santa Maria">Santa Maria</option>
+                  <option value="Santa Paulina">Santa Paulina</option>
+                  <option value="Santa Terezinha">Santa Terezinha</option>
+                  <option value="Santo Antônio">Santo Antônio</option>
+                  <option value="São Carlos">São Carlos</option>
+                  <option value="São Cristóvão">São Cristóvão</option>
+                  <option value="São José">São José</option>
+                  <option value="São Lucas">São Lucas</option>
+                  <option value="São Pedro">São Pedro</option>
+                  <option value="Seminário">Seminário</option>
+                  <option value="Trevo">Trevo</option>
+                  <option value="Universitário">Universitário</option>
+                  <option value="Vila Esperança">Vila Esperança</option>
+                  <option value="Vila Mantelli">Vila Mantelli</option>
+                  <option value="Vila Real">Vila Real</option>
+                  <option value="Vila Rica">Vila Rica</option>
+                  <option value="Outro">Outro...</option>
                 </select>
 
+                {/* ✅ Input separado quando seleciona Outro */}
                 {address === "Outro" && (
                   <input
                     type="text"
@@ -1275,16 +1220,26 @@ export default function Loja() {
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
                   required
-                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${!street ? "border-red-400 bg-red-50" : "border-gray-300 bg-gray-50"} focus:border-red-400 focus:ring focus:ring-red-200`}
+                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                    !street
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-300 bg-gray-50"
+                  } focus:border-red-400 focus:ring focus:ring-red-200`}
                 />
+
                 <input
                   type="text"
                   placeholder="* Número (obrigatório)"
                   value={number}
                   onChange={(e) => setNumber(e.target.value)}
                   required
-                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${!number ? "border-red-400 bg-red-50" : "border-gray-300 bg-gray-50"} focus:border-red-400 focus:ring focus:ring-red-200`}
+                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                    !number
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-300 bg-gray-50"
+                  } focus:border-red-400 focus:ring focus:ring-red-200`}
                 />
+
                 <input
                   type="text"
                   placeholder="Complemento (opcional)"
@@ -1292,13 +1247,19 @@ export default function Loja() {
                   onChange={(e) => setComplement(e.target.value)}
                   className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700"
                 />
+
                 <input
                   type="tel"
                   placeholder="* WhatsApp com DDD (ex: 49991234567)"
                   value={phoneNumber}
                   onChange={handlePhoneChange}
-                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${!phoneNumber || phoneNumber.length < 13 ? "border-red-400 bg-red-50" : "border-gray-300 bg-gray-50"} focus:border-red-400 focus:ring focus:ring-red-200`}
+                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                    !phoneNumber || phoneNumber.length < 13
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-300 bg-gray-50"
+                  } focus:border-red-400 focus:ring focus:ring-red-200`}
                 />
+
                 <p className="mt-1 text-xs text-gray-600">
                   ⚠️ Este número será usado para você consultar seu pedido
                   depois.
@@ -1306,242 +1267,159 @@ export default function Loja() {
               </div>
             )}
 
-            <div className="mt-4">
-              <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
-                <p>
-                  🧁 Produtos: <strong>{toBRL(subtotal)}</strong>
-                </p>
-                <p>
-                  🚚 Entrega aproximada: <strong>{toBRL(deliveryFee)}</strong>
-                </p>
-                <p className="text-xs text-gray-500">
-                  (Será cobrada apenas se escolher entrega)
-                </p>
-                <p className="text-base font-bold text-green-700">
-                  💰 Total com entrega: {toBRL(subtotal + deliveryFee)}
-                </p>
-              </div>
+            {/* Botão confirmar */}
+            <button
+              onClick={async () => {
+                if (deliveryType === "entregar" && deliveryFee === 0) {
+                  await tentarRecalcularEntrega();
+                  return;
+                }
 
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => dispatch({ type: "RESET" })}
-                  className="rounded bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-300"
-                >
-                  Continuar Comprando
-                </button>
-                <button
-                  onClick={async () => {
-                    // ✅ Validações obrigatórias ANTES de abrir o PIX
-                    if (cart.length === 0) {
-                      showToast("Seu carrinho está vazio!", "warning");
-                      return;
-                    }
-                    if (!selectedStore) {
-                      showToast(
-                        "Selecione a unidade para continuar.",
-                        "warning",
-                      );
-                      return;
-                    }
-                    if (!customerName.trim()) {
-                      showToast("Informe seu nome completo.", "warning");
-                      return;
-                    }
-                    if (
-                      !phoneNumber ||
-                      phoneNumber.replace(/\D/g, "").length < 13
-                    ) {
-                      showToast(
-                        "Informe seu WhatsApp com DDD (ex: 49991234567).",
-                        "warning",
-                      );
-                      return;
-                    }
+                // ❌ NUNCA deve criar o pedido aqui
+                // await finalizeOrder(); ⛔️ REMOVER!
+                setShowCheckout(false);
+                setShowPayment(true);
+              }}
+              disabled={deliveryType === "entregar" && deliveryFee === 0}
+              className={`mt-6 w-full rounded-full py-2 font-semibold transition ${
+                deliveryType === "entregar" && deliveryFee === 0
+                  ? "cursor-not-allowed bg-gray-300 text-gray-500"
+                  : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
+              }`}
+            >
+              Ir para Pagamento
+            </button>
 
-                    if (deliveryType === "entregar") {
-                      if (!address.trim()) {
-                        showToast("Escolha seu bairro.", "warning");
-                        return;
-                      }
-                      if (address === "Outro" && !customAddress.trim()) {
-                        showToast(
-                          "Digite seu bairro no campo 'Outro'.",
-                          "warning",
-                        );
-                        return;
-                      }
-                      if (!street.trim()) {
-                        showToast("Informe a rua.", "warning");
-                        return;
-                      }
-                      if (!number.trim()) {
-                        showToast("Informe o número.", "warning");
-                        return;
-                      }
-                      if (deliveryFee === 0) {
-                        await recalc();
-                        showToast(
-                          "Ative sua localização para calcular a taxa de entrega.",
-                          "warning",
-                        );
-                        return;
-                      }
-                    }
-
-                    // Passou nas validações → abre PIX
-                    dispatch({ type: "OPEN_PIX" });
-                  }}
-                  disabled={deliveryType === "entregar" && deliveryFee === 0}
-                  className={`rounded px-4 py-2 font-semibold transition ${
-                    deliveryType === "entregar" && deliveryFee === 0
-                      ? "cursor-not-allowed bg-gray-300 text-gray-500"
-                      : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
-                  }`}
-                >
-                  Ir para Pagamento
-                </button>
-              </div>
-            </div>
-
-            {/* Itens do carrinho (resumo enxuto) */}
-            <div className="mt-6 max-h-48 space-y-3 overflow-y-auto">
-              {cart.map((item) => (
-                <div
-                  key={item.product.id}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <div className="font-medium">{item.product.name}</div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      aria-label="Diminuir quantidade"
-                      onClick={() => updateQuantity(item.product.id, -1)}
-                      className="text-red-500"
-                    >
-                      ➖
-                    </button>
-                    <span className="w-6 text-center">{item.quantity}</span>
-                    <button
-                      aria-label="Aumentar quantidade"
-                      onClick={() =>
-                        item.quantity < item.product.stock &&
-                        updateQuantity(item.product.id, 1)
-                      }
-                      className={`text-green-600 ${item.quantity >= item.product.stock ? "cursor-not-allowed opacity-50" : ""}`}
-                      disabled={item.quantity >= item.product.stock}
-                    >
-                      ➕
-                    </button>
-                    <button
-                      onClick={() => removeFromCart(item.product.id)}
-                      className="ml-2 text-red-600 hover:underline"
-                    >
-                      Excluir
-                    </button>
-                  </div>
+            {/* Aviso sobre GPS obrigatório + botão de tentar de novo */}
+            {deliveryType === "entregar" && deliveryFee === 0 && (
+              <>
+                <p className="mt-2 text-center text-sm text-red-600">
+                  ⚠️ Ative sua localização para calcular a taxa de entrega.
+                </p>
+                <div className="mt-3 flex justify-center">
+                  <button
+                    onClick={tentarRecalcularEntrega}
+                    className="animate-pulse-slow rounded-full bg-yellow-500 px-4 py-1 text-sm text-white shadow hover:bg-yellow-600 active:scale-95"
+                  >
+                    🔄 Tentar Localizar de Novo
+                  </button>
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* Modal PIX */}
-      {ui.stage === "pix" && orderId === null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-        >
+      {/* Modal de Pagamento via PIX */}
+      {showPayment && !showConfirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm transition-all duration-500">
           <div className="animate-zoom-fade relative w-full max-w-sm rounded-3xl bg-white/90 p-6 text-center shadow-2xl">
-            <button
-              onClick={() => dispatch({ type: "OPEN_CHECKOUT" })}
-              className="absolute right-4 top-4 text-2xl text-gray-400 transition hover:text-red-500"
-              aria-label="Voltar"
-            >
-              ✕
-            </button>
             <h2 className="mb-2 text-xl font-semibold text-green-700">
               Pagamento via PIX
             </h2>
+
             <p className="mb-3 text-sm text-gray-600">
               Escaneie o QR Code ou copie o código abaixo:
             </p>
 
             <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
               <p>
-                🧁 Subtotal: <strong>{toBRL(subtotal)}</strong>
+                🧁 Subtotal: <strong>R$ {subtotal.toFixed(2)}</strong>
               </p>
               <p>
-                🚚 Entrega:{" "}
+                🚚 Entrega:
                 <strong>
-                  {toBRL(deliveryType === "entregar" ? deliveryFee : 0)}
+                  {" "}
+                  R${(deliveryType === "entregar" ? deliveryFee : 0).toFixed(2)}
                 </strong>
               </p>
               <p className="text-base font-bold text-green-700">
-                💰 Total: {toBRL(totalPix)}
+                💰 Total: R$
+                {(
+                  subtotal + (deliveryType === "entregar" ? deliveryFee : 0)
+                ).toFixed(2)}
               </p>
             </div>
 
-            <PixQRCode payload={payloadPix} />
+            {/* QR Code Pix */}
+            <PixQRCode
+              payload={gerarPayloadPix(
+                subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
+              )}
+            />
 
             <button
-              onClick={() => navigator.clipboard.writeText(payloadPix)}
+              onClick={() =>
+                navigator.clipboard.writeText(
+                  gerarPayloadPix(
+                    subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
+                  ),
+                )
+              }
               className="mt-2 w-full rounded-full bg-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
             >
               📋 Copiar código Pix
             </button>
 
+            {/* Botões */}
             <div className="mt-6 space-y-2">
               <button
-                onClick={() => dispatch({ type: "OPEN_CONFIRM" })}
+                onClick={() => setShowPaymentConfirm(true)}
                 className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
               >
                 Confirmar Pagamento
               </button>
               <button
-                onClick={() => dispatch({ type: "OPEN_CHECKOUT" })}
+                onClick={() => setShowPayment(false)}
                 className="w-full rounded-full bg-gray-200 py-2 text-gray-600 transition hover:bg-gray-300"
               >
-                Voltar
+                Cancelar
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Diálogo de confirmação dentro do PIX */}
-      {ui.stage === "pix" && ui.confirmOpen && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-        >
+      {/* Modal de Confirmação elegante */}
+      {showPaymentConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
           <div className="animate-zoom-fade w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
             <h3 className="mb-3 text-lg font-bold text-gray-800">
               Confirmação
             </h3>
             <p className="mb-4 text-sm text-gray-600">
               Você confirma que <strong>já realizou o pagamento via PIX</strong>
-              ?<br />
+              ?
+              <br />
               Esse passo finaliza o seu pedido.
             </p>
             <div className="flex justify-center gap-3">
               <button
-                onClick={() => dispatch({ type: "CLOSE_CONFIRM" })}
+                onClick={() => setShowPaymentConfirm(false)}
                 className="rounded-full bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
               >
                 Voltar
               </button>
               <button
                 onClick={async () => {
-                  dispatch({ type: "START_PLACING" });
-                  dispatch({ type: "CLOSE_CONFIRM" });
+                  // mostra overlay de carregamento imediatamente
+                  setIsPlacingOrder(true);
+                  setShowPaymentConfirm(false);
+
                   const ok = await finalizeOrder();
+
+                  // completa a barra, dá um “respiro” de 350ms e fecha o overlay
                   setPlacingProgress(100);
                   setTimeout(() => {
-                    dispatch({ type: "STOP_PLACING" });
-                    if (ok) setShowConfirmation(true);
-                    else setShowError(true);
+                    setIsPlacingOrder(false);
+
+                    if (ok) {
+                      setShowPayment(false);
+                      setShowConfirmation(true);
+                    } else {
+                      setShowPayment(false);
+                      setShowError(true);
+                    }
                   }, 350);
                 }}
                 className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
@@ -1552,21 +1430,25 @@ export default function Loja() {
           </div>
         </div>
       )}
-
-      {/* Overlay enquanto finaliza */}
-      {ui.placing && (
+      {/* ⏳ Overlay enquanto finaliza o pedido */}
+      {isPlacingOrder && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/70 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4">
+            {/* Spinner duplo */}
             <div className="relative h-16 w-16">
               <div className="absolute inset-0 rounded-full border-4 border-yellow-400/30" />
               <div className="absolute inset-0 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent" />
             </div>
+
+            {/* Barra de progresso */}
             <div className="w-64 overflow-hidden rounded-full bg-white/80 shadow">
               <div
                 className="h-2 rounded-full bg-yellow-400 transition-all duration-200"
                 style={{ width: `${placingProgress}%` }}
               />
             </div>
+
+            {/* Mensagens */}
             <div className="rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-gray-700 shadow">
               Finalizando seu pedido...
             </div>
@@ -1577,18 +1459,15 @@ export default function Loja() {
         </div>
       )}
 
-      {/* Pedido Confirmado */}
+      {/* Modal de Pedido Confirmado */}
       {showConfirmation && orderId !== null && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
-          role="dialog"
-          aria-modal="true"
-        >
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50">
           <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
             <span className="mb-6 block text-5xl text-green-600">✔️</span>
             <h2 className="mb-4 text-2xl font-bold text-green-700">
               Pedido Confirmado!
             </h2>
+
             <p className="mb-2 text-base font-semibold text-gray-800">
               Número do pedido:
             </p>
@@ -1606,15 +1485,17 @@ export default function Loja() {
               </button>
             </div>
             <p className="mb-6 text-sm text-gray-600">
-              Você poderá acompanhar o status do seu pedido clicando em{" "}
-              <strong>“Meu Pedido”</strong>.
+              Você poderá acompanhar o status do seu pedido clicando no botão{" "}
+              <strong>“Meu Pedido”</strong> no canto inferior direito da tela.
             </p>
+
             <button
               onClick={() => {
                 setShowConfirmation(false);
                 setOrderId(null);
                 setCart([]);
-                dispatch({ type: "RESET" });
+                setShowCheckout(false);
+                setShowPayment(false);
                 setCustomerName("");
                 setStreet("");
                 setNumber("");
@@ -1623,8 +1504,9 @@ export default function Loja() {
                 setAddress("");
                 setCustomAddress("");
                 setDeliveryType("retirar");
-                setComponentKey((p) => p + 1);
-                if (selectedStore)
+                setComponentKey((prev) => prev + 1);
+
+                if (selectedStore) {
                   axios
                     .get<
                       Product[]
@@ -1632,6 +1514,7 @@ export default function Loja() {
                     .then((res) => {
                       if (Array.isArray(res.data)) setProducts(res.data);
                     });
+                }
               }}
               className="rounded-full bg-green-600 px-6 py-2 text-white hover:bg-green-700"
             >
@@ -1640,25 +1523,21 @@ export default function Loja() {
           </div>
         </div>
       )}
-
-      {/* Erro */}
+      {/* Modal de ERRO ao confirmar pedido */}
       {showError && (
-        <div
-          className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50"
-          role="dialog"
-          aria-modal="true"
-        >
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
             <span className="mb-4 block text-5xl text-red-600">✖️</span>
             <h2 className="mb-2 text-2xl font-bold text-red-700">
               Não foi possível finalizar
             </h2>
             <p className="mb-4 text-sm text-gray-700">{errorText}</p>
+
             <div className="mt-4 flex justify-center gap-3">
               <button
                 onClick={() => {
                   setShowError(false);
-                  dispatch({ type: "OPEN_PIX" });
+                  setShowPayment(true); // voltar ao PIX para tentar de novo
                 }}
                 className="rounded-full bg-yellow-500 px-5 py-2 text-white hover:bg-yellow-600"
               >
@@ -1675,12 +1554,9 @@ export default function Loja() {
         </div>
       )}
 
-      {/* Modal do produto */}
       {selectedProduct && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          role="dialog"
-          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
           onClick={() => setSelectedProduct(null)}
         >
           <div
@@ -1690,12 +1566,10 @@ export default function Loja() {
             <button
               onClick={() => setSelectedProduct(null)}
               className="absolute right-3 top-3 text-xl text-red-600"
-              aria-label="Fechar"
             >
               ✕
             </button>
             <img
-              loading="lazy"
               src={selectedProduct.imageUrl}
               alt={selectedProduct.name}
               className="mb-4 h-48 w-full object-contain"
@@ -1703,21 +1577,29 @@ export default function Loja() {
             <h2 className="mb-1 text-center text-lg font-bold text-gray-800">
               {selectedProduct.name}
             </h2>
+
+            {/* PREÇO AQUI */}
             <p className="mb-3 text-center text-base font-bold text-green-700">
-              {toBRL(selectedProduct.price)}
+              R$ {selectedProduct.price.toFixed(2)}
             </p>
             <p className="mb-2 text-center text-xs text-gray-500">
               {remainingForSelected > 0
-                ? `Disponível: ${remainingForSelected}${selectedProduct && remainingForSelected < selectedProduct.stock ? ` (de ${selectedProduct.stock})` : ""}`
+                ? `Disponível: ${remainingForSelected}${
+                    selectedProduct &&
+                    remainingForSelected < selectedProduct.stock
+                      ? ` (de ${selectedProduct.stock})`
+                      : ""
+                  }`
                 : "Produto esgotado no seu carrinho"}
             </p>
+
             <p className="mb-4 text-center text-sm text-gray-600">
               {selectedProduct.description}
             </p>
 
             <div className="mb-4 flex items-center justify-center gap-4">
+              {/* Botão de diminuir */}
               <button
-                aria-label="Diminuir quantidade"
                 onClick={() =>
                   setQuantityToAdd((prev) => (prev > 1 ? prev - 1 : 1))
                 }
@@ -1725,11 +1607,12 @@ export default function Loja() {
               >
                 ➖
               </button>
-              <span className="text-xl" aria-live="polite">
-                {quantityToAdd}
-              </span>
+
+              {/* Quantidade atual */}
+              <span className="text-xl">{quantityToAdd}</span>
+
+              {/* Botão de aumentar (apenas aqui, não duplica com o carrinho) */}
               <button
-                aria-label="Aumentar quantidade"
                 onClick={() =>
                   setQuantityToAdd((prev) =>
                     selectedProduct && prev < remainingForSelected
@@ -1746,28 +1629,29 @@ export default function Loja() {
 
             <button
               onClick={() => {
+                if (quantityToAdd < 1) {
+                  alert(
+                    "⚠️ Selecione uma quantidade antes de adicionar ao carrinho!",
+                  );
+                  return;
+                }
                 const safeQty = Math.min(quantityToAdd, remainingForSelected);
                 if (safeQty <= 0) {
                   showToast(
                     "Estoque máximo já está no seu carrinho.",
                     "warning",
                   );
-                  {
-                    toast && (
-                      <Toast
-                        type={toast.type}
-                        message={toast.message}
-                        onClose={() => setToast(null)}
-                      />
-                    );
-                  }
-
                   return;
                 }
+
                 addToCart(selectedProduct, safeQty);
               }}
               disabled={remainingForSelected <= 0}
-              className={`w-full rounded py-2 text-white ${remainingForSelected <= 0 ? "cursor-not-allowed bg-gray-400" : "bg-red-600 hover:bg-red-500"}`}
+              className={`w-full rounded py-2 text-white ${
+                remainingForSelected <= 0
+                  ? "cursor-not-allowed bg-gray-400"
+                  : "bg-red-600 hover:bg-red-500"
+              }`}
             >
               {remainingForSelected <= 0
                 ? "Máximo no carrinho"
@@ -1776,7 +1660,6 @@ export default function Loja() {
           </div>
         </div>
       )}
-
       {/* 🔔 Toast */}
       {toast && (
         <div className="fixed left-1/2 top-4 z-[120] -translate-x-1/2">
