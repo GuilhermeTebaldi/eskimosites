@@ -89,6 +89,11 @@ export default function Loja() {
     [],
   );
 
+  const [showError, setShowError] = useState(false);
+  const [errorText, setErrorText] = useState<string>(
+    "Ocorreu um erro ao enviar seu pedido. Tente novamente.",
+  );
+
   const [quickFilterCategory, setQuickFilterCategory] = useState<string | null>(
     null,
   );
@@ -508,14 +513,15 @@ export default function Loja() {
     setOrderId(null); // limpa ID se for iniciar novo pedido
   };
 
-  const finalizeOrder = async () => {
-    if (orderId !== null) return; // ✅ já existe um pedido criado
-    // ⛔ Segurança extra: não deixa finalizar com quantidade acima do estoque
+  const finalizeOrder = async (): Promise<boolean> => {
+    if (orderId !== null) return true; // já existe
+
+    // segurança extra
     if (cart.some((i) => i.quantity > i.product.stock)) {
       alert(
         "Há itens no carrinho acima do estoque disponível. Ajuste as quantidades.",
       );
-      return;
+      return false;
     }
 
     if (
@@ -523,14 +529,14 @@ export default function Loja() {
       (deliveryType === "entregar" && !address.trim())
     ) {
       alert("Por favor, preencha todas as informações obrigatórias.");
-      return;
+      return false;
     }
 
     if (!selectedStore) {
       alert(
         "Erro: Nenhuma unidade selecionada. Por favor, selecione a loja antes de finalizar o pedido.",
       );
-      return;
+      return false;
     }
 
     try {
@@ -556,30 +562,46 @@ export default function Loja() {
         deliveryFee: realDeliveryFee,
         phoneNumber,
       };
+      type OrderResponse = { id: number; message?: string };
 
-      console.log("📝 Payload do pedido:");
-      console.log(JSON.stringify(payload, null, 2));
-
-      const response = await axios.post<{ id: number; message: string }>(
+      const response = await axios.post<OrderResponse>(
         `${API_URL}/orders`,
         payload,
       );
 
-      const { id } = response.data;
-
-      if (typeof id === "number" && !isNaN(id)) {
+      const id = response.data?.id;
+      if (typeof id === "number" && Number.isFinite(id)) {
         setOrderId(id);
-        setShowCheckout(false);
-        setShowPayment(true);
-        console.log("✅ ID do pedido salvo:", id);
+        return true;
       } else {
-        alert("Erro: número do pedido não foi retornado corretamente.");
-        console.error("❌ ID inválido:", id);
+        setErrorText("Erro: número do pedido não foi retornado corretamente.");
+        return false;
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("❌ Erro ao enviar pedido:", err);
-      alert("Erro ao enviar pedido.");
+      const msg = getServerMessage(err) ?? "Erro ao enviar pedido.";
+      setErrorText(msg);
+      return false;
     }
+  };
+  const getServerMessage = (err: unknown): string | undefined => {
+    if (typeof err === "object" && err !== null) {
+      const withResponse = err as {
+        response?: { data?: unknown };
+        message?: unknown;
+      };
+
+      // tenta pegar message de err.response.data.message
+      const data = withResponse.response?.data;
+      if (typeof data === "object" && data !== null) {
+        const maybeMsg = (data as { message?: unknown }).message;
+        if (typeof maybeMsg === "string") return maybeMsg;
+      }
+
+      // fallback: err.message
+      if (typeof withResponse.message === "string") return withResponse.message;
+    }
+    return undefined;
   };
 
   return (
@@ -1322,9 +1344,14 @@ export default function Loja() {
               <button
                 onClick={async () => {
                   setShowPaymentConfirm(false);
-                  setShowPayment(false);
-                  await finalizeOrder(); // ✅ Gera o pedido no backend
-                  setShowConfirmation(true); // ✅ Mostra confirmação
+                  const ok = await finalizeOrder();
+                  if (ok) {
+                    setShowPayment(false);
+                    setShowConfirmation(true);
+                  } else {
+                    setShowPayment(false);
+                    setShowError(true);
+                  }
                 }}
                 className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
               >
@@ -1336,7 +1363,7 @@ export default function Loja() {
       )}
 
       {/* Modal de Pedido Confirmado */}
-      {showConfirmation && (
+      {showConfirmation && orderId !== null && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50">
           <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
             <span className="mb-6 block text-5xl text-green-600">✔️</span>
@@ -1344,31 +1371,26 @@ export default function Loja() {
               Pedido Confirmado!
             </h2>
 
-            {orderId !== null && (
-              <>
-                <p className="mb-2 text-base font-semibold text-gray-800">
-                  Número do pedido:
-                </p>
-                <div className="mb-3 flex items-center justify-center gap-2">
-                  <div className="rounded-lg border border-dashed border-green-500 bg-green-50 px-4 py-2 text-lg font-bold text-green-700 shadow-sm">
-                    #{orderId}
-                  </div>
-                  <button
-                    onClick={() =>
-                      navigator.clipboard.writeText(orderId.toString())
-                    }
-                    className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700"
-                  >
-                    Copiar
-                  </button>
-                </div>
-                <p className="mb-6 text-sm text-gray-600">
-                  Você poderá acompanhar o status do seu pedido clicando no
-                  botão <strong>“Meu Pedido”</strong> no canto inferior direito
-                  da tela.
-                </p>
-              </>
-            )}
+            <p className="mb-2 text-base font-semibold text-gray-800">
+              Número do pedido:
+            </p>
+            <div className="mb-3 flex items-center justify-center gap-2">
+              <div className="rounded-lg border border-dashed border-green-500 bg-green-50 px-4 py-2 text-lg font-bold text-green-700 shadow-sm">
+                #{orderId}
+              </div>
+              <button
+                onClick={() =>
+                  navigator.clipboard.writeText(orderId.toString())
+                }
+                className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700"
+              >
+                Copiar
+              </button>
+            </div>
+            <p className="mb-6 text-sm text-gray-600">
+              Você poderá acompanhar o status do seu pedido clicando no botão{" "}
+              <strong>“Meu Pedido”</strong> no canto inferior direito da tela.
+            </p>
 
             <button
               onClick={() => {
@@ -1393,9 +1415,7 @@ export default function Loja() {
                       Product[]
                     >(`${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`)
                     .then((res) => {
-                      if (Array.isArray(res.data)) {
-                        setProducts(res.data);
-                      }
+                      if (Array.isArray(res.data)) setProducts(res.data);
                     });
                 }
               }}
@@ -1403,6 +1423,36 @@ export default function Loja() {
             >
               Voltar para Loja
             </button>
+          </div>
+        </div>
+      )}
+      {/* Modal de ERRO ao confirmar pedido */}
+      {showError && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+            <span className="mb-4 block text-5xl text-red-600">✖️</span>
+            <h2 className="mb-2 text-2xl font-bold text-red-700">
+              Não foi possível finalizar
+            </h2>
+            <p className="mb-4 text-sm text-gray-700">{errorText}</p>
+
+            <div className="mt-4 flex justify-center gap-3">
+              <button
+                onClick={() => {
+                  setShowError(false);
+                  setShowPayment(true); // voltar ao PIX para tentar de novo
+                }}
+                className="rounded-full bg-yellow-500 px-5 py-2 text-white hover:bg-yellow-600"
+              >
+                Tentar novamente
+              </button>
+              <button
+                onClick={() => setShowError(false)}
+                className="rounded-full bg-gray-200 px-5 py-2 text-gray-700 hover:bg-gray-300"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}
