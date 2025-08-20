@@ -1451,6 +1451,20 @@ export default function Loja() {
             </p>
 
             <div className="mb-4 flex items-center justify-center gap-4">
+              {/* Botão de diminuir */}
+              <button
+                onClick={() =>
+                  setQuantityToAdd((prev) => (prev > 1 ? prev - 1 : 1))
+                }
+                className="text-2xl"
+              >
+                ➖
+              </button>
+
+              {/* Quantidade atual */}
+              <span className="text-xl">{quantityToAdd}</span>
+
+              {/* Botão de aumentar (apenas aqui, não duplica com o carrinho) */}
               <button
                 onClick={() =>
                   setQuantityToAdd((prev) =>
@@ -1460,20 +1474,7 @@ export default function Loja() {
                   )
                 }
                 className="text-2xl"
-              >
-                ➕
-              </button>
-
-              <span className="text-xl">{quantityToAdd}</span>
-              <button
-                onClick={() =>
-                  setQuantityToAdd((prev) =>
-                    selectedProduct && prev < selectedProduct.stock
-                      ? prev + 1
-                      : prev,
-                  )
-                }
-                className="text-2xl"
+                disabled={quantityToAdd >= remainingForSelected}
               >
                 ➕
               </button>
