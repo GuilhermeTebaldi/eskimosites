@@ -78,6 +78,8 @@ export default function Loja() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+  const [isPlacingOrder, setIsPlacingOrder] = useState<boolean>(false);
+  const [placingProgress, setPlacingProgress] = useState<number>(0);
 
   const [orderId, setOrderId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -237,6 +239,34 @@ export default function Loja() {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
+  useEffect(() => {
+    if (!isPlacingOrder) {
+      document.body.classList.remove("overflow-hidden");
+      return;
+    }
+
+    // trava scroll da página
+    document.body.classList.add("overflow-hidden");
+
+    // começa a “preencher” a barra até ~90% enquanto espera a API
+    setPlacingProgress(0);
+    const interval = window.setInterval(() => {
+      setPlacingProgress((prev) => Math.min(prev + Math.random() * 7 + 3, 90));
+    }, 300);
+
+    // previne fechar/atualizar durante a criação do pedido
+    const beforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("beforeunload", beforeUnload);
+      document.body.classList.remove("overflow-hidden");
+    };
+  }, [isPlacingOrder]);
 
   // 🧹 Limpa o carrinho sempre que a loja mudar
   useEffect(() => {
@@ -1372,21 +1402,59 @@ export default function Loja() {
               </button>
               <button
                 onClick={async () => {
+                  // mostra overlay de carregamento imediatamente
+                  setIsPlacingOrder(true);
                   setShowPaymentConfirm(false);
+
                   const ok = await finalizeOrder();
-                  if (ok) {
-                    setShowPayment(false);
-                    setShowConfirmation(true);
-                  } else {
-                    setShowPayment(false);
-                    setShowError(true);
-                  }
+
+                  // completa a barra, dá um “respiro” de 350ms e fecha o overlay
+                  setPlacingProgress(100);
+                  setTimeout(() => {
+                    setIsPlacingOrder(false);
+
+                    if (ok) {
+                      setShowPayment(false);
+                      setShowConfirmation(true);
+                    } else {
+                      setShowPayment(false);
+                      setShowError(true);
+                    }
+                  }, 350);
                 }}
                 className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
               >
                 Sim, Confirmar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ⏳ Overlay enquanto finaliza o pedido */}
+      {isPlacingOrder && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4">
+            {/* Spinner duplo */}
+            <div className="relative h-16 w-16">
+              <div className="absolute inset-0 rounded-full border-4 border-yellow-400/30" />
+              <div className="absolute inset-0 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent" />
+            </div>
+
+            {/* Barra de progresso */}
+            <div className="w-64 overflow-hidden rounded-full bg-white/80 shadow">
+              <div
+                className="h-2 rounded-full bg-yellow-400 transition-all duration-200"
+                style={{ width: `${placingProgress}%` }}
+              />
+            </div>
+
+            {/* Mensagens */}
+            <div className="rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-gray-700 shadow">
+              Finalizando seu pedido...
+            </div>
+            <p className="text-xs text-gray-500">
+              Por favor, não feche ou atualize a página.
+            </p>
           </div>
         </div>
       )}
