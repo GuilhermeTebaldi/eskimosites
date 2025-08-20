@@ -123,12 +123,20 @@ export default function Loja() {
   //const [clickedProductId, setClickedProductId] = useState<number | null>(null);
   const [deliveryRate, setDeliveryRate] = useState<number>(0);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  // 🔎 Quanto desse produto já está no carrinho
+  const getQtyInCart = (productId: number) =>
+    cart.find((i) => i.product.id === productId)?.quantity ?? 0;
 
   const productsPerPage = 12;
   const subtotal = cart.reduce(
     (acc, item) => acc + item.product.price * item.quantity,
     0,
   );
+  // 🔎 Restante disponível do produto atualmente aberto no modal
+  const remainingForSelected = selectedProduct
+    ? Math.max(selectedProduct.stock - getQtyInCart(selectedProduct.id), 0)
+    : 0;
+
   //const total = subtotal + (deliveryType === "entregar" ? deliveryFee : 0);
   // 🔥 Controle de altura da barra com base no scroll
   // 🔥 Controle de altura da barra com base no scroll
@@ -442,15 +450,27 @@ export default function Loja() {
   const addToCart = (product: Product, quantity: number = 1) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
+      const currentInCart = existing?.quantity ?? 0;
+      const remaining = product.stock - currentInCart; // quanto ainda posso levar
+
+      if (remaining <= 0) {
+        alert("Você já adicionou o máximo disponível deste produto.");
+        return prev;
+      }
+
+      const toAdd = Math.min(quantity, remaining); // nunca passa do restante
+
       if (existing) {
         return prev.map((item) =>
           item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, quantity: item.quantity + toAdd }
             : item,
         );
       }
-      return [...prev, { product, quantity }];
+
+      return [...prev, { product, quantity: toAdd }];
     });
+
     setSelectedProduct(null);
     setQuantityToAdd(1);
   };
@@ -490,6 +510,14 @@ export default function Loja() {
 
   const finalizeOrder = async () => {
     if (orderId !== null) return; // ✅ já existe um pedido criado
+    // ⛔ Segurança extra: não deixa finalizar com quantidade acima do estoque
+    if (cart.some((i) => i.quantity > i.product.stock)) {
+      alert(
+        "Há itens no carrinho acima do estoque disponível. Ajuste as quantidades.",
+      );
+      return;
+    }
+
     if (
       !customerName.trim() ||
       (deliveryType === "entregar" && !address.trim())
@@ -821,7 +849,16 @@ export default function Loja() {
                   <div key={product.id} className="product-card">
                     <div
                       className="product-image-wrapper"
-                      onClick={() => setSelectedProduct(product)}
+                      onClick={() => {
+                        const remaining =
+                          product.stock - getQtyInCart(product.id);
+                        if (remaining <= 0) {
+                          alert("Estoque máximo já está no seu carrinho.");
+                          return;
+                        }
+                        setSelectedProduct(product);
+                        setQuantityToAdd(1);
+                      }}
                     >
                       <img
                         src={product.imageUrl}
@@ -1399,9 +1436,14 @@ export default function Loja() {
               R$ {selectedProduct.price.toFixed(2)}
             </p>
             <p className="mb-2 text-center text-xs text-gray-500">
-              {selectedProduct.stock > 0
-                ? `Disponível: ${selectedProduct.stock}`
-                : "Produto esgotado"}
+              {remainingForSelected > 0
+                ? `Disponível: ${remainingForSelected}${
+                    selectedProduct &&
+                    remainingForSelected < selectedProduct.stock
+                      ? ` (de ${selectedProduct.stock})`
+                      : ""
+                  }`
+                : "Produto esgotado no seu carrinho"}
             </p>
 
             <p className="mb-4 text-center text-sm text-gray-600">
@@ -1410,12 +1452,16 @@ export default function Loja() {
 
             <div className="mb-4 flex items-center justify-center gap-4">
               <button
-                onClick={
-                  () => setQuantityToAdd((prev) => (prev > 1 ? prev - 1 : 1)) // 🔒 nunca menor que 1
+                onClick={() =>
+                  setQuantityToAdd((prev) =>
+                    selectedProduct && prev < remainingForSelected
+                      ? prev + 1
+                      : prev,
+                  )
                 }
                 className="text-2xl"
               >
-                ➖
+                ➕
               </button>
 
               <span className="text-xl">{quantityToAdd}</span>
@@ -1441,11 +1487,23 @@ export default function Loja() {
                   );
                   return;
                 }
-                addToCart(selectedProduct, quantityToAdd);
+                const safeQty = Math.min(quantityToAdd, remainingForSelected);
+                if (safeQty <= 0) {
+                  alert("Você já adicionou o máximo disponível deste produto.");
+                  return;
+                }
+                addToCart(selectedProduct, safeQty);
               }}
-              className="w-full rounded bg-red-600 py-2 text-white hover:bg-red-500"
+              disabled={remainingForSelected <= 0}
+              className={`w-full rounded py-2 text-white ${
+                remainingForSelected <= 0
+                  ? "cursor-not-allowed bg-gray-400"
+                  : "bg-red-600 hover:bg-red-500"
+              }`}
             >
-              Adicionar ao Carrinho
+              {remainingForSelected <= 0
+                ? "Máximo no carrinho"
+                : "Adicionar ao Carrinho"}
             </button>
           </div>
         </div>
