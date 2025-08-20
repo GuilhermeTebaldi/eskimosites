@@ -88,6 +88,32 @@ export default function Loja() {
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>(
     [],
   );
+  // 🔔 Toast/Notificação elegante
+  const [toast, setToast] = useState<{
+    type: "info" | "success" | "warning" | "error";
+    message: string;
+  } | null>(null);
+
+  const toastTimerRef = useRef<number | null>(null);
+
+  const showToast = (
+    message: string,
+    type: "info" | "success" | "warning" | "error" = "info",
+    timeoutMs = 2600,
+  ) => {
+    setToast({ type, message });
+
+    // limpa timeout anterior, se existir
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    // agenda para esconder
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, timeoutMs);
+  };
 
   const [showError, setShowError] = useState(false);
   const [errorText, setErrorText] = useState<string>(
@@ -459,7 +485,7 @@ export default function Loja() {
       const remaining = product.stock - currentInCart; // quanto ainda posso levar
 
       if (remaining <= 0) {
-        alert("Você já adicionou o máximo disponível deste produto.");
+        showToast("Estoque máximo já está no seu carrinho.", "warning");
         return prev;
       }
 
@@ -875,7 +901,10 @@ export default function Loja() {
                         const remaining =
                           product.stock - getQtyInCart(product.id);
                         if (remaining <= 0) {
-                          alert("Estoque máximo já está no seu carrinho.");
+                          showToast(
+                            "Estoque máximo já está no seu carrinho.",
+                            "warning",
+                          );
                           return;
                         }
                         setSelectedProduct(product);
@@ -1540,9 +1569,13 @@ export default function Loja() {
                 }
                 const safeQty = Math.min(quantityToAdd, remainingForSelected);
                 if (safeQty <= 0) {
-                  alert("Você já adicionou o máximo disponível deste produto.");
+                  showToast(
+                    "Estoque máximo já está no seu carrinho.",
+                    "warning",
+                  );
                   return;
                 }
+
                 addToCart(selectedProduct, safeQty);
               }}
               disabled={remainingForSelected <= 0}
@@ -1556,6 +1589,47 @@ export default function Loja() {
                 ? "Máximo no carrinho"
                 : "Adicionar ao Carrinho"}
             </button>
+          </div>
+        </div>
+      )}
+      {/* 🔔 Toast */}
+      {toast && (
+        <div className="fixed left-1/2 top-4 z-[120] -translate-x-1/2">
+          <div
+            className={[
+              "animate-[fade-in_0.2s_ease-out]",
+              "rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md",
+              toast.type === "success" &&
+                "border-green-200 bg-green-50/90 text-green-800",
+              toast.type === "warning" &&
+                "border-yellow-200 bg-yellow-50/90 text-yellow-800",
+              toast.type === "error" &&
+                "border-red-200 bg-red-50/90 text-red-800",
+              toast.type === "info" &&
+                "border-gray-200 bg-white/90 text-gray-800",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-xl">
+                {toast.type === "success"
+                  ? "✅"
+                  : toast.type === "warning"
+                    ? "⚠️"
+                    : toast.type === "error"
+                      ? "❌"
+                      : "ℹ️"}
+              </span>
+              <div className="text-sm font-medium">{toast.message}</div>
+              <button
+                onClick={() => setToast(null)}
+                className="ml-2 rounded-md px-2 text-xs opacity-70 hover:opacity-100"
+                aria-label="Fechar aviso"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         </div>
       )}
