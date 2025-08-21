@@ -1440,16 +1440,13 @@ export default function Loja() {
                     className="h-12 w-12 flex-shrink-0 rounded-md border object-contain"
                   />
 
-                  {/* Nome + preço/quantidade + subtotal */}
+                  {/* Nome + preço/quantidade */}
                   <div className="flex flex-1 flex-col">
                     <span className="text-sm font-medium text-gray-800">
                       {item.product.name}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {toBRL(item.product.price)} × {item.quantity}
-                    </span>
-                    <span className="text-xs font-semibold text-gray-700">
-                      Total: {toBRL(item.product.price * item.quantity)}
+                      {toBRL(item.product.price)} x {item.quantity}
                     </span>
                   </div>
 
