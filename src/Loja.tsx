@@ -1170,16 +1170,19 @@ export default function Loja() {
           aria-modal="true"
         >
           <div className="animate-zoom-fade relative max-h-[85vh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-3xl bg-white/90 p-6 pt-10 shadow-2xl">
-            <button
-              onClick={() => dispatch({ type: "RESET" })}
-              className="absolute right-4 top-4 text-2xl text-gray-400 transition hover:text-red-500"
-              aria-label="Fechar"
-            >
-              ✕
-            </button>
-            <h2 className="mb-4 text-center text-xl font-semibold text-gray-800">
-              Finalizar Pedido
-            </h2>
+            {/* Topo fixo (X e título) */}
+            <div className="relative flex-shrink-0 p-6 pb-2">
+              <button
+                onClick={() => dispatch({ type: "RESET" })}
+                className="absolute right-4 top-4 text-2xl text-gray-400 transition hover:text-red-500"
+                aria-label="Fechar"
+              >
+                ✕
+              </button>
+              <h2 className="text-center text-xl font-semibold text-gray-800">
+                Finalizar Pedido
+              </h2>
+            </div>
             {deliveryType === "entregar" && (
               <p className="mt-2 text-sm text-gray-700">
                 🚚 Entrega: {toBRL(deliveryFee)}
