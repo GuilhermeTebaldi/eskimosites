@@ -1426,8 +1426,8 @@ export default function Loja() {
               </div>
             </div>
 
-            {/* Itens do carrinho (resumo com fotos) */}
-            <div className="mt-6 max-h-48 space-y-3 overflow-y-auto">
+            {/* Itens do carrinho (com fotos e subtotal por item) */}
+            <div className="mt-6 max-h-64 space-y-3 overflow-y-auto">
               {cart.map((item) => (
                 <div
                   key={item.product.id}
@@ -1435,18 +1435,23 @@ export default function Loja() {
                 >
                   {/* Foto do produto */}
                   <img
-                    src={item.product.imageUrl}
+                    src={
+                      item.product.imageUrl || "https://via.placeholder.com/80"
+                    }
                     alt={item.product.name}
-                    className="h-12 w-12 flex-shrink-0 rounded-md border object-contain"
+                    className="h-14 w-14 flex-shrink-0 rounded-md border object-cover"
                   />
 
-                  {/* Nome + preço/quantidade */}
+                  {/* Nome + preço/quantidade + subtotal */}
                   <div className="flex flex-1 flex-col">
                     <span className="text-sm font-medium text-gray-800">
                       {item.product.name}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {toBRL(item.product.price)} x {item.quantity}
+                      {toBRL(item.product.price)} × {item.quantity}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-700">
+                      Total: {toBRL(item.product.price * item.quantity)}
                     </span>
                   </div>
 
