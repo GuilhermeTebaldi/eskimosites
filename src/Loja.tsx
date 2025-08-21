@@ -695,14 +695,41 @@ export default function Loja() {
     });
   }, [filtered]);
 
+  // paginação automatica
   const paginados = useMemo(
     () => produtosOrdenados.slice(0, currentPage * UI.PRODUCTS_PER_PAGE),
     [produtosOrdenados, currentPage],
   );
+
   const totalPages = useMemo(
     () => Math.ceil(filtered.length / UI.PRODUCTS_PER_PAGE),
     [filtered.length],
   );
+
+  // o observer ele detacta que chegou na fim dos produtos e mostra mais
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+          setCurrentPage((p) => {
+            if (p < totalPages) return p + 1;
+            return p;
+          });
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => {
+      if (loadMoreRef.current) observer.unobserve(loadMoreRef.current);
+    };
+  }, [totalPages]);
 
   // máscara e envio limpo do telefone
   const handlePhoneChange = useCallback(
@@ -1100,15 +1127,10 @@ export default function Loja() {
         )}
       </div>
 
+      {/* Substituido botão Carregar mais em um carregamento automático o botão pelo “sentinela invisível” */}
       {currentPage < totalPages && (
-        <div className="mb-24 mt-4 text-center">
-          <button
-            onClick={() => setCurrentPage((p) => p + 1)}
-            className="inline-flex items-center gap-2 rounded-full bg-yellow-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-yellow-600 hover:shadow-xl active:scale-95"
-          >
-            <span className="animate-bounce text-xl">↓</span>
-            Carregar mais
-          </button>
+        <div ref={loadMoreRef} className="mb-24 mt-4 h-10 w-full text-center">
+          <span className="text-sm text-gray-400">Carregando mais...</span>
         </div>
       )}
 
