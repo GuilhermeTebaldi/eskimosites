@@ -1321,10 +1321,6 @@ export default function Loja() {
                   onChange={handlePhoneChange}
                   className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${!phoneNumber || phoneNumber.length < 13 ? "border-red-400 bg-red-50" : "border-gray-300 bg-gray-50"} focus:border-red-400 focus:ring focus:ring-red-200`}
                 />
-                <p className="mt-1 text-xs text-gray-600">
-                  ⚠️ Este número será usado para você consultar seu pedido
-                  depois.
-                </p>
               </div>
             )}
 
