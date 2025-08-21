@@ -1169,7 +1169,7 @@ export default function Loja() {
           role="dialog"
           aria-modal="true"
         >
-          <div className="animate-zoom-fade relative max-h-[85vh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-3xl bg-white/90 p-6 pt-10 shadow-2xl">
+          <div className="animate-zoom-fade relative flex max-h-[85vh] w-full max-w-sm flex-col rounded-3xl bg-white/90 shadow-2xl">
             {/* Topo fixo (X e título) */}
             <div className="relative flex-shrink-0 p-6 pb-2">
               <button
