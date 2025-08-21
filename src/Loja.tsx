@@ -1435,11 +1435,9 @@ export default function Loja() {
                 >
                   {/* Foto do produto */}
                   <img
-                    src={
-                      item.product.imageUrl || "https://via.placeholder.com/80"
-                    }
+                    src={item.product.imageUrl}
                     alt={item.product.name}
-                    className="h-20 w-20 flex-shrink-0 rounded-md border object-cover"
+                    className="h-12 w-12 flex-shrink-0 rounded-md border object-contain"
                   />
 
                   {/* Nome + preço/quantidade */}
