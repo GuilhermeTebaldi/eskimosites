@@ -1343,7 +1343,7 @@ export default function Loja() {
               <div className="flex items-center justify-between">
                 <button
                   onClick={() => dispatch({ type: "RESET" })}
-                  className="rounded bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-300"
+                  className="rounded bg-gray-100 px-4 py-1 text-gray-700 hover:bg-gray-300"
                 >
                   Continuar Comprando
                 </button>
@@ -1411,7 +1411,7 @@ export default function Loja() {
                     dispatch({ type: "OPEN_PIX" });
                   }}
                   disabled={deliveryType === "entregar" && deliveryFee === 0}
-                  className={`rounded px-4 py-2 font-semibold transition ${
+                  className={`rounded px-10 py-1 font-semibold transition ${
                     deliveryType === "entregar" && deliveryFee === 0
                       ? "cursor-not-allowed bg-gray-300 text-gray-500"
                       : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
