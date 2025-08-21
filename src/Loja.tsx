@@ -1426,14 +1426,31 @@ export default function Loja() {
               </div>
             </div>
 
-            {/* Itens do carrinho (resumo enxuto) */}
+            {/* Itens do carrinho (resumo com fotos) */}
             <div className="mt-6 max-h-48 space-y-3 overflow-y-auto">
               {cart.map((item) => (
                 <div
                   key={item.product.id}
-                  className="flex items-center justify-between text-sm"
+                  className="flex items-center gap-3 rounded-lg bg-white/80 p-2 shadow-sm"
                 >
-                  <div className="font-medium">{item.product.name}</div>
+                  {/* Foto do produto */}
+                  <img
+                    src={item.product.imageUrl}
+                    alt={item.product.name}
+                    className="h-12 w-12 flex-shrink-0 rounded-md border object-contain"
+                  />
+
+                  {/* Nome + preço/quantidade */}
+                  <div className="flex flex-1 flex-col">
+                    <span className="text-sm font-medium text-gray-800">
+                      {item.product.name}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {toBRL(item.product.price)} x {item.quantity}
+                    </span>
+                  </div>
+
+                  {/* Controles */}
                   <div className="flex items-center gap-2">
                     <button
                       aria-label="Diminuir quantidade"
@@ -1456,7 +1473,7 @@ export default function Loja() {
                     </button>
                     <button
                       onClick={() => removeFromCart(item.product.id)}
-                      className="ml-2 text-red-600 hover:underline"
+                      className="ml-2 text-xs text-red-600 hover:underline"
                     >
                       Excluir
                     </button>
