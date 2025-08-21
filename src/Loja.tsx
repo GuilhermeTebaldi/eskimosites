@@ -1169,317 +1169,333 @@ export default function Loja() {
           role="dialog"
           aria-modal="true"
         >
-          <div className="animate-zoom-fade relative max-h-[85vh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-3xl bg-white/90 p-6 pt-10 shadow-2xl">
+          {/* Wrapper NÃO rolável: aqui o ✕ fica preso */}
+          <div className="relative w-full max-w-sm">
             <button
               onClick={() => dispatch({ type: "RESET" })}
-              className="absolute right-4 top-4 text-2xl text-gray-400 transition hover:text-red-500"
+              className="absolute right-4 top-4 z-10 text-2xl text-gray-400 transition hover:text-red-500"
               aria-label="Fechar"
             >
               ✕
             </button>
-            <h2 className="mb-4 text-center text-xl font-semibold text-gray-800">
-              Finalizar Pedido
-            </h2>
-            {deliveryType === "entregar" && (
-              <p className="mt-2 text-sm text-gray-700">
-                🚚 Entrega: {toBRL(deliveryFee)}
-              </p>
-            )}
 
-            {/* Nome */}
-            <input
-              ref={checkoutFirstInputRef}
-              type="text"
-              placeholder="Seu nome completo"
-              className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-            />
+            {/* Conteúdo rolável (sem o botão aqui dentro) */}
+            <div className="animate-zoom-fade max-h-[85vh] overflow-y-auto overscroll-contain rounded-3xl bg-white/90 p-6 pt-10 shadow-2xl">
+              <h2 className="mb-4 text-center text-xl font-semibold text-gray-800">
+                Finalizar Pedido
+              </h2>
 
-            {/* Tipo de entrega */}
-            <select
-              className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
-              value={deliveryType}
-              onChange={(e) => setDeliveryType(e.target.value)}
-            >
-              <option value="retirar">Retirar na Loja</option>
-              <option value="entregar">Entrega em Casa</option>
-            </select>
+              {deliveryType === "entregar" && (
+                <p className="mt-2 text-sm text-gray-700">
+                  🚚 Entrega: {toBRL(deliveryFee)}
+                </p>
+              )}
 
-            {deliveryType === "entregar" && (
-              <div className="flex flex-col gap-3">
-                <select
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
-                  value={address}
-                  onChange={(e) => {
-                    setAddress(e.target.value);
-                    if (e.target.value !== "Outro") setCustomAddress("");
-                  }}
-                >
-                  <option value="">Escolha seu bairro</option>
-                  {/* (lista original mantida) */}
-                  {[
-                    "Alvorada",
-                    "Bela Vista",
-                    "Belvedere",
-                    "Centro",
-                    "Colônia Cella",
-                    "Cristo Rei",
-                    "Desbravador",
-                    "Dom Gerônimo",
-                    "Efapi",
-                    "Eldorado",
-                    "Engenho Braun",
-                    "Esplanada",
-                    "Jardim América",
-                    "Jardim do Lago",
-                    "Jardim Europa",
-                    "Jardim Itália",
-                    "Jardim Itália II",
-                    "Jardim Paraíso",
-                    "Jardim Peperi",
-                    "Jardim Sul",
-                    "Líder",
-                    "Maria Goretti",
-                    "Monte Castelo",
-                    "Palmital",
-                    "Palmital II",
-                    "Parque das Palmeiras",
-                    "Parque das Palmeiras II",
-                    "Paraíso",
-                    "Paraíso II",
-                    "Passo dos Ferreira",
-                    "Passo dos Fortes",
-                    "Pinheirinho",
-                    "Presidente Médici",
-                    "Presidente Vargas",
-                    "Quedas do Palmital",
-                    "Quinta da Serra",
-                    "Residencial Viena",
-                    "Saic",
-                    "Santa Maria",
-                    "Santa Paulina",
-                    "Santa Terezinha",
-                    "Santo Antônio",
-                    "São Carlos",
-                    "São Cristóvão",
-                    "São José",
-                    "São Lucas",
-                    "São Pedro",
-                    "Seminário",
-                    "Trevo",
-                    "Universitário",
-                    "Vila Esperança",
-                    "Vila Mantelli",
-                    "Vila Real",
-                    "Vila Rica",
-                    "Outro",
-                  ].map((b) => (
-                    <option key={b} value={b}>
-                      {b === "Outro" ? "Outro..." : b}
-                    </option>
-                  ))}
-                </select>
+              {/* Nome */}
+              <input
+                ref={checkoutFirstInputRef}
+                type="text"
+                placeholder="Seu nome completo"
+                className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
 
-                {address === "Outro" && (
+              {/* Tipo de entrega */}
+              <select
+                className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
+                value={deliveryType}
+                onChange={(e) => setDeliveryType(e.target.value)}
+              >
+                <option value="retirar">Retirar na Loja</option>
+                <option value="entregar">Entrega em Casa</option>
+              </select>
+
+              {deliveryType === "entregar" && (
+                <div className="flex flex-col gap-3">
+                  <select
+                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      if (e.target.value !== "Outro") setCustomAddress("");
+                    }}
+                  >
+                    <option value="">Escolha seu bairro</option>
+                    {[
+                      "Alvorada",
+                      "Bela Vista",
+                      "Belvedere",
+                      "Centro",
+                      "Colônia Cella",
+                      "Cristo Rei",
+                      "Desbravador",
+                      "Dom Gerônimo",
+                      "Efapi",
+                      "Eldorado",
+                      "Engenho Braun",
+                      "Esplanada",
+                      "Jardim América",
+                      "Jardim do Lago",
+                      "Jardim Europa",
+                      "Jardim Itália",
+                      "Jardim Itália II",
+                      "Jardim Paraíso",
+                      "Jardim Peperi",
+                      "Jardim Sul",
+                      "Líder",
+                      "Maria Goretti",
+                      "Monte Castelo",
+                      "Palmital",
+                      "Palmital II",
+                      "Parque das Palmeiras",
+                      "Parque das Palmeiras II",
+                      "Paraíso",
+                      "Paraíso II",
+                      "Passo dos Ferreira",
+                      "Passo dos Fortes",
+                      "Pinheirinho",
+                      "Presidente Médici",
+                      "Presidente Vargas",
+                      "Quedas do Palmital",
+                      "Quinta da Serra",
+                      "Residencial Viena",
+                      "Saic",
+                      "Santa Maria",
+                      "Santa Paulina",
+                      "Santa Terezinha",
+                      "Santo Antônio",
+                      "São Carlos",
+                      "São Cristóvão",
+                      "São José",
+                      "São Lucas",
+                      "São Pedro",
+                      "Seminário",
+                      "Trevo",
+                      "Universitário",
+                      "Vila Esperança",
+                      "Vila Mantelli",
+                      "Vila Real",
+                      "Vila Rica",
+                      "Outro",
+                    ].map((b) => (
+                      <option key={b} value={b}>
+                        {b === "Outro" ? "Outro..." : b}
+                      </option>
+                    ))}
+                  </select>
+
+                  {address === "Outro" && (
+                    <input
+                      type="text"
+                      placeholder="Digite seu bairro"
+                      value={customAddress}
+                      onChange={(e) => setCustomAddress(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                    />
+                  )}
+
                   <input
                     type="text"
-                    placeholder="Digite seu bairro"
-                    value={customAddress}
-                    onChange={(e) => setCustomAddress(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                    placeholder="* Rua (obrigatório)"
+                    value={street}
+                    onChange={(e) => setStreet(e.target.value)}
+                    required
+                    className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                      !street
+                        ? "border-red-400 bg-red-50"
+                        : "border-gray-300 bg-gray-50"
+                    } focus:border-red-400 focus:ring focus:ring-red-200`}
                   />
-                )}
-
-                <input
-                  type="text"
-                  placeholder="* Rua (obrigatório)"
-                  value={street}
-                  onChange={(e) => setStreet(e.target.value)}
-                  required
-                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${!street ? "border-red-400 bg-red-50" : "border-gray-300 bg-gray-50"} focus:border-red-400 focus:ring focus:ring-red-200`}
-                />
-                <input
-                  type="text"
-                  placeholder="* Número (obrigatório)"
-                  value={number}
-                  onChange={(e) => setNumber(e.target.value)}
-                  required
-                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${!number ? "border-red-400 bg-red-50" : "border-gray-300 bg-gray-50"} focus:border-red-400 focus:ring focus:ring-red-200`}
-                />
-                <input
-                  type="text"
-                  placeholder="Complemento (opcional)"
-                  value={complement}
-                  onChange={(e) => setComplement(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700"
-                />
-                <input
-                  type="tel"
-                  placeholder="* WhatsApp com DDD (ex: 49991234567)"
-                  value={phoneNumber}
-                  onChange={handlePhoneChange}
-                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${!phoneNumber || phoneNumber.length < 13 ? "border-red-400 bg-red-50" : "border-gray-300 bg-gray-50"} focus:border-red-400 focus:ring focus:ring-red-200`}
-                />
-              </div>
-            )}
-
-            <div className="mt-4">
-              <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
-                <p>
-                  🧁 Produtos: <strong>{toBRL(subtotal)}</strong>
-                </p>
-                <p>
-                  🚚 Entrega aproximada: <strong>{toBRL(deliveryFee)}</strong>
-                </p>
-                <p className="text-xs text-gray-500">
-                  (Será cobrada apenas se escolher entrega)
-                </p>
-                <p className="text-base font-bold text-green-700">
-                  💰 Total com entrega: {toBRL(subtotal + deliveryFee)}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => dispatch({ type: "RESET" })}
-                  className="rounded bg-gray-100 px-4 py-1 text-gray-700 hover:bg-gray-300"
-                >
-                  Continuar Comprando
-                </button>
-                <button
-                  onClick={async () => {
-                    // ✅ Validações comuns
-                    if (cart.length === 0) {
-                      showToast("Seu carrinho está vazio!", "warning");
-                      return;
-                    }
-                    if (!selectedStore) {
-                      showToast(
-                        "Selecione a unidade para continuar.",
-                        "warning",
-                      );
-                      return;
-                    }
-                    if (!customerName.trim()) {
-                      showToast("Informe seu nome completo.", "warning");
-                      return;
-                    }
-
-                    // ✅ Regras específicas por tipo de entrega
-                    if (deliveryType === "entregar") {
-                      // (somente para entrega)
-                      if (!address.trim()) {
-                        showToast("Escolha seu bairro.", "warning");
-                        return;
-                      }
-                      if (address === "Outro" && !customAddress.trim()) {
-                        showToast(
-                          "Digite seu bairro no campo 'Outro'.",
-                          "warning",
-                        );
-                        return;
-                      }
-                      if (!street.trim()) {
-                        showToast("Informe a rua.", "warning");
-                        return;
-                      }
-                      if (!number.trim()) {
-                        showToast("Informe o número.", "warning");
-                        return;
-                      }
-                      if (
-                        !phoneNumber ||
-                        phoneNumber.replace(/\D/g, "").length < 13
-                      ) {
-                        showToast(
-                          "Informe seu WhatsApp com DDD (ex: 49991234567).",
-                          "warning",
-                        );
-                        return;
-                      }
-                      if (deliveryFee === 0) {
-                        await recalc();
-                        showToast(
-                          "Ative sua localização para calcular a taxa de entrega.",
-                          "warning",
-                        );
-                        return;
-                      }
-                    }
-                    // Passou nas validações → abre PIX
-                    dispatch({ type: "OPEN_PIX" });
-                  }}
-                  disabled={deliveryType === "entregar" && deliveryFee === 0}
-                  className={`rounded px-10 py-1 font-semibold transition ${
-                    deliveryType === "entregar" && deliveryFee === 0
-                      ? "cursor-not-allowed bg-gray-300 text-gray-500"
-                      : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
-                  }`}
-                >
-                  Ir para Pagamento
-                </button>
-              </div>
-            </div>
-
-            {/* Itens do carrinho (com fotos e subtotal por item) */}
-            <div className="mt-6 max-h-64 space-y-3 overflow-y-auto">
-              {cart.map((item) => (
-                <div
-                  key={item.product.id}
-                  className="flex items-center gap-3 rounded-lg bg-white/80 p-2 shadow-sm"
-                >
-                  {/* Foto do produto */}
-                  <img
-                    src={item.product.imageUrl}
-                    alt={item.product.name}
-                    className="h-12 w-12 flex-shrink-0 rounded-md border object-contain"
+                  <input
+                    type="text"
+                    placeholder="* Número (obrigatório)"
+                    value={number}
+                    onChange={(e) => setNumber(e.target.value)}
+                    required
+                    className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                      !number
+                        ? "border-red-400 bg-red-50"
+                        : "border-gray-300 bg-gray-50"
+                    } focus:border-red-400 focus:ring focus:ring-red-200`}
                   />
-
-                  {/* Nome + preço/quantidade */}
-                  <div className="flex flex-1 flex-col">
-                    <span className="text-sm font-medium text-gray-800">
-                      {item.product.name}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {toBRL(item.product.price)} x {item.quantity}
-                    </span>
-                  </div>
-
-                  {/* Controles */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      aria-label="Diminuir quantidade"
-                      onClick={() => updateQuantity(item.product.id, -1)}
-                      className="text-red-500"
-                    >
-                      ➖
-                    </button>
-                    <span className="w-6 text-center">{item.quantity}</span>
-                    <button
-                      aria-label="Aumentar quantidade"
-                      onClick={() =>
-                        item.quantity < item.product.stock &&
-                        updateQuantity(item.product.id, 1)
-                      }
-                      className={`text-green-600 ${item.quantity >= item.product.stock ? "cursor-not-allowed opacity-50" : ""}`}
-                      disabled={item.quantity >= item.product.stock}
-                    >
-                      ➕
-                    </button>
-                    <button
-                      onClick={() => removeFromCart(item.product.id)}
-                      className="ml-2 text-xs text-red-600 hover:underline"
-                    >
-                      Excluir
-                    </button>
-                  </div>
+                  <input
+                    type="text"
+                    placeholder="Complemento (opcional)"
+                    value={complement}
+                    onChange={(e) => setComplement(e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="* WhatsApp com DDD (ex: 49991234567)"
+                    value={phoneNumber}
+                    onChange={handlePhoneChange}
+                    className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                      !phoneNumber || phoneNumber.length < 13
+                        ? "border-red-400 bg-red-50"
+                        : "border-gray-300 bg-gray-50"
+                    } focus:border-red-400 focus:ring focus:ring-red-200`}
+                  />
                 </div>
-              ))}
+              )}
+
+              <div className="mt-4">
+                <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
+                  <p>
+                    🧁 Produtos: <strong>{toBRL(subtotal)}</strong>
+                  </p>
+                  <p>
+                    🚚 Entrega aproximada: <strong>{toBRL(deliveryFee)}</strong>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    (Será cobrada apenas se escolher entrega)
+                  </p>
+                  <p className="text-base font-bold text-green-700">
+                    💰 Total com entrega: {toBRL(subtotal + deliveryFee)}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => dispatch({ type: "RESET" })}
+                    className="rounded bg-gray-100 px-4 py-1 text-gray-700 hover:bg-gray-300"
+                  >
+                    Continuar Comprando
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (cart.length === 0) {
+                        showToast("Seu carrinho está vazio!", "warning");
+                        return;
+                      }
+                      if (!selectedStore) {
+                        showToast(
+                          "Selecione a unidade para continuar.",
+                          "warning",
+                        );
+                        return;
+                      }
+                      if (!customerName.trim()) {
+                        showToast("Informe seu nome completo.", "warning");
+                        return;
+                      }
+
+                      if (deliveryType === "entregar") {
+                        if (!address.trim()) {
+                          showToast("Escolha seu bairro.", "warning");
+                          return;
+                        }
+                        if (address === "Outro" && !customAddress.trim()) {
+                          showToast(
+                            "Digite seu bairro no campo 'Outro'.",
+                            "warning",
+                          );
+                          return;
+                        }
+                        if (!street.trim()) {
+                          showToast("Informe a rua.", "warning");
+                          return;
+                        }
+                        if (!number.trim()) {
+                          showToast("Informe o número.", "warning");
+                          return;
+                        }
+                        if (
+                          !phoneNumber ||
+                          phoneNumber.replace(/\D/g, "").length < 13
+                        ) {
+                          showToast(
+                            "Informe seu WhatsApp com DDD (ex: 49991234567).",
+                            "warning",
+                          );
+                          return;
+                        }
+                        if (deliveryFee === 0) {
+                          await recalc();
+                          showToast(
+                            "Ative sua localização para calcular a taxa de entrega.",
+                            "warning",
+                          );
+                          return;
+                        }
+                      }
+                      // Passou nas validações → abre PIX
+                      dispatch({ type: "OPEN_PIX" });
+                    }}
+                    disabled={deliveryType === "entregar" && deliveryFee === 0}
+                    className={`rounded px-10 py-1 font-semibold transition ${
+                      deliveryType === "entregar" && deliveryFee === 0
+                        ? "cursor-not-allowed bg-gray-300 text-gray-500"
+                        : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
+                    }`}
+                  >
+                    Ir para Pagamento
+                  </button>
+                </div>
+              </div>
+
+              {/* Itens do carrinho (com fotos e subtotal por item) */}
+              <div className="mt-6 max-h-64 space-y-3 overflow-y-auto">
+                {cart.map((item) => (
+                  <div
+                    key={item.product.id}
+                    className="flex items-center gap-3 rounded-lg bg-white/80 p-2 shadow-sm"
+                  >
+                    {/* Foto do produto */}
+                    <img
+                      src={item.product.imageUrl}
+                      alt={item.product.name}
+                      className="h-12 w-12 flex-shrink-0 rounded-md border object-contain"
+                    />
+
+                    {/* Nome + preço x qtd */}
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-800">
+                          {item.product.name}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {toBRL(item.product.price)} x {item.quantity}
+                        </span>
+                      </div>
+
+                      {/* Controles */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          aria-label="Diminuir quantidade"
+                          onClick={() => updateQuantity(item.product.id, -1)}
+                          className="text-red-500"
+                        >
+                          ➖
+                        </button>
+                        <span className="text-sm">{item.quantity}</span>
+                        <button
+                          aria-label="Aumentar quantidade"
+                          onClick={() => updateQuantity(item.product.id, +1)}
+                          className="text-green-600"
+                        >
+                          ➕
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="ml-2 text-xs text-red-600 hover:underline"
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+            {/* fim do conteúdo rolável */}
           </div>
+          {/* fim do wrapper não rolável */}
         </div>
       )}
+      {/* fim do checkout */}
 
       {/* Modal PIX */}
       {ui.stage === "pix" && orderId === null && (
@@ -1488,62 +1504,71 @@ export default function Loja() {
           role="dialog"
           aria-modal="true"
         >
-          <div className="animate-zoom-fade relative max-h-[85vh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-3xl bg-white/90 p-6 pt-10 text-center shadow-2xl">
+          {/* Wrapper NÃO rolável */}
+          <div className="relative w-full max-w-sm">
             <button
               onClick={() => dispatch({ type: "OPEN_CHECKOUT" })}
-              className="absolute right-4 top-4 text-2xl text-gray-400 transition hover:text-red-500"
+              className="absolute right-4 top-4 z-10 text-2xl text-gray-400 transition hover:text-red-500"
               aria-label="Voltar"
             >
               ✕
             </button>
-            <h2 className="mb-2 text-xl font-semibold text-green-700">
-              Pagamento via PIX
-            </h2>
-            <p className="mb-3 text-sm text-gray-600">
-              Escaneie o QR Code ou copie o código abaixo:
-            </p>
 
-            <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
-              <p>
-                🧁 Subtotal: <strong>{toBRL(subtotal)}</strong>
+            {/* Conteúdo rolável */}
+            <div className="animate-zoom-fade max-h-[85vh] overflow-y-auto overscroll-contain rounded-3xl bg-white/90 p-6 pt-10 text-center shadow-2xl">
+              <h2 className="mb-2 text-xl font-semibold text-green-700">
+                Pagamento via PIX
+              </h2>
+
+              <p className="mb-3 text-sm text-gray-600">
+                Escaneie o QR Code ou copie o código abaixo:
               </p>
-              <p>
-                🚚 Entrega:{" "}
-                <strong>
-                  {toBRL(deliveryType === "entregar" ? deliveryFee : 0)}
-                </strong>
-              </p>
-              <p className="text-base font-bold text-green-700">
-                💰 Total: {toBRL(totalPix)}
-              </p>
-            </div>
 
-            <PixQRCode payload={payloadPix} />
+              <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
+                <p>
+                  🧁 Subtotal: <strong>{toBRL(subtotal)}</strong>
+                </p>
+                <p>
+                  🚚 Entrega:{" "}
+                  <strong>
+                    {toBRL(deliveryType === "entregar" ? deliveryFee : 0)}
+                  </strong>
+                </p>
+                <p className="text-base font-bold text-green-700">
+                  💰 Total: {toBRL(totalPix)}
+                </p>
+              </div>
 
-            <button
-              onClick={() => navigator.clipboard.writeText(payloadPix)}
-              className="mt-2 w-full rounded-full bg-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-            >
-              📋 Copiar código Pix
-            </button>
+              <PixQRCode payload={payloadPix} />
 
-            <div className="mt-6 space-y-2">
               <button
-                onClick={() => dispatch({ type: "OPEN_CONFIRM" })}
-                className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
+                onClick={() => navigator.clipboard.writeText(payloadPix)}
+                className="mt-2 w-full rounded-full bg-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
               >
-                Confirmar Pagamento
+                📋 Copiar código Pix
               </button>
-              <button
-                onClick={() => dispatch({ type: "OPEN_CHECKOUT" })}
-                className="w-full rounded-full bg-gray-200 py-2 text-gray-600 transition hover:bg-gray-300"
-              >
-                Voltar
-              </button>
+
+              <div className="mt-6 space-y-2">
+                <button
+                  onClick={() => dispatch({ type: "OPEN_CONFIRM" })}
+                  className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
+                >
+                  Confirmar Pagamento
+                </button>
+                <button
+                  onClick={() => dispatch({ type: "OPEN_CHECKOUT" })}
+                  className="w-full rounded-full bg-gray-200 py-2 text-gray-600 transition hover:bg-gray-300"
+                >
+                  Voltar
+                </button>
+              </div>
             </div>
+            {/* fim do conteúdo rolável */}
           </div>
+          {/* fim do wrapper não rolável */}
         </div>
       )}
+      {/* fim do PIX */}
 
       {/* Diálogo de confirmação dentro do PIX */}
       {ui.stage === "pix" && ui.confirmOpen && (
