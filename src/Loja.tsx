@@ -1169,7 +1169,7 @@ export default function Loja() {
           role="dialog"
           aria-modal="true"
         >
-          <div className="animate-zoom-fade relative w-full max-w-sm rounded-3xl bg-white/90 p-6 shadow-2xl">
+          <div className="animate-zoom-fade relative max-h-[85vh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-3xl bg-white/90 p-6 pt-10 shadow-2xl">
             <button
               onClick={() => dispatch({ type: "RESET" })}
               className="absolute right-4 top-4 text-2xl text-gray-400 transition hover:text-red-500"
@@ -1488,7 +1488,7 @@ export default function Loja() {
           role="dialog"
           aria-modal="true"
         >
-          <div className="animate-zoom-fade relative w-full max-w-sm rounded-3xl bg-white/90 p-6 text-center shadow-2xl">
+          <div className="animate-zoom-fade relative max-h-[85vh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-3xl bg-white/90 p-6 pt-10 text-center shadow-2xl">
             <button
               onClick={() => dispatch({ type: "OPEN_CHECKOUT" })}
               className="absolute right-4 top-4 text-2xl text-gray-400 transition hover:text-red-500"
