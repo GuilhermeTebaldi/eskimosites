@@ -1125,7 +1125,24 @@ export default function Loja() {
             ))}
           </div>
         )}
-      </div>
+    </div>
+    <footer className="mt-12 border-t border-gray-200 pt-8 pb-6 text-center bg-gradient-to-b from-white to-gray-50">
+  <h2 className="text-lg font-bold text-sky-600 tracking-wide">
+    Desenvolvido por{" "}
+    <a
+      href="https://eistalt.vercel.app/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sky-700 font-semibold hover:text-sky-500 transition-colors hover:underline decoration-2 underline-offset-4"
+    >
+      EISTALT
+    </a>
+  </h2>
+</footer>
+
+
+
+
 
       {/* Substituido botão Carregar mais em um carregamento automático o botão pelo “sentinela invisível” */}
       {currentPage < totalPages && (
