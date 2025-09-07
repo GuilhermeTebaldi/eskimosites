@@ -1,0 +1,55 @@
+Arquivos base:
+├── package.json
+├── pnpm-lock.yaml
+├── package-lock.json
+├── tsconfig.json
+├── tsconfig.node.json
+├── vite.config.ts
+├── tailwind.config.ts
+├── postcss.config.js
+├── index.html
+├── README.md
+├── CNAME
+├── .env
+├── .eslintrc
+├── .eslintignore
+├── .prettierrc
+
+Frontend – Páginas & Entradas:
+├── src/main.tsx
+├── src/Loja.tsx
+├── src/Loja1.tsx
+├── src/Loja2.tsx
+├── src/LinhaProdutosAtalhos.tsx
+├── src/MeusPedidos.tsx
+├── src/vite-env.d.ts
+├── appa.tsx
+
+Componentes essenciais:
+├── src/components/Button.tsx
+├── src/components/Icon.tsx
+├── src/components/PenguinBlink.jsx
+├── src/components/Pin.tsx
+├── src/components/PixQRCode.tsx
+├── src/components/Typewriter.tsx
+
+Serviços / API:
+├── src/services/api.ts
+
+Tipos & Utils:
+├── src/types/qrcode.d.ts
+├── src/utils/index.ts
+
+Estilos:
+├── src/index.css
+├── src/Loja.css
+
+Pastas essenciais (árvore):
+src
+├── components
+├── services
+├── types
+└── utils
+public
+
+Public (arquivos-chave):

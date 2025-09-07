@@ -1,0 +1,60 @@
+.
+├── .DS_Store
+├── .env
+├── .eslintignore
+├── .eslintrc
+├── .gitattributes
+├── .gitignore
+├── .prettierrc
+├── .vscode
+│   ├── extensions.json
+│   └── settings.json
+├── appa.tsx
+├── CNAME
+├── dist
+│   ├── assets
+│   │   ├── index-CMVQWOOU.js
+│   │   └── index-n7kA9yrl.css
+│   ├── index.html
+│   └── vite.svg
+├── dump_projeto.txt
+├── estrutura_pastas.txt
+├── index.html
+├── modelo.txt
+├── package-lock.json
+├── package.json
+├── pnpm-lock.yaml
+├── postcss.config.js
+├── public
+│   └── vite.svg
+├── README.md
+├── src
+│   ├── .DS_Store
+│   ├── components
+│   │   ├── Button.tsx
+│   │   ├── Icon.tsx
+│   │   ├── PenguinBlink.jsx
+│   │   ├── Pin.tsx
+│   │   ├── PixQRCode.tsx
+│   │   └── Typewriter.tsx
+│   ├── index.css
+│   ├── LinhaProdutosAtalhos.tsx
+│   ├── Loja.css
+│   ├── Loja.tsx
+│   ├── Loja1.tsx
+│   ├── Loja2.tsx
+│   ├── main.tsx
+│   ├── MeusPedidos.tsx
+│   ├── services
+│   │   └── api.ts
+│   ├── types
+│   │   └── qrcode.d.ts
+│   ├── utils
+│   │   └── index.ts
+│   └── vite-env.d.ts
+├── tailwind.config.ts
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts
+
+10 directories, 48 files
