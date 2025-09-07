@@ -272,71 +272,6 @@ function uiReducer(state: UIState, action: UIAction): UIState {
   }
 }
 
-/************************************
- * Subcomponentes internos simples
- ************************************/
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function Toast({
-  type,
-  message,
-  onClose,
-}: {
-  type: "info" | "success" | "warning" | "error";
-  message: string;
-  onClose: () => void;
-}) {
-  const palette: Record<string, string> = {
-    success:
-      "ring-emerald-200 from-emerald-50/95 to-white/90 text-emerald-900",
-    warning: "ring-amber-200 from-amber-50/95 to-white/90 text-amber-900",
-    error: "ring-rose-200 from-rose-50/95 to-white/90 text-rose-900",
-    info: "ring-slate-200 from-slate-50/95 to-white/90 text-slate-900",
-  };
-  const icon =
-    type === "success"
-      ? "✅"
-      : type === "warning"
-      ? "⚠️"
-      : type === "error"
-      ? "❌"
-      : "ℹ️";
-  return (
-    <div className="pointer-events-none fixed bottom-6 left-1/2 z-[120] w-[min(92vw,520px)] -translate-x-1/2 px-3">
-      <div
-        role="alert"
-        aria-live="polite"
-        className={[
-          "pointer-events-auto select-none",
-          "rounded-2xl shadow-2xl ring-1 backdrop-blur",
-          "bg-gradient-to-br",
-          palette[type],
-          "px-4 py-3",
-          "animate-[fade-in_0.18s_ease-out]",
-        ].join(" ")}
-      >
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-base shadow">
-            {icon}
-          </span>
-          <div className="flex-1 text-sm font-medium leading-snug">
-            {message}
-          </div>
-          <button
-            aria-label="Fechar aviso"
-            onClick={onClose}
-            className="-mr-1 ml-2 rounded-lg px-2 text-xs opacity-70 outline-none transition hover:opacity-100 focus-visible:ring"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-black/5">
-          <div className="h-full w-1/2 rounded-full bg-black/10" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /************************************
  * Componente principal
@@ -619,6 +554,7 @@ export default function Loja() {
         console.log("PaymentConfig:", data); // 👈 debug
         setPaymentConfig(data);
         if (__DEBUG__) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).__lastPayCfg = data;
           console.log('[DEBUG] paymentConfig:', data);
         }
