@@ -1125,6 +1125,53 @@ export default function Loja() {
     <div key={componentKey} className="loja-container">
       {__DEBUG__ && (
   <div style={{
+    position: 'fixed', left: 10, bottom: 10, zIndex: 10000,
+    maxWidth: 380, padding: 10, borderRadius: 12,
+    background: 'rgba(15,23,42,0.92)', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.15)', fontSize: 12, lineHeight: 1.25
+  }}>
+    <div style={{fontWeight: 700, marginBottom: 6}}>UI Debug</div>
+    <div><strong>ui.stage:</strong> {ui.stage}</div>
+    <div><strong>orderId:</strong> {String(orderId)}</div>
+    <div><strong>deliveryType:</strong> {deliveryType}</div>
+    <div><strong>deliveryFee:</strong> {deliveryFee}</div>
+    <div style={{marginTop: 6}}>
+      <strong>condição MP:</strong>{" "}
+      {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" && paymentConfig?.isActive ? "true ✅" : "false ❌"}
+    </div>
+    <div style={{marginTop: 8, opacity: 0.9}}>
+      <em>Botão de teste (fora do modal):</em>
+    </div>
+    {(paymentConfig?.provider?.toLowerCase?.() === "mercadopago" && paymentConfig?.isActive) ? (
+      <button
+        onClick={handleMercadoPagoPayment}
+        style={{ marginTop: 6 }}
+        className="w-full rounded-full bg-indigo-600 py-2 font-semibold text-white transition hover:bg-indigo-700 active:scale-95"
+      >
+        💳 Pagar com Mercado Pago (TESTE)
+      </button>
+    ) : (
+      <div style={{marginTop: 6}}>Condição MP = false (sem render)</div>
+    )}
+    <div style={{marginTop: 8, display: 'flex', gap: 6}}>
+      <button
+        onClick={() => dispatch({ type: "OPEN_PIX" })}
+        className="rounded bg-yellow-500 px-3 py-1 text-white"
+      >
+        Abrir PIX (forçar)
+      </button>
+      <button
+        onClick={() => { setOrderId(null); dispatch({ type: "OPEN_CHECKOUT" }); }}
+        className="rounded bg-gray-300 px-3 py-1 text-gray-900"
+      >
+        Zerar orderId
+      </button>
+    </div>
+  </div>
+)}
+
+      {__DEBUG__ && (
+  <div style={{
     position: 'fixed', right: 10, bottom: 10, zIndex: 9999,
     maxWidth: 360, padding: 10, borderRadius: 12,
     background: 'rgba(15,23,42,0.9)', color: '#fff',
