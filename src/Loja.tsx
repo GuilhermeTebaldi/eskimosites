@@ -93,8 +93,6 @@ const getPosition = () =>
       return reject(new Error("Geolocalização indisponível"));
     navigator.geolocation.getCurrentPosition(resolve, reject);
   });
-// no topo do componente
-const [paymentBusy, setPaymentBusy] = useState(false);
 
 /************************************
  * PIX helpers (fora do componente)
@@ -279,6 +277,7 @@ function uiReducer(state: UIState, action: UIAction): UIState {
  * Componente principal
  ************************************/
 export default function Loja() {
+  const [paymentBusy, setPaymentBusy] = useState(false);
   // refs para acessibilidade
   const checkoutFirstInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -969,6 +968,7 @@ export default function Loja() {
     recalc,
   ]);
 
+  // 🔹 Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
   const handleMercadoPagoPayment = useCallback(async () => {
     if (paymentBusy) return;
     setPaymentBusy(true);
@@ -977,7 +977,7 @@ export default function Loja() {
       if (!ok) return;
   
       // 1) usa pedido existente se houver; senão cria
-      let currentOrderId = orderId;
+      let currentOrderId = orderId ?? null;
       if (!currentOrderId) {
         const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
         const realTotal = subtotal + realDeliveryFee;
@@ -1007,14 +1007,24 @@ export default function Loja() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(orderPayload),
         });
+  
         if (!orderRes.ok) {
           showToast("Falha ao criar pedido.", "error");
+          // mantém o usuário no modal para tentar novamente
+          dispatch({ type: "OPEN_PIX" });
           return;
         }
-        const orderData = await orderRes.json();
+  
+        // parse resiliente
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let orderData: any = null;
+        const orderText = await orderRes.text();
+        try { orderData = orderText ? JSON.parse(orderText) : null; } catch {/* noop */}
         const createdOrderId: number | undefined = orderData?.id;
+  
         if (!createdOrderId || !Number.isFinite(createdOrderId)) {
           showToast("Pedido criado, mas ID inválido retornado.", "error");
+          dispatch({ type: "OPEN_PIX" });
           return;
         }
         currentOrderId = createdOrderId;
@@ -1028,26 +1038,33 @@ export default function Loja() {
       );
       if (!payRes.ok) {
         showToast("Falha ao iniciar pagamento (Mercado Pago).", "error");
-        // mantém no modal PIX para usuário tentar novamente
         dispatch({ type: "OPEN_PIX" });
         return;
       }
-      const data = await payRes.json();
+  
+      // parse resiliente (evita crash se voltar 204/HTML)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let data: any = null;
+      const text = await payRes.text();
+      try { data = text ? JSON.parse(text) : null; } catch {/* noop */}
   
       if (data?.type === "init_point" && data?.url) {
-        // salva o orderId para referência pós-redirect
-        try { localStorage.setItem("last_order_id", String(currentOrderId)); } catch {}
+        // guarda o orderId para uso pós-redirect
+        try { localStorage.setItem("last_order_id", String(currentOrderId)); } catch {/* noop */}
         window.location.href = data.url;
-      } else if (data?.type === "pix" && data?.qr_base64) {
-        setMpPixQr(data.qr_base64); // mostra QR do MP no front
-      } else {
-        showToast("Retorno de pagamento inválido.", "error");
-        dispatch({ type: "OPEN_PIX" });
+        return;
       }
+  
+      if (data?.type === "pix" && data?.qr_base64) {
+        setMpPixQr(data.qr_base64); // mostra QR do MP no front
+        return;
+      }
+  
+      showToast("Retorno de pagamento inválido.", "error");
+      dispatch({ type: "OPEN_PIX" });
     } catch (e) {
       console.error(e);
       showToast("Erro ao processar pagamento com Mercado Pago.", "error");
-      // mantém o usuário no modal de pagamento para tentar novamente
       dispatch({ type: "OPEN_PIX" });
     } finally {
       setPaymentBusy(false);
@@ -1752,12 +1769,13 @@ export default function Loja() {
     <button
     onClick={handleMercadoPagoPayment}
     disabled={paymentBusy}
-    className={`w-full rounded-full py-2 font-semibold text-white transition active:scale-95 ${
-      paymentBusy ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"
+    className={`w-full rounded-full py-2 font-semibold text-white transition ${
+      paymentBusy ? "bg-indigo-400 cursor-wait" : "bg-indigo-600 hover:bg-indigo-700"
     }`}
   >
-    {paymentBusy ? "Processando..." : "💳 Pagar com Mercado Pago"}
+    {paymentBusy ? "Iniciando pagamento..." : "💳 Pagar com Mercado Pago"}
   </button>
+  
                   )}
 
                 <button
