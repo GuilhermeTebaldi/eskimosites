@@ -56,6 +56,8 @@ const fmtBRL = new Intl.NumberFormat("pt-BR", {
 });
 
 const clampQty = (qty: number, max: number) => Math.max(0, Math.min(qty, max));
+// DEBUG FLAG por querystring: ?debug=1
+const __DEBUG__ = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
 
 // Normaliza texto (sem acento, minúsculo)
 const normalize = (text: string) =>
@@ -616,7 +618,13 @@ export default function Loja() {
       .then((data) => {
         console.log("PaymentConfig:", data); // 👈 debug
         setPaymentConfig(data);
+        if (__DEBUG__) {
+          (window as any).__lastPayCfg = data;
+          console.log('[DEBUG] paymentConfig:', data);
+        }
+        
       })
+      
       .catch((e) => {
         console.warn("paymentconfigs fetch error", e);
         setPaymentConfig(null);
@@ -1115,6 +1123,35 @@ export default function Loja() {
   // ---- RENDER ----
   return (
     <div key={componentKey} className="loja-container">
+      {__DEBUG__ && (
+  <div style={{
+    position: 'fixed', right: 10, bottom: 10, zIndex: 9999,
+    maxWidth: 360, padding: 10, borderRadius: 12,
+    background: 'rgba(15,23,42,0.9)', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, lineHeight: 1.25
+  }}>
+    <div style={{fontWeight: 700, marginBottom: 6}}>MP Debug</div>
+    <div><strong>selectedStore:</strong> {String(selectedStore)}</div>
+    <div><strong>URL:</strong> {API_URL}/paymentconfigs/{selectedStore}</div>
+    <div style={{marginTop: 6}}>
+      <strong>paymentConfig:</strong>
+      <pre style={{whiteSpace:'pre-wrap', margin: 0}}>
+        {JSON.stringify(paymentConfig, null, 2)}
+      </pre>
+    </div>
+    <div style={{marginTop: 6}}>
+      <strong>Botão visível?</strong>{' '}
+      {paymentConfig?.provider?.toLowerCase?.() === 'mercadopago' && paymentConfig?.isActive ? 'SIM ✅' : 'NÃO ❌'}
+    </div>
+    <div style={{marginTop: 6}}>
+      <strong>Motivo (se oculto):</strong>{' '}
+      {!paymentConfig ? 'Sem config (404/erro no fetch)' :
+        paymentConfig?.provider?.toLowerCase?.() !== 'mercadopago' ? 'provider ≠ mercadopago' :
+        paymentConfig?.isActive !== true ? 'isActive ≠ true' : '—'}
+    </div>
+  </div>
+)}
+
       {/* espaçamento para o header */}
       <div className="h-[205px]" />
 
