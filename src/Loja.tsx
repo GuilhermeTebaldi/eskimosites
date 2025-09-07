@@ -93,6 +93,8 @@ const getPosition = () =>
       return reject(new Error("Geolocalização indisponível"));
     navigator.geolocation.getCurrentPosition(resolve, reject);
   });
+// no topo do componente
+const [paymentBusy, setPaymentBusy] = useState(false);
 
 /************************************
  * PIX helpers (fora do componente)
@@ -967,81 +969,93 @@ export default function Loja() {
     recalc,
   ]);
 
-  // 🔹 Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
   const handleMercadoPagoPayment = useCallback(async () => {
+    if (paymentBusy) return;
+    setPaymentBusy(true);
     try {
       const ok = await validateBeforePayment();
       if (!ok) return;
-
-      // 1) cria pedido no backend (sem assumir que finalizeOrder já foi chamado)
-      const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
-      const realTotal = subtotal + realDeliveryFee;
-
-      const orderPayload = {
-        customerName: customerName.trim(),
-        address: (address === "Outro" ? customAddress : address).trim(),
-        street: street.trim(),
-        number: number.trim(),
-        complement: complement.trim(),
-        deliveryType,
-        store: selectedStore,
-        items: cart.map((item) => ({
-          productId: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-          imageUrl: item.product.imageUrl,
-        })),
-        total: realTotal,
-        deliveryFee: realDeliveryFee,
-        phoneNumber,
-      };
-
-      const orderRes = await fetch(`${API_URL}/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderPayload),
-      });
-      if (!orderRes.ok) {
-        showToast("Falha ao criar pedido.", "error");
-        return;
+  
+      // 1) usa pedido existente se houver; senão cria
+      let currentOrderId = orderId;
+      if (!currentOrderId) {
+        const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
+        const realTotal = subtotal + realDeliveryFee;
+  
+        const orderPayload = {
+          customerName: customerName.trim(),
+          address: (address === "Outro" ? customAddress : address).trim(),
+          street: street.trim(),
+          number: number.trim(),
+          complement: complement.trim(),
+          deliveryType,
+          store: selectedStore,
+          items: cart.map((item) => ({
+            productId: item.product.id,
+            name: item.product.name,
+            price: item.product.price,
+            quantity: item.quantity,
+            imageUrl: item.product.imageUrl,
+          })),
+          total: realTotal,
+          deliveryFee: realDeliveryFee,
+          phoneNumber,
+        };
+  
+        const orderRes = await fetch(`${API_URL}/orders`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(orderPayload),
+        });
+        if (!orderRes.ok) {
+          showToast("Falha ao criar pedido.", "error");
+          return;
+        }
+        const orderData = await orderRes.json();
+        const createdOrderId: number | undefined = orderData?.id;
+        if (!createdOrderId || !Number.isFinite(createdOrderId)) {
+          showToast("Pedido criado, mas ID inválido retornado.", "error");
+          return;
+        }
+        currentOrderId = createdOrderId;
+        setOrderId(createdOrderId);
       }
-      const orderData = await orderRes.json();
-      const createdOrderId: number | undefined = orderData?.id;
-      if (!createdOrderId || !Number.isFinite(createdOrderId)) {
-        showToast("Pedido criado, mas ID inválido retornado.", "error");
-        return;
-      }
-      setOrderId(createdOrderId);
-
-      // 2) pede ao backend para iniciar o pagamento no MP para a LOJA do pedido
+  
+      // 2) inicia pagamento MP para o mesmo pedido
       const payRes = await fetch(
-        `${API_URL}/payments/mp/checkout?orderId=${createdOrderId}`,
-        { method: "POST" },
+        `${API_URL}/payments/mp/checkout?orderId=${currentOrderId}`,
+        { method: "POST" }
       );
       if (!payRes.ok) {
         showToast("Falha ao iniciar pagamento (Mercado Pago).", "error");
+        // mantém no modal PIX para usuário tentar novamente
+        dispatch({ type: "OPEN_PIX" });
         return;
       }
       const data = await payRes.json();
-
-      // 3) comportamentos possíveis retornados pelo backend:
-      //    { type: "init_point", url: "https://www.mercadopago.com/..." }
-      //    { type: "pix", qr_base64: "data:image/png;base64,..." }
+  
       if (data?.type === "init_point" && data?.url) {
-        window.location.href = data.url; // redireciona para o checkout do MP
+        // salva o orderId para referência pós-redirect
+        try { localStorage.setItem("last_order_id", String(currentOrderId)); } catch {}
+        window.location.href = data.url;
       } else if (data?.type === "pix" && data?.qr_base64) {
-        // exibe modal com QR base64 do MP
-        setMpPixQr(data.qr_base64);
+        setMpPixQr(data.qr_base64); // mostra QR do MP no front
       } else {
         showToast("Retorno de pagamento inválido.", "error");
+        dispatch({ type: "OPEN_PIX" });
       }
     } catch (e) {
       console.error(e);
       showToast("Erro ao processar pagamento com Mercado Pago.", "error");
+      // mantém o usuário no modal de pagamento para tentar novamente
+      dispatch({ type: "OPEN_PIX" });
+    } finally {
+      setPaymentBusy(false);
     }
   }, [
+    paymentBusy,
     validateBeforePayment,
+    orderId,
     deliveryType,
     deliveryFee,
     subtotal,
@@ -1055,6 +1069,7 @@ export default function Loja() {
     cart,
     phoneNumber,
   ]);
+  
 
   // ---- RENDER ----
   return (
@@ -1734,12 +1749,15 @@ export default function Loja() {
                 {/* 🔹 Botão Mercado Pago aparece apenas se a loja tiver provider="mercadopago" e ativo */}
                 {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
   paymentConfig?.isActive && (
-                    <button
-                      onClick={handleMercadoPagoPayment}
-                      className="w-full rounded-full bg-indigo-600 py-2 font-semibold text-white transition hover:bg-indigo-700 active:scale-95"
-                    >
-                      💳 Pagar com Mercado Pago
-                    </button>
+    <button
+    onClick={handleMercadoPagoPayment}
+    disabled={paymentBusy}
+    className={`w-full rounded-full py-2 font-semibold text-white transition active:scale-95 ${
+      paymentBusy ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"
+    }`}
+  >
+    {paymentBusy ? "Processando..." : "💳 Pagar com Mercado Pago"}
+  </button>
                   )}
 
                 <button
