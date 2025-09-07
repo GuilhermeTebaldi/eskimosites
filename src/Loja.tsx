@@ -41,6 +41,7 @@ interface PaymentConfig {
 /************************************
  * Constantes & helpers
  ************************************/
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const API_URL: string = (import.meta as any).env?.VITE_API_URL ?? "http://localhost:8080/api";
 
 const UI = {
@@ -272,6 +273,8 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 /************************************
  * Subcomponentes internos simples
  ************************************/
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function Toast({
   type,
   message,
@@ -610,10 +613,16 @@ export default function Loja() {
     }
     fetch(`${API_URL}/paymentconfigs/${encodeURIComponent(storeName)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setPaymentConfig(data))
-      .catch(() => setPaymentConfig(null));
+      .then((data) => {
+        console.log("PaymentConfig:", data); // 👈 debug
+        setPaymentConfig(data);
+      })
+      .catch((e) => {
+        console.warn("paymentconfigs fetch error", e);
+        setPaymentConfig(null);
+      });
   }, [selectedStore]);
-
+  
   // categorias e subcategorias memorizadas
   const categories = useMemo(
     () => Array.from(new Set(products.map((p) => p.categoryName))),
@@ -1703,8 +1712,8 @@ export default function Loja() {
 
               <div className="mt-6 space-y-2">
                 {/* 🔹 Botão Mercado Pago aparece apenas se a loja tiver provider="mercadopago" e ativo */}
-                {paymentConfig?.provider === "mercadopago" &&
-                  paymentConfig?.isActive && (
+                {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
+  paymentConfig?.isActive && (
                     <button
                       onClick={handleMercadoPagoPayment}
                       className="w-full rounded-full bg-indigo-600 py-2 font-semibold text-white transition hover:bg-indigo-700 active:scale-95"
