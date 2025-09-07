@@ -1,9 +1,3 @@
-// Loja_refatorada.tsx — versão refatorada em um ÚNICO ARQUIVO
-// Mantém as dependências externas existentes (PixQRCode, LinhaProdutosAtalhos, PenguinBlink, Loja.css)
-// Implementa: organização por subcomponentes internos, hooks/utilitários locais,
-// useReducer para o fluxo (checkout → pix → confirmar), memos, callbacks estáveis,
-// unifica efeitos duplicados, acessibilidade, persistência em localStorage,
-// formatação de moeda, imagens lazy, clamp de quantidade e melhorias diversas.
 
 import React, {
   useCallback,
@@ -38,11 +32,16 @@ interface CartItem {
   quantity: number;
 }
 
+interface PaymentConfig {
+  provider?: string;
+  isActive?: boolean;
+  // outros campos que seu backend possa trazer
+}
+
 /************************************
  * Constantes & helpers
  ************************************/
-const API_URL: string | undefined = import.meta.env.VITE_API_URL;
-if (!API_URL) throw new Error("VITE_API_URL não definido");
+const API_URL: string = (import.meta as any).env?.VITE_API_URL ?? "http://localhost:8080/api";
 
 const UI = {
   HEADER_MAX: 120,
@@ -95,10 +94,19 @@ const getPosition = () =>
 /************************************
  * PIX helpers (fora do componente)
  ************************************/
-const PIX = {
-  CHAVE: "guilhermemagiccloseup@gmail.com",
-  NOME: "Guilherme Tebaldi",
-  CIDADE: "SAO PAULO",
+
+// 👉 Preencha as chaves NUBANK/CAIXA/BB/etc de cada CNPJ aqui (provisório).
+//    Na Fase 2 moveremos isso para o backend (ou usaremos o PIX do MP).
+const STORE_PIX: Record<string, { CHAVE: string; NOME: string; CIDADE: string }> = {
+  efapi:   { CHAVE: "CHAVE_PIX_EFAPI_AQUI",    NOME: "Razão Social Efapi LTDA",    CIDADE: "CHAPECO" },
+  palmital:{ CHAVE: "CHAVE_PIX_PALMITAL_AQUI", NOME: "Razão Social Palmital LTDA", CIDADE: "CHAPECO" },
+  passo:   { CHAVE: "CHAVE_PIX_PASSO_AQUI",    NOME: "Razão Social Passo LTDA",    CIDADE: "CHAPECO" },
+};
+
+// fallback caso a loja ainda não esteja configurada
+const getPixConfig = (store?: string | null) => {
+  const key = (store ?? "").toLowerCase();
+  return STORE_PIX[key] ?? { CHAVE: "CHAVE_PIX_TESTE", NOME: "Eskimo Teste", CIDADE: "CHAPECO" };
 };
 
 const pad2 = (n: number) => n.toString().padStart(2, "0");
@@ -115,11 +123,12 @@ const crc16 = (str: string): string => {
   return crc.toString(16).toUpperCase().padStart(4, "0");
 };
 
-const gerarPayloadPix = (valor: number): string => {
-  const chavePix = PIX.CHAVE;
-  const nome = PIX.NOME;
-  const cidade = PIX.CIDADE;
-  const txid = "tePdSk5zg9"; // poderia ser único por pedido
+// gera o payload Pix “Copia e Cola” com a configuração da loja
+const gerarPayloadPix = (valor: number, cfg: { CHAVE: string; NOME: string; CIDADE: string }): string => {
+  const chavePix = cfg.CHAVE;
+  const nome = cfg.NOME;
+  const cidade = cfg.CIDADE;
+  const txid = "tePdSk5zg9"; // você pode gerar um TXID único por pedido depois
 
   const valorFormatado = valor.toFixed(2);
   const tamanhoValor = valorFormatado.length;
@@ -273,7 +282,8 @@ function Toast({
   onClose: () => void;
 }) {
   const palette: Record<string, string> = {
-    success: "ring-emerald-200 from-emerald-50/95 to-white/90 text-emerald-900",
+    success:
+      "ring-emerald-200 from-emerald-50/95 to-white/90 text-emerald-900",
     warning: "ring-amber-200 from-amber-50/95 to-white/90 text-amber-900",
     error: "ring-rose-200 from-rose-50/95 to-white/90 text-rose-900",
     info: "ring-slate-200 from-slate-50/95 to-white/90 text-slate-900",
@@ -282,10 +292,10 @@ function Toast({
     type === "success"
       ? "✅"
       : type === "warning"
-        ? "⚠️"
-        : type === "error"
-          ? "❌"
-          : "ℹ️";
+      ? "⚠️"
+      : type === "error"
+      ? "❌"
+      : "ℹ️";
   return (
     <div className="pointer-events-none fixed bottom-6 left-1/2 z-[120] w-[min(92vw,520px)] -translate-x-1/2 px-3">
       <div
@@ -315,7 +325,6 @@ function Toast({
             ✕
           </button>
         </div>
-        {/* barra de acento (sem animação para não depender de keyframes globais) */}
         <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-black/5">
           <div className="h-full w-1/2 rounded-full bg-black/10" />
         </div>
@@ -410,6 +419,14 @@ export default function Loja() {
 
   const [deliveryRate, setDeliveryRate] = useState<number>(0);
 
+  // 🔹 NOVO: configuração de pagamento por loja (Mercado Pago, etc.)
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(
+    null,
+  );
+
+  // 🔹 NOVO: para exibir QR Code base64 retornado pelo backend (PIX do MP)
+  const [mpPixQr, setMpPixQr] = useState<string | null>(null);
+
   // lojas (constante)
   const storeLocations = useMemo(
     () => [
@@ -458,10 +475,10 @@ export default function Loja() {
     [selectedProduct, getQtyInCart],
   );
 
-  // formatação moeda memoizada (para uso inline sem recomputar options)
+  // formatação moeda memoizada
   const toBRL = useCallback((v: number) => fmtBRL.format(v), []);
 
-  // header com scroll (usa ref para evitar re-render em cada scroll)
+  // header com scroll
   const [headerHeight, setHeaderHeight] = useState<number>(UI.HEADER_MAX);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
@@ -478,7 +495,7 @@ export default function Loja() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // clique fora para fechar dropdown de unidade
+  // clique fora para fechar dropdown de unidade (quando exibido)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -562,7 +579,7 @@ export default function Loja() {
       .catch((err) => console.error("Erro ao buscar deliveryRate:", err));
   }, []);
 
-  // buscar produtos (UNIFICADO, sem duplicação)
+  // buscar produtos (UNIFICADO)
   useEffect(() => {
     if (!selectedStore) return;
     let isMounted = true;
@@ -582,6 +599,19 @@ export default function Loja() {
     return () => {
       isMounted = false;
     };
+  }, [selectedStore]);
+
+  // 🔹 NOVO: buscar config de pagamento da loja (Mercado Pago etc.)
+  useEffect(() => {
+    const storeName = (selectedStore ?? "").trim();
+    if (!storeName) {
+      setPaymentConfig(null);
+      return;
+    }
+    fetch(`${API_URL}/paymentconfigs/${encodeURIComponent(storeName)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setPaymentConfig(data))
+      .catch(() => setPaymentConfig(null));
   }, [selectedStore]);
 
   // categorias e subcategorias memorizadas
@@ -619,14 +649,14 @@ export default function Loja() {
           ? quickFilterCategory
             ? p.categoryName === quickFilterCategory
             : selectedCategory
-              ? p.categoryName === selectedCategory
-              : true
+            ? p.categoryName === selectedCategory
+            : true
           : true;
       const matchesSubcategory = quickFilterSubcategory
         ? p.subcategoryName === quickFilterSubcategory
         : selectedSubcategory
-          ? p.subcategoryName === selectedSubcategory
-          : true;
+        ? p.subcategoryName === selectedSubcategory
+        : true;
       return matchesSearch && matchesCategory && matchesSubcategory;
     });
   }, [
@@ -695,7 +725,7 @@ export default function Loja() {
     });
   }, [filtered]);
 
-  // paginação automatica
+  // paginação automática (infinite scroll)
   const paginados = useMemo(
     () => produtosOrdenados.slice(0, currentPage * UI.PRODUCTS_PER_PAGE),
     [produtosOrdenados, currentPage],
@@ -706,7 +736,7 @@ export default function Loja() {
     [filtered.length],
   );
 
-  // o observer ele detacta que chegou na fim dos produtos e mostra mais
+  // sentinela para carregar mais
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!loadMoreRef.current) return;
@@ -741,7 +771,7 @@ export default function Loja() {
     [],
   );
 
-  // Handlers de carrinho estáveis
+  // Handlers de carrinho
   const addToCart = useCallback(
     (product: Product, quantity: number = 1) => {
       setCart((prev) => {
@@ -785,8 +815,6 @@ export default function Loja() {
     );
   }, []);
 
-  // abrir checkout — removido (usamos dispatch direto nos botões)
-
   // foco no primeiro input ao abrir checkout
   useEffect(() => {
     if (ui.stage === "checkout")
@@ -806,7 +834,7 @@ export default function Loja() {
     return () => window.removeEventListener("keydown", onKey);
   }, [ui.stage, ui.confirmOpen]);
 
-  // finalizar pedido
+  // finalizar pedido (fluxo PIX local → cria pedido após confirmação)
   const getServerMessage = (err: unknown): string | undefined => {
     if (typeof err === "object" && err !== null) {
       const withResponse = err as {
@@ -909,12 +937,171 @@ export default function Loja() {
     phoneNumber,
   ]);
 
-  // total PIX & payload memorizados
+  // total PIX
   const totalPix = useMemo(
     () => subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
     [subtotal, deliveryFee, deliveryType],
   );
-  const payloadPix = useMemo(() => gerarPayloadPix(totalPix), [totalPix]);
+
+  // config PIX da loja selecionada
+  const pixCfg = useMemo(() => getPixConfig(selectedStore), [selectedStore]);
+
+  // payload Pix local
+  const payloadPix = useMemo(
+    () => gerarPayloadPix(totalPix, pixCfg),
+    [totalPix, pixCfg],
+  );
+
+  // 🔹 Helper de validação antes de pagamento (MP / Pix)
+  const validateBeforePayment = useCallback(async (): Promise<boolean> => {
+    if (cart.length === 0) {
+      showToast("Seu carrinho está vazio!", "warning");
+      return false;
+    }
+    if (!selectedStore) {
+      showToast("Selecione a unidade para continuar.", "warning");
+      return false;
+    }
+    if (!customerName.trim()) {
+      showToast("Informe seu nome completo.", "warning");
+      return false;
+    }
+    if (deliveryType === "entregar") {
+      if (!address.trim()) {
+        showToast("Escolha seu bairro.", "warning");
+        return false;
+      }
+      if (address === "Outro" && !customAddress.trim()) {
+        showToast("Digite seu bairro no campo 'Outro'.", "warning");
+        return false;
+      }
+      if (!street.trim()) {
+        showToast("Informe a rua.", "warning");
+        return false;
+      }
+      if (!number.trim()) {
+        showToast("Informe o número.", "warning");
+        return false;
+      }
+      if (!phoneNumber || phoneNumber.replace(/\D/g, "").length < 13) {
+        showToast(
+          "Informe seu WhatsApp com DDD (ex: 49991234567).",
+          "warning",
+        );
+        return false;
+      }
+      if (deliveryFee === 0) {
+        await recalc();
+        showToast(
+          "Ative sua localização para calcular a taxa de entrega.",
+          "warning",
+        );
+        return false;
+      }
+    }
+    return true;
+  }, [
+    cart.length,
+    selectedStore,
+    customerName,
+    deliveryType,
+    address,
+    customAddress,
+    street,
+    number,
+    phoneNumber,
+    deliveryFee,
+    recalc,
+  ]);
+
+  // 🔹 Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
+  const handleMercadoPagoPayment = useCallback(async () => {
+    try {
+      const ok = await validateBeforePayment();
+      if (!ok) return;
+
+      // 1) cria pedido no backend (sem assumir que finalizeOrder já foi chamado)
+      const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
+      const realTotal = subtotal + realDeliveryFee;
+
+      const orderPayload = {
+        customerName: customerName.trim(),
+        address: (address === "Outro" ? customAddress : address).trim(),
+        street: street.trim(),
+        number: number.trim(),
+        complement: complement.trim(),
+        deliveryType,
+        store: selectedStore,
+        items: cart.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+          imageUrl: item.product.imageUrl,
+        })),
+        total: realTotal,
+        deliveryFee: realDeliveryFee,
+        phoneNumber,
+      };
+
+      const orderRes = await fetch(`${API_URL}/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderPayload),
+      });
+      if (!orderRes.ok) {
+        showToast("Falha ao criar pedido.", "error");
+        return;
+      }
+      const orderData = await orderRes.json();
+      const createdOrderId: number | undefined = orderData?.id;
+      if (!createdOrderId || !Number.isFinite(createdOrderId)) {
+        showToast("Pedido criado, mas ID inválido retornado.", "error");
+        return;
+      }
+      setOrderId(createdOrderId);
+
+      // 2) pede ao backend para iniciar o pagamento no MP para a LOJA do pedido
+      const payRes = await fetch(
+        `${API_URL}/payments/mp/checkout?orderId=${createdOrderId}`,
+        { method: "POST" },
+      );
+      if (!payRes.ok) {
+        showToast("Falha ao iniciar pagamento (Mercado Pago).", "error");
+        return;
+      }
+      const data = await payRes.json();
+
+      // 3) comportamentos possíveis retornados pelo backend:
+      //    { type: "init_point", url: "https://www.mercadopago.com/..." }
+      //    { type: "pix", qr_base64: "data:image/png;base64,..." }
+      if (data?.type === "init_point" && data?.url) {
+        window.location.href = data.url; // redireciona para o checkout do MP
+      } else if (data?.type === "pix" && data?.qr_base64) {
+        // exibe modal com QR base64 do MP
+        setMpPixQr(data.qr_base64);
+      } else {
+        showToast("Retorno de pagamento inválido.", "error");
+      }
+    } catch (e) {
+      console.error(e);
+      showToast("Erro ao processar pagamento com Mercado Pago.", "error");
+    }
+  }, [
+    validateBeforePayment,
+    deliveryType,
+    deliveryFee,
+    subtotal,
+    customerName,
+    address,
+    customAddress,
+    street,
+    number,
+    complement,
+    selectedStore,
+    cart,
+    phoneNumber,
+  ]);
 
   // ---- RENDER ----
   return (
@@ -973,15 +1160,19 @@ export default function Loja() {
                 setShowInstruction(false);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className={`rounded-full border px-5 py-1 text-sm font-semibold shadow transition-all duration-300 ${selectedStore === store ? "border-yellow-200 bg-yellow-300 text-gray-900 ring-1 ring-yellow-300" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"}`}
+              className={`rounded-full border px-5 py-1 text-sm font-semibold shadow transition-all duration-300 ${
+                selectedStore === store
+                  ? "border-yellow-200 bg-yellow-300 text-gray-900 ring-1 ring-yellow-300"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+              }`}
               aria-label={`Selecionar unidade ${store}`}
             >
               🍦{" "}
               {store === "efapi"
                 ? "Efapi"
                 : store === "palmital"
-                  ? "Palmital"
-                  : "Passo"}
+                ? "Palmital"
+                : "Passo"}
             </button>
           ))}
         </div>
@@ -1066,14 +1257,13 @@ export default function Loja() {
                 aria-label="Selecionar subcategoria"
               >
                 <option value="">Tipo</option>
-                {(selectedCategory
-                  ? getSubcategories(selectedCategory)
-                  : []
-                ).map((sub) => (
-                  <option key={sub} value={sub}>
-                    {sub}
-                  </option>
-                ))}
+                {(selectedCategory ? getSubcategories(selectedCategory) : []).map(
+                  (sub) => (
+                    <option key={sub} value={sub}>
+                      {sub}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
           </div>
@@ -1125,32 +1315,30 @@ export default function Loja() {
             ))}
           </div>
         )}
-    </div>
+      </div>
 
-
-
-
-
-
-      {/* Substituido botão Carregar mais em um carregamento automático o botão pelo “sentinela invisível” */}
+      {/* Sentinela invisível para carregar mais */}
       {currentPage < totalPages && (
         <div ref={loadMoreRef} className="mb-24 mt-4 h-10 w-full text-center">
           <span className="text-sm text-gray-400">Carregando mais...</span>
         </div>
       )}
-    <footer className="mt-12 border-t border-gray-200 pt-8 pb-6 text-center bg-gradient-to-b from-white to-gray-50">
-  <h2 className="text-lg font-bold text-sky-600 tracking-wide">
-    Desenvolvido por{" "}
-    <a
-      href="https://eistalt.vercel.app/"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-sky-700 font-semibold hover:text-sky-500 transition-colors hover:underline decoration-2 underline-offset-4"
-    >
-      EISTALT
-    </a>
-  </h2>
-</footer>
+
+      {/* Rodapé */}
+      <footer className="mt-12 border-t border-gray-200 pt-8 pb-6 text-center bg-gradient-to-b from-white to-gray-50">
+        <h2 className="text-lg font-bold text-sky-600 tracking-wide">
+          Desenvolvido por{" "}
+          <a
+            href="https://eistalt.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-700 font-semibold hover:text-sky-500 transition-colors hover:underline decoration-2 underline-offset-4"
+          >
+            EISTALT
+          </a>
+        </h2>
+      </footer>
+
       {/* Botões flutuantes */}
       <Link
         onClick={() => {
@@ -1179,14 +1367,14 @@ export default function Loja() {
         </div>
       </button>
 
-      {/* Drawer simples de carrinho (versão leve) */}
+      {/* Drawer simples de checkout/carrinho */}
       {ui.stage === "checkout" && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
         >
-          {/* Wrapper NÃO rolável: aqui o ✕ fica preso */}
+          {/* Wrapper NÃO rolável */}
           <div className="relative w-full max-w-sm">
             <button
               onClick={() => dispatch({ type: "RESET" })}
@@ -1196,7 +1384,7 @@ export default function Loja() {
               ✕
             </button>
 
-            {/* Conteúdo rolável (sem o botão aqui dentro) */}
+            {/* Conteúdo rolável */}
             <div className="animate-zoom-fade max-h-[85vh] overflow-y-auto overscroll-contain rounded-3xl bg-white/90 p-6 pt-10 shadow-2xl">
               <h2 className="mb-4 text-center text-xl font-semibold text-gray-800">
                 Finalizar Pedido
@@ -1383,62 +1571,9 @@ export default function Loja() {
 
                   <button
                     onClick={async () => {
-                      if (cart.length === 0) {
-                        showToast("Seu carrinho está vazio!", "warning");
-                        return;
-                      }
-                      if (!selectedStore) {
-                        showToast(
-                          "Selecione a unidade para continuar.",
-                          "warning",
-                        );
-                        return;
-                      }
-                      if (!customerName.trim()) {
-                        showToast("Informe seu nome completo.", "warning");
-                        return;
-                      }
-
-                      if (deliveryType === "entregar") {
-                        if (!address.trim()) {
-                          showToast("Escolha seu bairro.", "warning");
-                          return;
-                        }
-                        if (address === "Outro" && !customAddress.trim()) {
-                          showToast(
-                            "Digite seu bairro no campo 'Outro'.",
-                            "warning",
-                          );
-                          return;
-                        }
-                        if (!street.trim()) {
-                          showToast("Informe a rua.", "warning");
-                          return;
-                        }
-                        if (!number.trim()) {
-                          showToast("Informe o número.", "warning");
-                          return;
-                        }
-                        if (
-                          !phoneNumber ||
-                          phoneNumber.replace(/\D/g, "").length < 13
-                        ) {
-                          showToast(
-                            "Informe seu WhatsApp com DDD (ex: 49991234567).",
-                            "warning",
-                          );
-                          return;
-                        }
-                        if (deliveryFee === 0) {
-                          await recalc();
-                          showToast(
-                            "Ative sua localização para calcular a taxa de entrega.",
-                            "warning",
-                          );
-                          return;
-                        }
-                      }
-                      // Passou nas validações → abre PIX
+                      const ok = await validateBeforePayment();
+                      if (!ok) return;
+                      // Passou nas validações → abre PIX local
                       dispatch({ type: "OPEN_PIX" });
                     }}
                     disabled={deliveryType === "entregar" && deliveryFee === 0}
@@ -1453,21 +1588,18 @@ export default function Loja() {
                 </div>
               </div>
 
-              {/* Itens do carrinho (com fotos e subtotal por item) */}
+              {/* Itens do carrinho */}
               <div className="mt-6 max-h-64 space-y-3 overflow-y-auto">
                 {cart.map((item) => (
                   <div
                     key={item.product.id}
                     className="flex items-center gap-3 rounded-lg bg-white/80 p-2 shadow-sm"
                   >
-                    {/* Foto do produto */}
                     <img
                       src={item.product.imageUrl}
                       alt={item.product.name}
                       className="h-12 w-12 flex-shrink-0 rounded-md border object-contain"
                     />
-
-                    {/* Nome + preço x qtd */}
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-gray-800">
@@ -1477,8 +1609,6 @@ export default function Loja() {
                           {toBRL(item.product.price)} x {item.quantity}
                         </span>
                       </div>
-
-                      {/* Controles */}
                       <div className="flex items-center gap-2">
                         <button
                           aria-label="Diminuir quantidade"
@@ -1514,7 +1644,7 @@ export default function Loja() {
       )}
       {/* fim do checkout */}
 
-      {/* Modal PIX */}
+      {/* Modal PIX local */}
       {ui.stage === "pix" && orderId === null && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
@@ -1536,6 +1666,12 @@ export default function Loja() {
               <h2 className="mb-2 text-xl font-semibold text-green-700">
                 Pagamento via PIX
               </h2>
+              <h2 className="mb-1 text-sm text-gray-600">
+                Loja: <strong>{selectedStore?.toUpperCase()}</strong>
+              </h2>
+              <p className="mb-3 text-xs text-gray-500">
+                Recebedor: <strong>{pixCfg.NOME}</strong>
+              </p>
 
               <p className="mb-3 text-sm text-gray-600">
                 Escaneie o QR Code ou copie o código abaixo:
@@ -1566,6 +1702,17 @@ export default function Loja() {
               </button>
 
               <div className="mt-6 space-y-2">
+                {/* 🔹 Botão Mercado Pago aparece apenas se a loja tiver provider="mercadopago" e ativo */}
+                {paymentConfig?.provider === "mercadopago" &&
+                  paymentConfig?.isActive && (
+                    <button
+                      onClick={handleMercadoPagoPayment}
+                      className="w-full rounded-full bg-indigo-600 py-2 font-semibold text-white transition hover:bg-indigo-700 active:scale-95"
+                    >
+                      💳 Pagar com Mercado Pago
+                    </button>
+                  )}
+
                 <button
                   onClick={() => dispatch({ type: "OPEN_CONFIRM" })}
                   className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
@@ -1585,9 +1732,9 @@ export default function Loja() {
           {/* fim do wrapper não rolável */}
         </div>
       )}
-      {/* fim do PIX */}
+      {/* fim do PIX local */}
 
-      {/* Diálogo de confirmação dentro do PIX */}
+      {/* Diálogo de confirmação dentro do PIX (fluxo local) */}
       {ui.stage === "pix" && ui.confirmOpen && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -1599,8 +1746,8 @@ export default function Loja() {
               Confirmação
             </h3>
             <p className="mb-4 text-sm text-gray-600">
-              Você confirma que <strong>já realizou o pagamento via PIX</strong>
-              ?<br />
+              Você confirma que <strong>já realizou o pagamento via PIX</strong>?
+              <br />
               Esse passo finaliza o seu pedido.
             </p>
             <div className="flex justify-center gap-3">
@@ -1631,7 +1778,7 @@ export default function Loja() {
         </div>
       )}
 
-      {/* Overlay enquanto finaliza */}
+      {/* Overlay enquanto finaliza (fluxo local) */}
       {ui.placing && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/70 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4">
@@ -1655,7 +1802,7 @@ export default function Loja() {
         </div>
       )}
 
-      {/* Pedido Confirmado */}
+      {/* Pedido Confirmado (fluxo local) */}
       {showConfirmation && orderId !== null && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
@@ -1704,9 +1851,9 @@ export default function Loja() {
                 setComponentKey((p) => p + 1);
                 if (selectedStore)
                   axios
-                    .get<
-                      Product[]
-                    >(`${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`)
+                    .get<Product[]>(
+                      `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`,
+                    )
                     .then((res) => {
                       if (Array.isArray(res.data)) setProducts(res.data);
                     });
@@ -1719,7 +1866,7 @@ export default function Loja() {
         </div>
       )}
 
-      {/* Erro */}
+      {/* Erro (fluxo local) */}
       {showError && (
         <div
           className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50"
@@ -1831,20 +1978,7 @@ export default function Loja() {
               onClick={() => {
                 const safeQty = Math.min(quantityToAdd, remainingForSelected);
                 if (safeQty <= 0) {
-                  showToast(
-                    "Estoque máximo já está no seu carrinho.",
-                    "warning",
-                  );
-                  {
-                    toast && (
-                      <Toast
-                        type={toast.type}
-                        message={toast.message}
-                        onClose={() => setToast(null)}
-                      />
-                    );
-                  }
-
+                  showToast("Estoque máximo já está no seu carrinho.", "warning");
                   return;
                 }
                 addToCart(selectedProduct, safeQty);
@@ -1864,7 +1998,7 @@ export default function Loja() {
         </div>
       )}
 
-      {/* 🔔 Toast */}
+      {/* 🔔 Toast top */}
       {toast && (
         <div className="fixed left-1/2 top-4 z-[120] -translate-x-1/2">
           <div
@@ -1888,10 +2022,10 @@ export default function Loja() {
                 {toast.type === "success"
                   ? "✅"
                   : toast.type === "warning"
-                    ? "⚠️"
-                    : toast.type === "error"
-                      ? "❌"
-                      : "ℹ️"}
+                  ? "⚠️"
+                  : toast.type === "error"
+                  ? "❌"
+                  : "ℹ️"}
               </span>
               <div className="text-sm  font-medium">{toast.message}</div>
               <button
@@ -1902,6 +2036,36 @@ export default function Loja() {
                 ✕
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔹 Modal de PIX do Mercado Pago (QR em base64 retornado pelo backend) */}
+      {mpPixQr && (
+        <div
+          className="fixed inset-0 z-[140] flex items-center justify-center bg-black/50"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <h3 className="mb-3 text-lg font-bold text-gray-800">
+              Pix (Mercado Pago)
+            </h3>
+            <img
+              src={mpPixQr}
+              alt="QR Code Pix Mercado Pago"
+              className="mx-auto mb-4 max-h-[320px] w-auto rounded-md border object-contain p-2"
+            />
+            <p className="mb-4 text-sm text-gray-600">
+              Escaneie o QR Code para pagar. Assim que o pagamento for
+              confirmado, você poderá acompanhar seu pedido em “Meu Pedido”.
+            </p>
+            <button
+              onClick={() => setMpPixQr(null)}
+              className="rounded-full bg-gray-200 px-5 py-2 text-gray-700 hover:bg-gray-300"
+            >
+              Fechar
+            </button>
           </div>
         </div>
       )}
