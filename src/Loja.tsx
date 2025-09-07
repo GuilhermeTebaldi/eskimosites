@@ -1126,6 +1126,18 @@ export default function Loja() {
           </div>
         )}
     </div>
+
+
+
+
+
+
+      {/* Substituido botão Carregar mais em um carregamento automático o botão pelo “sentinela invisível” */}
+      {currentPage < totalPages && (
+        <div ref={loadMoreRef} className="mb-24 mt-4 h-10 w-full text-center">
+          <span className="text-sm text-gray-400">Carregando mais...</span>
+        </div>
+      )}
     <footer className="mt-12 border-t border-gray-200 pt-8 pb-6 text-center bg-gradient-to-b from-white to-gray-50">
   <h2 className="text-lg font-bold text-sky-600 tracking-wide">
     Desenvolvido por{" "}
@@ -1139,18 +1151,6 @@ export default function Loja() {
     </a>
   </h2>
 </footer>
-
-
-
-
-
-      {/* Substituido botão Carregar mais em um carregamento automático o botão pelo “sentinela invisível” */}
-      {currentPage < totalPages && (
-        <div ref={loadMoreRef} className="mb-24 mt-4 h-10 w-full text-center">
-          <span className="text-sm text-gray-400">Carregando mais...</span>
-        </div>
-      )}
-
       {/* Botões flutuantes */}
       <Link
         onClick={() => {
