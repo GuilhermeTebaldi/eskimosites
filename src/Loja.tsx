@@ -1051,7 +1051,9 @@ export default function Loja() {
       if (data?.type === "init_point" && data?.url) {
         // guarda o orderId para uso pós-redirect
         try { localStorage.setItem("last_order_id", String(currentOrderId)); } catch {/* noop */}
-        window.location.href = data.url;
+        // novo modelo de pagamento
+window.open(data.url, "_blank", "noopener,noreferrer");
+
         return;
       }
   
@@ -1631,12 +1633,18 @@ export default function Loja() {
                   </button>
 
                   <button
-                    onClick={async () => {
-                      const ok = await validateBeforePayment();
-                      if (!ok) return;
-                      // Passou nas validações → abre PIX local
-                      dispatch({ type: "OPEN_PIX" });
-                    }}
+                   onClick={async () => {
+                    const ok = await validateBeforePayment();
+                    if (!ok) return;
+                  
+                    const mpActive = paymentConfig?.provider?.toLowerCase?.() === 'mercadopago' && paymentConfig?.isActive;
+                    if (mpActive) {
+                      await handleMercadoPagoPayment(); // vai direto pro MP
+                      return;
+                    }
+                    dispatch({ type: "OPEN_PIX" }); // mantém PIX local apenas se MP não ativo
+                  }} 
+                  
                     disabled={deliveryType === "entregar" && deliveryFee === 0}
                     className={`rounded px-10 py-1 font-semibold transition ${
                       deliveryType === "entregar" && deliveryFee === 0
