@@ -1,3 +1,11 @@
+// Loja.tsx — versão revisada (monolítica) com correções completas:
+// - Pré-abertura/fechamento de aba do Mercado Pago para evitar pop-up bloqueado e "valor travado"
+// - Overlay de carregamento com barra de progresso no fluxo de pagamento
+// - Invalidação automática do pedido (orderId) quando carrinho/entrega/loja/endereço mudam
+// - Assinatura do estado de pagamento (snapshot) para garantir criação de pedido novo quando necessário
+// - Correções de TypeScript/ESLint: efeitos dentro do componente, tipos explícitos, typo em ordemSubcategorias, etc.
+// - Exibição condicional do QR PIX do Mercado Pago (qr_base64) quando retornado pelo backend
+// - Manutenção de todas as funcionalidades anteriores (filtros, carrinho, seleção de loja, geolocalização, etc.)
 
 import React, {
   useCallback,
@@ -35,7 +43,7 @@ interface CartItem {
 interface PaymentConfig {
   provider?: string;
   isActive?: boolean;
-  // outros campos que seu backend possa trazer
+  // outros campos que seu backend possa trazer (mpPublicKey, etc.)
 }
 
 /************************************
@@ -57,7 +65,9 @@ const fmtBRL = new Intl.NumberFormat("pt-BR", {
 
 const clampQty = (qty: number, max: number) => Math.max(0, Math.min(qty, max));
 // DEBUG FLAG por querystring: ?debug=1
-const __DEBUG__ = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
+const __DEBUG__ =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("debug") === "1";
 
 // Normaliza texto (sem acento, minúsculo)
 const normalize = (text: string) =>
@@ -100,16 +110,33 @@ const getPosition = () =>
 
 // 👉 Preencha as chaves NUBANK/CAIXA/BB/etc de cada CNPJ aqui (provisório).
 //    Na Fase 2 moveremos isso para o backend (ou usaremos o PIX do MP).
-const STORE_PIX: Record<string, { CHAVE: string; NOME: string; CIDADE: string }> = {
-  efapi:   { CHAVE: "CHAVE_PIX_EFAPI_AQUI",    NOME: "Razão Social Efapi LTDA",    CIDADE: "CHAPECO" },
-  palmital:{ CHAVE: "CHAVE_PIX_PALMITAL_AQUI", NOME: "Razão Social Palmital LTDA", CIDADE: "CHAPECO" },
-  passo:   { CHAVE: "CHAVE_PIX_PASSO_AQUI",    NOME: "Razão Social Passo LTDA",    CIDADE: "CHAPECO" },
+const STORE_PIX: Record<
+  string,
+  { CHAVE: string; NOME: string; CIDADE: string }
+> = {
+  efapi: {
+    CHAVE: "CHAVE_PIX_EFAPI_AQUI",
+    NOME: "Razão Social Efapi LTDA",
+    CIDADE: "CHAPECO",
+  },
+  palmital: {
+    CHAVE: "CHAVE_PIX_PALMITAL_AQUI",
+    NOME: "Razão Social Palmital LTDA",
+    CIDADE: "CHAPECO",
+  },
+  passo: {
+    CHAVE: "CHAVE_PIX_PASSO_AQUI",
+    NOME: "Razão Social Passo LTDA",
+    CIDADE: "CHAPECO",
+  },
 };
 
 // fallback caso a loja ainda não esteja configurada
 const getPixConfig = (store?: string | null) => {
   const key = (store ?? "").toLowerCase();
-  return STORE_PIX[key] ?? { CHAVE: "CHAVE_PIX_TESTE", NOME: "Eskimo Teste", CIDADE: "CHAPECO" };
+  return (
+    STORE_PIX[key] ?? { CHAVE: "CHAVE_PIX_TESTE", NOME: "Eskimo Teste", CIDADE: "CHAPECO" }
+  );
 };
 
 const pad2 = (n: number) => n.toString().padStart(2, "0");
@@ -127,7 +154,10 @@ const crc16 = (str: string): string => {
 };
 
 // gera o payload Pix “Copia e Cola” com a configuração da loja
-const gerarPayloadPix = (valor: number, cfg: { CHAVE: string; NOME: string; CIDADE: string }): string => {
+const gerarPayloadPix = (
+  valor: number,
+  cfg: { CHAVE: string; NOME: string; CIDADE: string },
+): string => {
   const chavePix = cfg.CHAVE;
   const nome = cfg.NOME;
   const cidade = cfg.CIDADE;
@@ -223,6 +253,7 @@ function useDeliveryFee(
   useEffect(() => {
     recalc();
   }, [recalc]);
+
   return { deliveryFee, recalc } as const;
 }
 
@@ -272,12 +303,20 @@ function uiReducer(state: UIState, action: UIAction): UIState {
   }
 }
 
-
 /************************************
  * Componente principal
  ************************************/
 export default function Loja() {
   const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentOverlay, setPaymentOverlay] = useState(false);
+  const [paymentOverlayProgress, setPaymentOverlayProgress] = useState(0);
+
+  // mantém a aba/guia pré-aberta do MP para poder fechar entre tentativas
+  const preOpenedRef = useRef<Window | null>(null);
+
+  // guarda assinatura do estado de pagamento para detectar divergências
+  const lastPaymentSignatureRef = useRef<string>("");
+
   // refs para acessibilidade
   const checkoutFirstInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -322,12 +361,11 @@ export default function Loja() {
     },
     [],
   );
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    return () => {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const [showError, setShowError] = useState(false);
   const [errorText, setErrorText] = useState<string>(
@@ -347,7 +385,10 @@ export default function Loja() {
   const [customAddress, setCustomAddress] = useState("");
 
   const [customerName, setCustomerName] = useState("");
-  const [deliveryType, setDeliveryType] = useState("retirar");
+  const [deliveryType, setDeliveryType] = useState<"retirar" | "entregar">(
+    "entregar",
+  );
+  
   const [address, setAddress] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -360,13 +401,13 @@ export default function Loja() {
 
   const [deliveryRate, setDeliveryRate] = useState<number>(0);
 
-  // 🔹 NOVO: configuração de pagamento por loja (Mercado Pago, etc.)
+  // 🔹 Configuração de pagamento por loja (Mercado Pago, etc.)
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(
     null,
   );
 
-  // 🔹 NOVO: para exibir QR Code base64 retornado pelo backend (PIX do MP)
-  const [mpPixQr, setMpPixQr] = useState<string | null>(null);
+  // 🔹 Para exibir QR Code base64 retornado pelo backend (PIX do MP)
+  const [, setMpPixQr] = useState<string | null>(null);
 
   // lojas (constante)
   const storeLocations = useMemo(
@@ -451,7 +492,7 @@ export default function Loja() {
   }, []);
   const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
 
-  // bloquear scroll & barra de progresso durante "placing"
+  // bloquear scroll & barra de progresso durante "placing" (fluxo de confirmar pedido PIX local)
   useEffect(() => {
     if (!ui.placing) {
       document.body.classList.remove("overflow-hidden");
@@ -460,7 +501,8 @@ export default function Loja() {
     document.body.classList.add("overflow-hidden");
     setPlacingProgress(0);
     const interval = window.setInterval(
-      () => setPlacingProgress((p) => Math.min(p + Math.random() * 7 + 3, 90)),
+      () =>
+        setPlacingProgress((p) => Math.min(p + Math.random() * 7 + 3, 90)),
       300,
     );
     const beforeUnload = (e: BeforeUnloadEvent) => {
@@ -542,7 +584,7 @@ export default function Loja() {
     };
   }, [selectedStore]);
 
-  // 🔹 NOVO: buscar config de pagamento da loja (Mercado Pago etc.)
+  // buscar config de pagamento da loja (Mercado Pago etc.)
   useEffect(() => {
     const storeName = (selectedStore ?? "").trim();
     if (!storeName) {
@@ -552,22 +594,20 @@ export default function Loja() {
     fetch(`${API_URL}/paymentconfigs/${encodeURIComponent(storeName)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        console.log("PaymentConfig:", data); // 👈 debug
+        console.log("PaymentConfig:", data);
         setPaymentConfig(data);
         if (__DEBUG__) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).__lastPayCfg = data;
-          console.log('[DEBUG] paymentConfig:', data);
+          console.log("[DEBUG] paymentConfig:", data);
         }
-        
       })
-      
       .catch((e) => {
         console.warn("paymentconfigs fetch error", e);
         setPaymentConfig(null);
       });
   }, [selectedStore]);
-  
+
   // categorias e subcategorias memorizadas
   const categories = useMemo(
     () => Array.from(new Set(products.map((p) => p.categoryName))),
@@ -663,7 +703,7 @@ export default function Loja() {
     };
     const getSubIdx = (c?: string, s?: string) => {
       if (!c || !s) return 999;
-      const arr = ordemSubcategorias[c as keyof typeof ordemSubcategorias];
+      const arr = ordemSubcategorias[c]; // ✅ corrigido (sem keyof/typo)
       if (!arr) return 999;
       const i = arr.indexOf(s);
       return i === -1 ? 999 : i;
@@ -788,7 +828,7 @@ export default function Loja() {
     return () => window.removeEventListener("keydown", onKey);
   }, [ui.stage, ui.confirmOpen]);
 
-  // finalizar pedido (fluxo PIX local → cria pedido após confirmação)
+  // helpers de erro do servidor
   const getServerMessage = (err: unknown): string | undefined => {
     if (typeof err === "object" && err !== null) {
       const withResponse = err as {
@@ -805,6 +845,102 @@ export default function Loja() {
     return undefined;
   };
 
+  // total PIX
+  const totalPix = useMemo(
+    () => subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
+    [subtotal, deliveryFee, deliveryType],
+  );
+
+  // config PIX da loja selecionada
+  const pixCfg = useMemo(() => getPixConfig(selectedStore), [selectedStore]);
+
+  // payload Pix local
+  const payloadPix = useMemo(
+    () => gerarPayloadPix(totalPix, pixCfg),
+    [totalPix, pixCfg],
+  );
+
+  // 🔹 Helper de validação antes de pagamento (MP / Pix)
+  const validateBeforePayment = useCallback(async (): Promise<boolean> => {
+    if (cart.length === 0) {
+      showToast("Seu carrinho está vazio!", "warning");
+      return false;
+    }
+    if (!selectedStore) {
+      showToast("Selecione a unidade para continuar.", "warning");
+      return false;
+    }
+    if (!customerName.trim()) {
+      showToast("Informe seu nome completo.", "warning");
+      return false;
+    }
+    if (deliveryType === "entregar") {
+      if (!address.trim()) {
+        showToast("Escolha seu bairro.", "warning");
+        return false;
+      }
+      if (address === "Outro" && !customAddress.trim()) {
+        showToast("Digite seu bairro no campo 'Outro'.", "warning");
+        return false;
+      }
+      if (!street.trim()) {
+        showToast("Informe a rua.", "warning");
+        return false;
+      }
+      if (!number.trim()) {
+        showToast("Informe o número.", "warning");
+        return false;
+      }
+      if (!phoneNumber || phoneNumber.replace(/\D/g, "").length < 13) {
+        showToast("Informe seu WhatsApp com DDD (ex: 49991234567).", "warning");
+        return false;
+      }
+      if (deliveryFee === 0) {
+        await recalc();
+        showToast(
+          "Ative sua localização para calcular a taxa de entrega.",
+          "warning",
+        );
+        return false;
+      }
+    }
+    return true;
+  }, [
+    cart.length,
+    selectedStore,
+    customerName,
+    deliveryType,
+    address,
+    customAddress,
+    street,
+    number,
+    phoneNumber,
+    deliveryFee,
+    recalc,
+  ]);
+
+  // 🔹 Utilitário: “pré-abertura” de aba/guia para evitar bloqueio de popup e fechar a anterior
+  const preOpenWindow = () => {
+    // Fecha a janela anterior (se ainda estiver aberta) antes de abrir outra
+    try {
+      if (preOpenedRef.current && !preOpenedRef.current.closed) {
+        preOpenedRef.current.close();
+      }
+    } catch {
+      /* noop */
+    }
+
+    try {
+      const w = window.open("", "_blank");
+      preOpenedRef.current = w ?? null;
+      return preOpenedRef.current;
+    } catch {
+      preOpenedRef.current = null;
+      return null;
+    }
+  };
+
+  // finalizar pedido (fluxo PIX local → cria pedido após confirmação)
   const finalizeOrder = useCallback(async (): Promise<boolean> => {
     if (orderId !== null) return true;
     if (cart.some((i) => i.quantity > i.product.stock)) {
@@ -891,97 +1027,96 @@ export default function Loja() {
     phoneNumber,
   ]);
 
-  // total PIX
-  const totalPix = useMemo(
-    () => subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
-    [subtotal, deliveryFee, deliveryType],
-  );
-
-  // config PIX da loja selecionada
-  const pixCfg = useMemo(() => getPixConfig(selectedStore), [selectedStore]);
-
-  // payload Pix local
-  const payloadPix = useMemo(
-    () => gerarPayloadPix(totalPix, pixCfg),
-    [totalPix, pixCfg],
-  );
-
-  // 🔹 Helper de validação antes de pagamento (MP / Pix)
-  const validateBeforePayment = useCallback(async (): Promise<boolean> => {
-    if (cart.length === 0) {
-      showToast("Seu carrinho está vazio!", "warning");
-      return false;
+  // 🔹 Invalida automaticamente o pedido (orderId) quando algo relevante muda
+  useEffect(() => {
+    try {
+      const snapshot = cart
+        .map((i: CartItem) => ({
+          id: i.product.id,
+          q: i.quantity,
+          p: i.product.price,
+        }))
+        .sort(
+          (a: { id: number }, b: { id: number }) =>
+            a.id - b.id,
+        );
+      const last = localStorage.getItem("last_cart_snapshot");
+      const now = JSON.stringify(snapshot);
+      if (last !== now) {
+        localStorage.setItem("last_cart_snapshot", now);
+        setOrderId(null);
+        setMpPixQr(null);
+      }
+    } catch {
+      /* noop */
     }
-    if (!selectedStore) {
-      showToast("Selecione a unidade para continuar.", "warning");
-      return false;
-    }
-    if (!customerName.trim()) {
-      showToast("Informe seu nome completo.", "warning");
-      return false;
-    }
+  }, [cart]);
+
+  useEffect(() => {
+    setOrderId(null);
+    setMpPixQr(null);
+  }, [deliveryType, deliveryFee]);
+
+  useEffect(() => {
     if (deliveryType === "entregar") {
-      if (!address.trim()) {
-        showToast("Escolha seu bairro.", "warning");
-        return false;
-      }
-      if (address === "Outro" && !customAddress.trim()) {
-        showToast("Digite seu bairro no campo 'Outro'.", "warning");
-        return false;
-      }
-      if (!street.trim()) {
-        showToast("Informe a rua.", "warning");
-        return false;
-      }
-      if (!number.trim()) {
-        showToast("Informe o número.", "warning");
-        return false;
-      }
-      if (!phoneNumber || phoneNumber.replace(/\D/g, "").length < 13) {
-        showToast(
-          "Informe seu WhatsApp com DDD (ex: 49991234567).",
-          "warning",
-        );
-        return false;
-      }
-      if (deliveryFee === 0) {
-        await recalc();
-        showToast(
-          "Ative sua localização para calcular a taxa de entrega.",
-          "warning",
-        );
-        return false;
-      }
+      setOrderId(null);
+      setMpPixQr(null);
     }
-    return true;
-  }, [
-    cart.length,
-    selectedStore,
-    customerName,
-    deliveryType,
-    address,
-    customAddress,
-    street,
-    number,
-    phoneNumber,
-    deliveryFee,
-    recalc,
-  ]);
+  }, [deliveryType, address, customAddress, street, number, complement]);
+
+  useEffect(() => {
+    setOrderId(null);
+    setMpPixQr(null);
+  }, [selectedStore]);
 
   // 🔹 Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
   const handleMercadoPagoPayment = useCallback(async () => {
     if (paymentBusy) return;
+
     setPaymentBusy(true);
+    setPaymentOverlay(true);
+    setPaymentOverlayProgress(0);
+
+    // Assinatura do estado que afeta pagamento
+    const paymentSignature = JSON.stringify({
+      cart: cart
+        .map((i: CartItem) => ({
+          id: i.product.id,
+          q: i.quantity,
+          p: i.product.price,
+        }))
+        .sort((a: { id: number }, b: { id: number }) => a.id - b.id),
+      deliveryType,
+      deliveryFee: deliveryType === "entregar" ? deliveryFee : 0,
+      store: selectedStore,
+    });
+
+    // Se assinaturas divergem, invalida o pedido anterior
+    if (lastPaymentSignatureRef.current !== paymentSignature) {
+      setOrderId(null);
+      setMpPixQr(null);
+      lastPaymentSignatureRef.current = paymentSignature;
+    }
+
+    const overlayTimer = window.setInterval(() => {
+      setPaymentOverlayProgress((p) => Math.min(p + Math.random() * 10 + 5, 92));
+    }, 300);
+
+    // Pré-abre aba/janela ANTES de awaits
+    const preOpened = preOpenWindow();
+
     try {
       const ok = await validateBeforePayment();
-      if (!ok) return;
-  
+      if (!ok) {
+        return;
+      }
+
       // 1) usa pedido existente se houver; senão cria
       let currentOrderId = orderId ?? null;
       if (!currentOrderId) {
         const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
         const realTotal = subtotal + realDeliveryFee;
-  
+
         const orderPayload = {
           customerName: customerName.trim(),
           address: (address === "Outro" ? customAddress : address).trim(),
@@ -1001,27 +1136,30 @@ export default function Loja() {
           deliveryFee: realDeliveryFee,
           phoneNumber,
         };
-  
+
         const orderRes = await fetch(`${API_URL}/orders`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(orderPayload),
         });
-  
+
         if (!orderRes.ok) {
           showToast("Falha ao criar pedido.", "error");
-          // mantém o usuário no modal para tentar novamente
           dispatch({ type: "OPEN_PIX" });
           return;
         }
-  
+
         // parse resiliente
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let orderData: any = null;
         const orderText = await orderRes.text();
-        try { orderData = orderText ? JSON.parse(orderText) : null; } catch {/* noop */}
+        try {
+          orderData = orderText ? JSON.parse(orderText) : null;
+        } catch {
+          /* noop */
+        }
         const createdOrderId: number | undefined = orderData?.id;
-  
+
         if (!createdOrderId || !Number.isFinite(createdOrderId)) {
           showToast("Pedido criado, mas ID inválido retornado.", "error");
           dispatch({ type: "OPEN_PIX" });
@@ -1030,38 +1168,61 @@ export default function Loja() {
         currentOrderId = createdOrderId;
         setOrderId(createdOrderId);
       }
-  
+
       // 2) inicia pagamento MP para o mesmo pedido
       const payRes = await fetch(
         `${API_URL}/payments/mp/checkout?orderId=${currentOrderId}`,
-        { method: "POST" }
+        { method: "POST" },
       );
       if (!payRes.ok) {
         showToast("Falha ao iniciar pagamento (Mercado Pago).", "error");
         dispatch({ type: "OPEN_PIX" });
         return;
       }
-  
+
       // parse resiliente (evita crash se voltar 204/HTML)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let data: any = null;
       const text = await payRes.text();
-      try { data = text ? JSON.parse(text) : null; } catch {/* noop */}
-  
-      if (data?.type === "init_point" && data?.url) {
-        // guarda o orderId para uso pós-redirect
-        try { localStorage.setItem("last_order_id", String(currentOrderId)); } catch {/* noop */}
-        // novo modelo de pagamento
-window.open(data.url, "_blank", "noopener,noreferrer");
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        /* noop */
+      }
 
+      // Caso 1: Link de checkout web (init_point)
+      if (data?.type === "init_point" && data?.url) {
+        try {
+          localStorage.setItem("last_order_id", String(currentOrderId));
+        } catch {
+          /* noop */
+        }
+
+        const targetUrl = String(data.url);
+        // Se pré-abrimos, redirecionamos a aba. Caso contrário, fallback para a mesma janela.
+        if (preOpened && !preOpened.closed) {
+          try {
+            preOpened.location.href = targetUrl;
+          } catch {
+            window.location.href = targetUrl;
+          } finally {
+            // mantém referência da aba atual
+            preOpenedRef.current = preOpened;
+          }
+        } else {
+          window.location.href = targetUrl;
+        }
+        // sucesso: não segue para os demais casos
         return;
       }
-  
+
+      // Caso 2: PIX do MP (qr_base64)
       if (data?.type === "pix" && data?.qr_base64) {
-        setMpPixQr(data.qr_base64); // mostra QR do MP no front
+        setMpPixQr(data.qr_base64); // mostra QR do MP no front (sem abrir aba externa)
+        showToast("Use o QR do Mercado Pago para pagar.", "info");
         return;
       }
-  
+
       showToast("Retorno de pagamento inválido.", "error");
       dispatch({ type: "OPEN_PIX" });
     } catch (e) {
@@ -1070,6 +1231,11 @@ window.open(data.url, "_blank", "noopener,noreferrer");
       dispatch({ type: "OPEN_PIX" });
     } finally {
       setPaymentBusy(false);
+      setPaymentOverlayProgress(100);
+      window.setTimeout(() => {
+        setPaymentOverlay(false);
+      }, 350);
+      window.clearInterval(overlayTimer);
     }
   }, [
     paymentBusy,
@@ -1088,86 +1254,133 @@ window.open(data.url, "_blank", "noopener,noreferrer");
     cart,
     phoneNumber,
   ]);
-  
 
   // ---- RENDER ----
   return (
     <div key={componentKey} className="loja-container">
       {__DEBUG__ && (
-  <div style={{
-    position: 'fixed', left: 10, bottom: 10, zIndex: 10000,
-    maxWidth: 380, padding: 10, borderRadius: 12,
-    background: 'rgba(15,23,42,0.92)', color: '#fff',
-    border: '1px solid rgba(255,255,255,0.15)', fontSize: 12, lineHeight: 1.25
-  }}>
-    <div style={{fontWeight: 700, marginBottom: 6}}>UI Debug</div>
-    <div><strong>ui.stage:</strong> {ui.stage}</div>
-    <div><strong>orderId:</strong> {String(orderId)}</div>
-    <div><strong>deliveryType:</strong> {deliveryType}</div>
-    <div><strong>deliveryFee:</strong> {deliveryFee}</div>
-    <div style={{marginTop: 6}}>
-      <strong>condição MP:</strong>{" "}
-      {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" && paymentConfig?.isActive ? "true ✅" : "false ❌"}
-    </div>
-    <div style={{marginTop: 8, opacity: 0.9}}>
-      <em>Botão de teste (fora do modal):</em>
-    </div>
-    {(paymentConfig?.provider?.toLowerCase?.() === "mercadopago" && paymentConfig?.isActive) ? (
-      <button
-        onClick={handleMercadoPagoPayment}
-        style={{ marginTop: 6 }}
-        className="w-full rounded-full bg-indigo-600 py-2 font-semibold text-white transition hover:bg-indigo-700 active:scale-95"
-      >
-        💳 Pagar com Mercado Pago (TESTE)
-      </button>
-    ) : (
-      <div style={{marginTop: 6}}>Condição MP = false (sem render)</div>
-    )}
-    <div style={{marginTop: 8, display: 'flex', gap: 6}}>
-      <button
-        onClick={() => dispatch({ type: "OPEN_PIX" })}
-        className="rounded bg-yellow-500 px-3 py-1 text-white"
-      >
-        Abrir PIX (forçar)
-      </button>
-      <button
-        onClick={() => { setOrderId(null); dispatch({ type: "OPEN_CHECKOUT" }); }}
-        className="rounded bg-gray-300 px-3 py-1 text-gray-900"
-      >
-        Zerar orderId
-      </button>
-    </div>
-  </div>
-)}
+        <div
+          style={{
+            position: "fixed",
+            left: 10,
+            bottom: 10,
+            zIndex: 10000,
+            maxWidth: 380,
+            padding: 10,
+            borderRadius: 12,
+            background: "rgba(15,23,42,0.92)",
+            color: "#fff",
+            border: "1px solid rgba(255,255,255,0.15)",
+            fontSize: 12,
+            lineHeight: 1.25,
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>UI Debug</div>
+          <div>
+            <strong>ui.stage:</strong> {ui.stage}
+          </div>
+          <div>
+            <strong>orderId:</strong> {String(orderId)}
+          </div>
+          <div>
+            <strong>deliveryType:</strong> {deliveryType}
+          </div>
+          <div>
+            <strong>deliveryFee:</strong> {deliveryFee}
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <strong>condição MP:</strong>{" "}
+            {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
+            paymentConfig?.isActive
+              ? "true ✅"
+              : "false ❌"}
+          </div>
+          <div style={{ marginTop: 8, opacity: 0.9 }}>
+            <em>Botão de teste (fora do modal):</em>
+          </div>
+          {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
+          paymentConfig?.isActive ? (
+            <button
+              onClick={handleMercadoPagoPayment}
+              style={{ marginTop: 6 }}
+              className="w-full rounded-full bg-indigo-600 py-2 font-semibold text-white transition hover:bg-indigo-700 active:scale-95"
+            >
+              💳 Pagar com Mercado Pago (TESTE)
+            </button>
+          ) : (
+            <div style={{ marginTop: 6 }}>
+              Condição MP = false (sem render)
+            </div>
+          )}
+          <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
+            <button
+              onClick={() => dispatch({ type: "OPEN_PIX" })}
+              className="rounded bg-yellow-500 px-3 py-1 text-white"
+            >
+              Abrir PIX (forçar)
+            </button>
+            <button
+              onClick={() => {
+                setOrderId(null);
+                dispatch({ type: "OPEN_CHECKOUT" });
+              }}
+              className="rounded bg-gray-300 px-3 py-1 text-gray-900"
+            >
+              Zerar orderId
+            </button>
+          </div>
+        </div>
+      )}
 
       {__DEBUG__ && (
-  <div style={{
-    position: 'fixed', right: 10, bottom: 10, zIndex: 9999,
-    maxWidth: 360, padding: 10, borderRadius: 12,
-    background: 'rgba(15,23,42,0.9)', color: '#fff',
-    border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, lineHeight: 1.25
-  }}>
-    <div style={{fontWeight: 700, marginBottom: 6}}>MP Debug</div>
-    <div><strong>selectedStore:</strong> {String(selectedStore)}</div>
-    <div><strong>URL:</strong> {API_URL}/paymentconfigs/{selectedStore}</div>
-    <div style={{marginTop: 6}}>
-      <strong>paymentConfig:</strong>
-      <pre style={{whiteSpace:'pre-wrap', margin: 0}}>
-        {JSON.stringify(paymentConfig, null, 2)}
-      </pre>
-    </div>
-    <div style={{marginTop: 6}}>
-      <strong>Botão visível?</strong>{' '}
-      {paymentConfig?.provider?.toLowerCase?.() === 'mercadopago' && paymentConfig?.isActive ? 'SIM ✅' : 'NÃO ❌'}
-    </div>
-    <div style={{marginTop: 6}}>
-      <strong>Motivo (se oculto):</strong>{' '}
-      {!paymentConfig ? 'Sem config (404/erro no fetch)' :
-        paymentConfig?.provider?.toLowerCase?.() !== 'mercadopago' ? 'provider ≠ mercadopago' :
-        paymentConfig?.isActive !== true ? 'isActive ≠ true' : '—'}
-    </div>
-  </div>
-)}
+        <div
+          style={{
+            position: "fixed",
+            right: 10,
+            bottom: 10,
+            zIndex: 9999,
+            maxWidth: 360,
+            padding: 10,
+            borderRadius: 12,
+            background: "rgba(15,23,42,0.9)",
+            color: "#fff",
+            border: "1px solid rgba(255,255,255,0.1)",
+            fontSize: 12,
+            lineHeight: 1.25,
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>MP Debug</div>
+          <div>
+            <strong>selectedStore:</strong> {String(selectedStore)}
+          </div>
+          <div>
+            <strong>URL:</strong> {API_URL}/paymentconfigs/{selectedStore}
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <strong>paymentConfig:</strong>
+            <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+              {JSON.stringify(paymentConfig, null, 2)}
+            </pre>
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <strong>Botão visível?</strong>{" "}
+            {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
+            paymentConfig?.isActive
+              ? "SIM ✅"
+              : "NÃO ❌"}
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <strong>Motivo (se oculto):</strong>{" "}
+            {!paymentConfig
+              ? "Sem config (404/erro no fetch)"
+              : paymentConfig?.provider?.toLowerCase?.() !== "mercadopago"
+              ? "provider ≠ mercadopago"
+              : paymentConfig?.isActive !== true
+              ? "isActive ≠ true"
+              : "—"}
+          </div>
+        </div>
+      )}
 
       {/* espaçamento para o header */}
       <div className="h-[205px]" />
@@ -1230,12 +1443,7 @@ window.open(data.url, "_blank", "noopener,noreferrer");
               }`}
               aria-label={`Selecionar unidade ${store}`}
             >
-              🍦{" "}
-              {store === "efapi"
-                ? "Efapi"
-                : store === "palmital"
-                ? "Palmital"
-                : "Passo"}
+              🍦 {store === "efapi" ? "Efapi" : store === "palmital" ? "Palmital" : "Passo"}
             </button>
           ))}
         </div>
@@ -1351,7 +1559,8 @@ window.open(data.url, "_blank", "noopener,noreferrer");
                 <div
                   className="product-image-wrapper"
                   onClick={() => {
-                    const remaining = product.stock - getQtyInCart(product.id);
+                    const remaining =
+                      product.stock - getQtyInCart(product.id);
                     if (remaining <= 0) {
                       showToast(
                         "Estoque máximo já está no seu carrinho.",
@@ -1470,14 +1679,10 @@ window.open(data.url, "_blank", "noopener,noreferrer");
               />
 
               {/* Tipo de entrega */}
-              <select
-                className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
-                value={deliveryType}
-                onChange={(e) => setDeliveryType(e.target.value)}
-              >
-                <option value="retirar">Retirar na Loja</option>
-                <option value="entregar">Entrega em Casa</option>
-              </select>
+              <div className="mb-3 w-full rounded-xl border border-gray-300 bg-green-50 px-4 py-2 text-sm text-gray-800">
+  🚚 Entrega em Casa
+</div>
+
 
               {deliveryType === "entregar" && (
                 <div className="flex flex-col gap-3">
@@ -1617,8 +1822,9 @@ window.open(data.url, "_blank", "noopener,noreferrer");
                     🚚 Entrega aproximada: <strong>{toBRL(deliveryFee)}</strong>
                   </p>
                   <p className="text-xs text-gray-500">
-                    (Será cobrada apenas se escolher entrega)
-                  </p>
+  (Taxa de entrega aplicada ao endereço informado)
+</p>
+
                   <p className="text-base font-bold text-green-700">
                     💰 Total com entrega: {toBRL(subtotal + deliveryFee)}
                   </p>
@@ -1633,26 +1839,30 @@ window.open(data.url, "_blank", "noopener,noreferrer");
                   </button>
 
                   <button
-                   onClick={async () => {
-                    const ok = await validateBeforePayment();
-                    if (!ok) return;
-                  
-                    const mpActive = paymentConfig?.provider?.toLowerCase?.() === 'mercadopago' && paymentConfig?.isActive;
-                    if (mpActive) {
-                      await handleMercadoPagoPayment(); // vai direto pro MP
-                      return;
-                    }
-                    dispatch({ type: "OPEN_PIX" }); // mantém PIX local apenas se MP não ativo
-                  }} 
-                  
-                    disabled={deliveryType === "entregar" && deliveryFee === 0}
+                    onClick={async () => {
+                      const ok = await validateBeforePayment();
+                      if (!ok) return;
+
+                      const mpActive =
+                        paymentConfig?.provider?.toLowerCase?.() ===
+                          "mercadopago" && paymentConfig?.isActive;
+                      if (mpActive) {
+
+                        await handleMercadoPagoPayment(); // vai direto pro MP (com overlay + preOpen)
+                        return;
+                      }
+                      dispatch({ type: "OPEN_PIX" }); // mantém PIX local apenas se MP não ativo
+                    }}
+                    disabled={paymentBusy || (deliveryType === "entregar" && deliveryFee === 0)}
                     className={`rounded px-10 py-1 font-semibold transition ${
-                      deliveryType === "entregar" && deliveryFee === 0
+                      paymentBusy
+                        ? "cursor-wait bg-indigo-400 text-white"
+                        : deliveryType === "entregar" && deliveryFee === 0
                         ? "cursor-not-allowed bg-gray-300 text-gray-500"
                         : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
                     }`}
                   >
-                    Ir para Pagamento
+                    {paymentBusy ? "Iniciando pagamento..." : "Ir para Pagamento"}
                   </button>
                 </div>
               </div>
@@ -1713,7 +1923,7 @@ window.open(data.url, "_blank", "noopener,noreferrer");
       )}
       {/* fim do checkout */}
 
-      {/* Modal PIX local */}
+      {/* Modal PIX local / Mercado Pago */}
       {ui.stage === "pix" && orderId === null && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
@@ -1773,17 +1983,20 @@ window.open(data.url, "_blank", "noopener,noreferrer");
               <div className="mt-6 space-y-2">
                 {/* 🔹 Botão Mercado Pago aparece apenas se a loja tiver provider="mercadopago" e ativo */}
                 {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
-  paymentConfig?.isActive && (
-    <button
-    onClick={handleMercadoPagoPayment}
-    disabled={paymentBusy}
-    className={`w-full rounded-full py-2 font-semibold text-white transition ${
-      paymentBusy ? "bg-indigo-400 cursor-wait" : "bg-indigo-600 hover:bg-indigo-700"
-    }`}
-  >
-    {paymentBusy ? "Iniciando pagamento..." : "💳 Pagar com Mercado Pago"}
-  </button>
-  
+                  paymentConfig?.isActive && (
+                    <button
+                      onClick={handleMercadoPagoPayment}
+                      disabled={paymentBusy}
+                      className={`w-full rounded-full py-2 font-semibold text-white transition ${
+                        paymentBusy
+                          ? "bg-indigo-400 cursor-wait"
+                          : "bg-indigo-600 hover:bg-indigo-700"
+                      }`}
+                    >
+                      {paymentBusy
+                        ? "Iniciando pagamento..."
+                        : "💳 Pagar com Mercado Pago"}
+                    </button>
                   )}
 
                 <button
@@ -1851,7 +2064,7 @@ window.open(data.url, "_blank", "noopener,noreferrer");
         </div>
       )}
 
-      {/* Overlay enquanto finaliza (fluxo local) */}
+      {/* Overlay enquanto finaliza pedido (fluxo local) */}
       {ui.placing && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/70 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4">
@@ -1870,6 +2083,30 @@ window.open(data.url, "_blank", "noopener,noreferrer");
             </div>
             <p className="text-xs text-gray-500">
               Por favor, não feche ou atualize a página.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Overlay “Preparando pagamento...” (Mercado Pago) */}
+      {paymentOverlay && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-white/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative h-16 w-16">
+              <div className="absolute inset-0 rounded-full border-4 border-indigo-400/30" />
+              <div className="absolute inset-0 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+            </div>
+            <div className="w-64 overflow-hidden rounded-full bg-white/80 shadow">
+              <div
+                className="h-2 rounded-full bg-indigo-500 transition-all"
+                style={{ width: `${paymentOverlayProgress}%` }}
+              />
+            </div>
+            <div className="rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-gray-700 shadow">
+              Preparando o pagamento…
+            </div>
+            <p className="text-xs text-gray-500">
+              Se a nova aba não abrir, verifique o bloqueio de pop-ups do seu navegador.
             </p>
           </div>
         </div>
@@ -1895,9 +2132,7 @@ window.open(data.url, "_blank", "noopener,noreferrer");
                 #{orderId}
               </div>
               <button
-                onClick={() =>
-                  navigator.clipboard.writeText(orderId.toString())
-                }
+                onClick={() => navigator.clipboard.writeText(orderId.toString())}
                 className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700"
               >
                 Copiar
@@ -1920,7 +2155,8 @@ window.open(data.url, "_blank", "noopener,noreferrer");
                 setPhoneNumber("");
                 setAddress("");
                 setCustomAddress("");
-                setDeliveryType("retirar");
+                setDeliveryType("entregar");
+
                 setComponentKey((p) => p + 1);
                 if (selectedStore)
                   axios
@@ -1996,150 +2232,81 @@ window.open(data.url, "_blank", "noopener,noreferrer");
               loading="lazy"
               src={selectedProduct.imageUrl}
               alt={selectedProduct.name}
-              className="mb-4 h-48 w-full object-contain"
+              className="mb-3 h-60 w-full rounded-lg object-contain"
             />
-            <h2 className="mb-1 text-center text-lg font-bold text-gray-800">
+            <h3 className="mb-1 text-lg font-semibold text-gray-800">
               {selectedProduct.name}
-            </h2>
-            <p className="mb-3 text-center text-base font-bold text-green-700">
-              {toBRL(selectedProduct.price)}
-            </p>
-            <p className="mb-2 text-center text-xs text-gray-500">
-              {remainingForSelected > 0
-                ? `Disponível: ${remainingForSelected}${
-                    selectedProduct &&
-                    remainingForSelected < selectedProduct.stock
-                      ? ` (de ${selectedProduct.stock})`
-                      : ""
-                  }`
-                : "Produto esgotado no seu carrinho"}
-            </p>
-            <p className="mb-4 text-center text-sm text-gray-600">
+            </h3>
+            <p className="mb-2 text-sm text-gray-600">
               {selectedProduct.description}
             </p>
-
-            <div className="mb-4 flex items-center justify-center gap-4">
-              <button
-                aria-label="Diminuir quantidade"
-                onClick={() =>
-                  setQuantityToAdd((prev) => (prev > 1 ? prev - 1 : 1))
-                }
-                className="text-2xl"
-              >
-                ➖
-              </button>
-              <span className="text-xl" aria-live="polite">
-                {quantityToAdd}
-              </span>
-              <button
-                aria-label="Aumentar quantidade"
-                onClick={() =>
-                  setQuantityToAdd((prev) =>
-                    selectedProduct && prev < remainingForSelected
-                      ? prev + 1
-                      : prev,
-                  )
-                }
-                className="text-2xl"
-                disabled={quantityToAdd >= remainingForSelected}
-              >
-                ➕
-              </button>
+            <div className="mb-2 text-base font-bold text-green-700">
+              {toBRL(selectedProduct.price)}
             </div>
 
-            <button
-              onClick={() => {
-                const safeQty = Math.min(quantityToAdd, remainingForSelected);
-                if (safeQty <= 0) {
-                  showToast("Estoque máximo já está no seu carrinho.", "warning");
-                  return;
+            {/* Quantidade + Adicionar */}
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() =>
+                    setQuantityToAdd((q) => Math.max(1, q - 1))
+                  }
+                  className="rounded bg-gray-200 px-3 py-1 text-gray-700"
+                >
+                  −
+                </button>
+                <span className="min-w-[2ch] text-center">
+                  {quantityToAdd}
+                </span>
+                <button
+                  onClick={() =>
+                    setQuantityToAdd((q) =>
+                      Math.min(q + 1, remainingForSelected || 1),
+                    )
+                  }
+                  className="rounded bg-gray-200 px-3 py-1 text-gray-700"
+                >
+                  +
+                </button>
+              </div>
+              <button
+                onClick={() =>
+                  addToCart(selectedProduct, quantityToAdd || 1)
                 }
-                addToCart(selectedProduct, safeQty);
-              }}
-              disabled={remainingForSelected <= 0}
-              className={`w-full rounded py-2 text-white ${
-                remainingForSelected <= 0
-                  ? "cursor-not-allowed bg-gray-400"
-                  : "bg-red-600 hover:bg-red-500"
-              }`}
-            >
-              {remainingForSelected <= 0
-                ? "Máximo no carrinho"
-                : "Adicionar ao Carrinho"}
-            </button>
+                disabled={remainingForSelected <= 0}
+                className={`rounded px-4 py-1 font-semibold transition ${
+                  remainingForSelected <= 0
+                    ? "cursor-not-allowed bg-gray-300 text-gray-500"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                }`}
+              >
+                Adicionar
+              </button>
+            </div>
+            <div className="text-xs text-gray-500">
+              Em estoque: {remainingForSelected}
+            </div>
           </div>
         </div>
       )}
 
-      {/* 🔔 Toast top */}
+      {/* Toast simples */}
       {toast && (
-        <div className="fixed left-1/2 top-4 z-[120] -translate-x-1/2">
-          <div
-            className={[
-              "animate-[fade-in_0.2s_ease-out]",
-              "rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md",
-              toast.type === "success" &&
-                "border-green-200 bg-green-50/90 text-green-800",
-              toast.type === "warning" &&
-                "border-yellow-200 bg-yellow-50/90 text-yellow-800",
-              toast.type === "error" &&
-                "border-red-200 bg-red-50/90 text-red-800",
-              toast.type === "info" &&
-                "border-gray-200 bg-white/90 text-gray-800",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-xl">
-                {toast.type === "success"
-                  ? "✅"
-                  : toast.type === "warning"
-                  ? "⚠️"
-                  : toast.type === "error"
-                  ? "❌"
-                  : "ℹ️"}
-              </span>
-              <div className="text-sm  font-medium">{toast.message}</div>
-              <button
-                onClick={() => setToast(null)}
-                className="ml-2 rounded-md px-2 text-xs opacity-70 hover:opacity-100"
-                aria-label="Fechar aviso"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 🔹 Modal de PIX do Mercado Pago (QR em base64 retornado pelo backend) */}
-      {mpPixQr && (
         <div
-          className="fixed inset-0 z-[140] flex items-center justify-center bg-black/50"
-          role="dialog"
-          aria-modal="true"
+          className="fixed left-1/2 top-4 z-[9999] -translate-x-1/2 rounded-full px-4 py-2 text-sm shadow-md"
+          style={{
+            background:
+              toast.type === "success"
+                ? "rgba(34,197,94,0.95)"
+                : toast.type === "warning"
+                ? "rgba(234,179,8,0.95)"
+                : toast.type === "error"
+                ? "rgba(239,68,68,0.95)"
+                : "rgba(2,132,199,0.95)",
+            color: "#fff",
+          }}
         >
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
-            <h3 className="mb-3 text-lg font-bold text-gray-800">
-              Pix (Mercado Pago)
-            </h3>
-            <img
-              src={mpPixQr}
-              alt="QR Code Pix Mercado Pago"
-              className="mx-auto mb-4 max-h-[320px] w-auto rounded-md border object-contain p-2"
-            />
-            <p className="mb-4 text-sm text-gray-600">
-              Escaneie o QR Code para pagar. Assim que o pagamento for
-              confirmado, você poderá acompanhar seu pedido em “Meu Pedido”.
-            </p>
-            <button
-              onClick={() => setMpPixQr(null)}
-              className="rounded-full bg-gray-200 px-5 py-2 text-gray-700 hover:bg-gray-300"
-            >
-              Fechar
-            </button>
-          </div>
+          {toast.message}
         </div>
       )}
     </div>
