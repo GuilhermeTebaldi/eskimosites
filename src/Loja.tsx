@@ -201,25 +201,28 @@ function useLocalStorageCart(
       if (rawCart) setStoredCart(JSON.parse(rawCart));
       const st = localStorage.getItem(keyStore);
       if (st) setStoredStore(st);
-    } catch {
-      /* noop */
+    } catch (err) {
+      void 0; // evita ESLint no-empty
     }
+    
   }, [keyCart, keyStore]);
 
   useEffect(() => {
     try {
       localStorage.setItem(keyCart, JSON.stringify(storedCart));
-    } catch {
-      /* noop */
+    } catch (err) {
+      void 0; // evita ESLint no-empty
     }
+    
   }, [keyCart, storedCart]);
 
   useEffect(() => {
     try {
       if (storedStore) localStorage.setItem(keyStore, storedStore);
-    } catch {
-      /* noop */
+    } catch (err) {
+      void 0; // evita ESLint no-empty
     }
+    
   }, [keyStore, storedStore]);
 
   return { storedCart, setStoredCart, storedStore, setStoredStore } as const;
@@ -311,11 +314,9 @@ export default function Loja() {
   const [paymentOverlay, setPaymentOverlay] = useState(false);
   const [paymentOverlayProgress, setPaymentOverlayProgress] = useState(0);
 
-  // mantém a aba/guia pré-aberta do MP para poder fechar entre tentativas
-  const preOpenedRef = useRef<Window | null>(null);
+ 
 
-  // guarda assinatura do estado de pagamento para detectar divergências
-  const lastPaymentSignatureRef = useRef<string>("");
+ 
 
   // refs para acessibilidade
   const checkoutFirstInputRef = useRef<HTMLInputElement>(null);
@@ -491,7 +492,20 @@ export default function Loja() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
   const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
-
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search);
+    const paid = qs.get("paid") === "1";
+    const idStr = qs.get("orderId");
+    const id = idStr ? parseInt(idStr, 10) : NaN;
+  
+    if (paid && Number.isFinite(id)) {
+      setOrderId(id);
+      setShowConfirmation(true);
+      setCart([]);
+      try { window.history.replaceState({}, "", window.location.pathname); } catch { /* empty */ }
+    }
+  }, []);
+  
   // bloquear scroll & barra de progresso durante "placing" (fluxo de confirmar pedido PIX local)
   useEffect(() => {
     if (!ui.placing) {
@@ -521,7 +535,19 @@ export default function Loja() {
   useEffect(() => {
     setCart([]);
   }, [selectedStore]);
-
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search);
+    const paid = qs.get("paid") === "1";
+    const idStr = qs.get("orderId");
+    const id = idStr ? parseInt(idStr, 10) : NaN;
+    if (paid && Number.isFinite(id)) {
+      setOrderId(id);
+      setShowConfirmation(true);  // abre “Pedido Confirmado”
+      setCart([]);
+      try { window.history.replaceState({}, "", window.location.pathname); } catch { /* empty */ }
+    }
+  }, []);
+  
   // detectar loja mais próxima
   useEffect(() => {
     (async () => {
@@ -919,29 +945,6 @@ export default function Loja() {
     recalc,
   ]);
 
-  // 🔹 Utilitário: “pré-abertura” de aba/guia para evitar bloqueio de popup e fechar a anterior
-  const isIOS = typeof navigator !== "undefined" && /iP(ad|hone|od)/i.test(navigator.userAgent);
-
-  const preOpenWindow = () => {
-    // no iOS, pular pre-open para evitar aba about:blank fechada ao negar app
-    if (isIOS) return null;
-  
-    try {
-      if (preOpenedRef.current && !preOpenedRef.current.closed) {
-        preOpenedRef.current.close();
-      }
-    } catch { /* empty */ }
-    try {
-      const w = window.open("", "_blank");
-      preOpenedRef.current = w ?? null;
-      return preOpenedRef.current;
-    } catch {
-      preOpenedRef.current = null;
-      return null;
-    }
-  };
-  
-
   // finalizar pedido (fluxo PIX local → cria pedido após confirmação)
   const finalizeOrder = useCallback(async (): Promise<boolean> => {
     if (orderId !== null) return true;
@@ -1049,9 +1052,10 @@ export default function Loja() {
         setOrderId(null);
         setMpPixQr(null);
       }
-    } catch {
-      /* noop */
+    } catch (err) {
+      void 0; // evita ESLint no-empty
     }
+    
   }, [cart]);
 
   useEffect(() => {
@@ -1074,51 +1078,25 @@ export default function Loja() {
   // 🔹 Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
   const handleMercadoPagoPayment = useCallback(async () => {
     if (paymentBusy) return;
-
+  
     setPaymentBusy(true);
     setPaymentOverlay(true);
     setPaymentOverlayProgress(0);
-
-    // Assinatura do estado que afeta pagamento
-    const paymentSignature = JSON.stringify({
-      cart: cart
-        .map((i: CartItem) => ({
-          id: i.product.id,
-          q: i.quantity,
-          p: i.product.price,
-        }))
-        .sort((a: { id: number }, b: { id: number }) => a.id - b.id),
-      deliveryType,
-      deliveryFee: deliveryType === "entregar" ? deliveryFee : 0,
-      store: selectedStore,
-    });
-
-    // Se assinaturas divergem, invalida o pedido anterior
-    if (lastPaymentSignatureRef.current !== paymentSignature) {
-      setOrderId(null);
-      setMpPixQr(null);
-      lastPaymentSignatureRef.current = paymentSignature;
-    }
-
+  
     const overlayTimer = window.setInterval(() => {
       setPaymentOverlayProgress((p) => Math.min(p + Math.random() * 10 + 5, 92));
     }, 300);
-
-    // Pré-abre aba/janela ANTES de awaits
-    const preOpened = preOpenWindow();
-
+  
     try {
       const ok = await validateBeforePayment();
-      if (!ok) {
-        return;
-      }
-
-      // 1) usa pedido existente se houver; senão cria
+      if (!ok) return;
+  
+      // 1) usa pedido existente; senão cria
       let currentOrderId = orderId ?? null;
       if (!currentOrderId) {
         const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
         const realTotal = subtotal + realDeliveryFee;
-
+  
         const orderPayload = {
           customerName: customerName.trim(),
           address: (address === "Outro" ? customAddress : address).trim(),
@@ -1138,105 +1116,46 @@ export default function Loja() {
           deliveryFee: realDeliveryFee,
           phoneNumber,
         };
-
+  
         const orderRes = await fetch(`${API_URL}/orders`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(orderPayload),
         });
-
+  
         if (!orderRes.ok) {
           showToast("Falha ao criar pedido.", "error");
-          dispatch({ type: "OPEN_PIX" });
           return;
         }
-
-        // parse resiliente
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let orderData: any = null;
+  
+        let orderData: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
         const orderText = await orderRes.text();
-        try {
-          orderData = orderText ? JSON.parse(orderText) : null;
-        } catch {
-          /* noop */
-        }
+        try { orderData = orderText ? JSON.parse(orderText) : null; } catch { /* empty */ }
         const createdOrderId: number | undefined = orderData?.id;
-
+  
         if (!createdOrderId || !Number.isFinite(createdOrderId)) {
           showToast("Pedido criado, mas ID inválido retornado.", "error");
-          dispatch({ type: "OPEN_PIX" });
           return;
         }
         currentOrderId = createdOrderId;
         setOrderId(createdOrderId);
       }
-
-      // 2) inicia pagamento MP para o mesmo pedido
-      const payRes = await fetch(
-        `${API_URL}/payments/mp/checkout?orderId=${currentOrderId}`,
-        { method: "POST" },
-      );
-      if (!payRes.ok) {
-        showToast("Falha ao iniciar pagamento (Mercado Pago).", "error");
-        dispatch({ type: "OPEN_PIX" });
-        return;
-      }
-
-      // parse resiliente (evita crash se voltar 204/HTML)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let data: any = null;
-      const text = await payRes.text();
+  
       try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        /* noop */
-      }
-
-      // Caso 1: Link de checkout web (init_point)
-      if (data?.type === "init_point" && data?.url) {
-        try {
-          localStorage.setItem("last_order_id", String(currentOrderId));
-        } catch {
-          /* noop */
-        }
-
-        const targetUrl = String(data.url);
-        // Se pré-abrimos, redirecionamos a aba. Caso contrário, fallback para a mesma janela.
-        if (preOpened && !preOpened.closed) {
-          try {
-            preOpened.location.href = targetUrl;
-          } catch {
-            window.location.href = targetUrl;
-          } finally {
-            // mantém referência da aba atual
-            preOpenedRef.current = preOpened;
-          }
-        } else {
-          window.location.href = targetUrl;
-        }
-        // sucesso: não segue para os demais casos
-        return;
-      }
-
-      // Caso 2: PIX do MP (qr_base64)
-      if (data?.type === "pix" && data?.qr_base64) {
-        setMpPixQr(data.qr_base64); // mostra QR do MP no front (sem abrir aba externa)
-        showToast("Use o QR do Mercado Pago para pagar.", "info");
-        return;
-      }
-
-      showToast("Retorno de pagamento inválido.", "error");
-      dispatch({ type: "OPEN_PIX" });
+        localStorage.setItem("last_order_id", String(currentOrderId));
+      } catch { /* empty */ }
+  
+      // 2) Navega em MESMA ABA via redirect do backend (evita about:blank/app)
+      const serverRedirect = `${API_URL.replace(/\/api$/, "")}/api/payments/mp/go?orderId=${currentOrderId}`;
+      window.location.assign(serverRedirect);
+      return;
     } catch (e) {
       console.error(e);
       showToast("Erro ao processar pagamento com Mercado Pago.", "error");
-      dispatch({ type: "OPEN_PIX" });
     } finally {
       setPaymentBusy(false);
       setPaymentOverlayProgress(100);
-      window.setTimeout(() => {
-        setPaymentOverlay(false);
-      }, 350);
+      window.setTimeout(() => setPaymentOverlay(false), 350);
       window.clearInterval(overlayTimer);
     }
   }, [
@@ -1256,6 +1175,7 @@ export default function Loja() {
     cart,
     phoneNumber,
   ]);
+  
 
   // ---- RENDER ----
   return (
@@ -1841,20 +1761,14 @@ export default function Loja() {
                   </button>
 
                   <button
-                    onClick={async () => {
-                      const ok = await validateBeforePayment();
-                      if (!ok) return;
-
-                      const mpActive =
-                        paymentConfig?.provider?.toLowerCase?.() ===
-                          "mercadopago" && paymentConfig?.isActive;
-                      if (mpActive) {
-
-                        await handleMercadoPagoPayment(); // vai direto pro MP (com overlay + preOpen)
-                        return;
-                      }
-                      dispatch({ type: "OPEN_PIX" }); // mantém PIX local apenas se MP não ativo
-                    }}
+                   onClick={async () => {
+                    const ok = await validateBeforePayment();
+                    if (!ok) return;
+                  
+                    // cria ou reaproveita pedido (sua função já faz isso dentro do handleMercadoPagoPayment)
+                    await handleMercadoPagoPayment(); // sem fallback de PIX local
+                  }}
+                  
                     disabled={paymentBusy || (deliveryType === "entregar" && deliveryFee === 0)}
                     className={`rounded px-10 py-1 font-semibold transition ${
                       paymentBusy
