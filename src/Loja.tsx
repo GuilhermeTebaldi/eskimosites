@@ -920,16 +920,17 @@ export default function Loja() {
   ]);
 
   // 🔹 Utilitário: “pré-abertura” de aba/guia para evitar bloqueio de popup e fechar a anterior
+  const isIOS = typeof navigator !== "undefined" && /iP(ad|hone|od)/i.test(navigator.userAgent);
+
   const preOpenWindow = () => {
-    // Fecha a janela anterior (se ainda estiver aberta) antes de abrir outra
+    // no iOS, pular pre-open para evitar aba about:blank fechada ao negar app
+    if (isIOS) return null;
+  
     try {
       if (preOpenedRef.current && !preOpenedRef.current.closed) {
         preOpenedRef.current.close();
       }
-    } catch {
-      /* noop */
-    }
-
+    } catch { /* empty */ }
     try {
       const w = window.open("", "_blank");
       preOpenedRef.current = w ?? null;
@@ -939,6 +940,7 @@ export default function Loja() {
       return null;
     }
   };
+  
 
   // finalizar pedido (fluxo PIX local → cria pedido após confirmação)
   const finalizeOrder = useCallback(async (): Promise<boolean> => {
