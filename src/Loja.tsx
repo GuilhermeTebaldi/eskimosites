@@ -1,11 +1,8 @@
-// Loja.tsx — versão revisada (monolítica) com correções completas:
-// - Pré-abertura/fechamento de aba do Mercado Pago para evitar pop-up bloqueado e "valor travado"
-// - Overlay de carregamento com barra de progresso no fluxo de pagamento
-// - Invalidação automática do pedido (orderId) quando carrinho/entrega/loja/endereço mudam
-// - Assinatura do estado de pagamento (snapshot) para garantir criação de pedido novo quando necessário
-// - Correções de TypeScript/ESLint: efeitos dentro do componente, tipos explícitos, typo em ordemSubcategorias, etc.
-// - Exibição condicional do QR PIX do Mercado Pago (qr_base64) quando retornado pelo backend
-// - Manutenção de todas as funcionalidades anteriores (filtros, carrinho, seleção de loja, geolocalização, etc.)
+// Loja.tsx — versão revisada (monolítica) 100% focada em Mercado Pago
+// - Remove 100% do antigo PIX local/QRCode (componentes, helpers, modais, confirmações locais)
+// - Mantém e aprimora o fluxo Mercado Pago (Wallet Brick) com overlay de preparação e polling
+// - Corrige estados e efeitos para não haver referências ao PIX antigo
+// - Mantém filtros, carrinho, seleção de loja, geolocalização, UI e debug essenciais
 
 import React, {
   useCallback,
@@ -15,7 +12,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import PixQRCode from "./components/PixQRCode";
 import axios from "axios";
 import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos";
 import { Link } from "react-router-dom";
@@ -44,9 +40,8 @@ interface PaymentConfig {
   provider?: string;
   isActive?: boolean;
   mpPublicKey?: string; // camelCase
-  MpPublicKey?: string; // PascalCase (se seu backend retornar assim)
+  MpPublicKey?: string; // PascalCase (se o backend retornar assim)
 }
-
 
 /************************************
  * Constantes & helpers
@@ -56,7 +51,6 @@ type ViteEnv = { VITE_API_URL?: string };
 const API_URL: string =
   ((import.meta as unknown as { env?: ViteEnv }).env?.VITE_API_URL) ??
   "http://localhost:8080/api";
-
 
 const UI = {
   HEADER_MAX: 120,
@@ -70,6 +64,7 @@ const fmtBRL = new Intl.NumberFormat("pt-BR", {
 });
 
 const clampQty = (qty: number, max: number) => Math.max(0, Math.min(qty, max));
+
 // DEBUG FLAG por querystring: ?debug=1
 const __DEBUG__ =
   typeof window !== "undefined" &&
@@ -111,87 +106,6 @@ const getPosition = () =>
   });
 
 /************************************
- * PIX helpers (fora do componente)
- ************************************/
-
-// 👉 Preencha as chaves NUBANK/CAIXA/BB/etc de cada CNPJ aqui (provisório).
-//    Na Fase 2 moveremos isso para o backend (ou usaremos o PIX do MP).
-const STORE_PIX: Record<
-  string,
-  { CHAVE: string; NOME: string; CIDADE: string }
-> = {
-  efapi: {
-    CHAVE: "CHAVE_PIX_EFAPI_AQUI",
-    NOME: "Razão Social Efapi LTDA",
-    CIDADE: "CHAPECO",
-  },
-  palmital: {
-    CHAVE: "CHAVE_PIX_PALMITAL_AQUI",
-    NOME: "Razão Social Palmital LTDA",
-    CIDADE: "CHAPECO",
-  },
-  passo: {
-    CHAVE: "CHAVE_PIX_PASSO_AQUI",
-    NOME: "Razão Social Passo LTDA",
-    CIDADE: "CHAPECO",
-  },
-};
-
-// fallback caso a loja ainda não esteja configurada
-const getPixConfig = (store?: string | null) => {
-  const key = (store ?? "").toLowerCase();
-  return (
-    STORE_PIX[key] ?? { CHAVE: "CHAVE_PIX_TESTE", NOME: "Eskimo Teste", CIDADE: "CHAPECO" }
-  );
-};
-
-const pad2 = (n: number) => n.toString().padStart(2, "0");
-
-const crc16 = (str: string): string => {
-  let crc = 0xffff;
-  for (const c of str) {
-    crc ^= c.charCodeAt(0) << 8;
-    for (let i = 0; i < 8; i++) {
-      crc = (crc << 1) ^ (crc & 0x8000 ? 0x1021 : 0);
-      crc &= 0xffff;
-    }
-  }
-  return crc.toString(16).toUpperCase().padStart(4, "0");
-};
-
-// gera o payload Pix “Copia e Cola” com a configuração da loja
-const gerarPayloadPix = (
-  valor: number,
-  cfg: { CHAVE: string; NOME: string; CIDADE: string },
-): string => {
-  const chavePix = cfg.CHAVE;
-  const nome = cfg.NOME;
-  const cidade = cfg.CIDADE;
-  const txid = "tePdSk5zg9"; // você pode gerar um TXID único por pedido depois
-
-  const valorFormatado = valor.toFixed(2);
-  const tamanhoValor = valorFormatado.length;
-
-  const merchantAccountInfo = `0014BR.GOV.BCB.PIX01${pad2(chavePix.length)}${chavePix}`;
-  const gui = `26${pad2(merchantAccountInfo.length)}${merchantAccountInfo}`;
-  const additionalDataField = `62${pad2(4 + txid.length)}050${pad2(txid.length)}${txid}`;
-
-  const payloadSemCRC =
-    "000201" +
-    gui +
-    "52040000" +
-    "5303986" +
-    `54${pad2(tamanhoValor)}${valorFormatado}` +
-    "5802BR" +
-    `59${pad2(nome.length)}${nome}` +
-    `60${pad2(cidade.length)}${cidade}` +
-    additionalDataField +
-    "6304";
-
-  return payloadSemCRC + crc16(payloadSemCRC);
-};
-
-/************************************
  * Hooks utilitários
  ************************************/
 function useLocalStorageCart(
@@ -207,28 +121,25 @@ function useLocalStorageCart(
       if (rawCart) setStoredCart(JSON.parse(rawCart));
       const st = localStorage.getItem(keyStore);
       if (st) setStoredStore(st);
-    } catch (err) {
-      void 0; // evita ESLint no-empty
+    } catch {
+      // noop
     }
-    
   }, [keyCart, keyStore]);
 
   useEffect(() => {
     try {
       localStorage.setItem(keyCart, JSON.stringify(storedCart));
-    } catch (err) {
-      void 0; // evita ESLint no-empty
+    } catch {
+      // noop
     }
-    
   }, [keyCart, storedCart]);
 
   useEffect(() => {
     try {
       if (storedStore) localStorage.setItem(keyStore, storedStore);
-    } catch (err) {
-      void 0; // evita ESLint no-empty
+    } catch {
+      // noop
     }
-    
   }, [keyStore, storedStore]);
 
   return { storedCart, setStoredCart, storedStore, setStoredStore } as const;
@@ -265,6 +176,7 @@ function useDeliveryFee(
 
   return { deliveryFee, recalc } as const;
 }
+
 // ——— Tipos auxiliares (Mercado Pago Wallet + guards) ———
 type Json = Record<string, unknown>;
 
@@ -312,44 +224,20 @@ function isCheckoutResponse(x: unknown): x is { preferenceId: string } {
 }
 
 /************************************
- * Reducer do fluxo (wizard)
+ * Reducer do fluxo (apenas checkout)
  ************************************/
-type Stage = "idle" | "checkout" | "pix"; // confirmação é um diálogo dentro do PIX
+type Stage = "idle" | "checkout";
 interface UIState {
   stage: Stage;
-  confirmOpen: boolean;
-  placing: boolean;
 }
+type UIAction = { type: "OPEN_CHECKOUT" } | { type: "RESET" };
 
-type UIAction =
-  | { type: "OPEN_CHECKOUT" }
-  | { type: "OPEN_PIX" }
-  | { type: "OPEN_CONFIRM" }
-  | { type: "CLOSE_CONFIRM" }
-  | { type: "START_PLACING" }
-  | { type: "STOP_PLACING" }
-  | { type: "RESET" };
-
-const uiInitial: UIState = {
-  stage: "idle",
-  confirmOpen: false,
-  placing: false,
-};
+const uiInitial: UIState = { stage: "idle" };
 
 function uiReducer(state: UIState, action: UIAction): UIState {
   switch (action.type) {
     case "OPEN_CHECKOUT":
-      return { stage: "checkout", confirmOpen: false, placing: false };
-    case "OPEN_PIX":
-      return { stage: "pix", confirmOpen: false, placing: false };
-    case "OPEN_CONFIRM":
-      return { ...state, confirmOpen: true };
-    case "CLOSE_CONFIRM":
-      return { ...state, confirmOpen: false };
-    case "START_PLACING":
-      return { ...state, placing: true };
-    case "STOP_PLACING":
-      return { ...state, placing: false };
+      return { stage: "checkout" };
     case "RESET":
       return uiInitial;
     default:
@@ -361,29 +249,20 @@ function uiReducer(state: UIState, action: UIAction): UIState {
  * Componente principal
  ************************************/
 export default function Loja() {
+  // Estados de pagamento Mercado Pago
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentOverlay, setPaymentOverlay] = useState(false);
   const [paymentOverlayProgress, setPaymentOverlayProgress] = useState(0);
-
- 
-
- 
+  const [walletOpen, setWalletOpen] = useState(false);
+  const walletCtrlRef = useRef<WalletController | null>(null);
+  const pollRef = useRef<number | null>(null);
 
   // refs para acessibilidade
   const checkoutFirstInputRef = useRef<HTMLInputElement>(null);
-  // ⬇️ ESTADO WALLET (novo)
-const [walletOpen, setWalletOpen] = useState(false);
-const walletCtrlRef = useRef<WalletController | null>(null);
-
-
-// ⬇️ Polling (novo)
-const pollRef = useRef<number | null>(null);
-
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // reducer do fluxo
   const [ui, dispatch] = useReducer(uiReducer, uiInitial);
-  const [placingProgress, setPlacingProgress] = useState(0);
 
   // estado geral
   const [orderId, setOrderId] = useState<number | null>(null);
@@ -400,11 +279,11 @@ const pollRef = useRef<number | null>(null);
     storedStore,
   );
 
+  // Toast simples local
   const [toast, setToast] = useState<{
     type: "info" | "success" | "warning" | "error";
     message: string;
   } | null>(null);
-
   const toastTimerRef = useRef<number | null>(null);
   const showToast = useCallback(
     (
@@ -427,10 +306,6 @@ const pollRef = useRef<number | null>(null);
     };
   }, []);
 
-  const [showError, setShowError] = useState(false);
-  const [errorText, setErrorText] = useState<string>(
-    "Ocorreu um erro ao enviar seu pedido. Tente novamente.",
-  );
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const [quickFilterCategory, setQuickFilterCategory] = useState<string | null>(
@@ -445,10 +320,7 @@ const pollRef = useRef<number | null>(null);
   const [customAddress, setCustomAddress] = useState("");
 
   const [customerName, setCustomerName] = useState("");
-  const [deliveryType, setDeliveryType] = useState<"retirar" | "entregar">(
-    "entregar",
-  );
-  
+  const [deliveryType] = useState<"retirar" | "entregar">("entregar");
   const [address, setAddress] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -461,13 +333,10 @@ const pollRef = useRef<number | null>(null);
 
   const [deliveryRate, setDeliveryRate] = useState<number>(0);
 
-  // 🔹 Configuração de pagamento por loja (Mercado Pago, etc.)
+  // Config de pagamento por loja (Mercado Pago)
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(
     null,
   );
-
-  // 🔹 Para exibir QR Code base64 retornado pelo backend (PIX do MP)
-  const [, setMpPixQr] = useState<string | null>(null);
 
   // lojas (constante)
   const storeLocations = useMemo(
@@ -526,7 +395,7 @@ const pollRef = useRef<number | null>(null);
   useEffect(() => {
     const handleScroll = () => {
       const currentY = window.scrollY;
-      const maxHeight = UI.HEADER_MAX; // simplificado
+      const maxHeight = UI.HEADER_MAX;
       if (currentY <= 0) setHeaderHeight(maxHeight);
       else if (currentY > lastScrollYRef.current && currentY > 20)
         setHeaderHeight(UI.HEADER_MIN);
@@ -538,6 +407,7 @@ const pollRef = useRef<number | null>(null);
   }, []);
 
   // clique fora para fechar dropdown de unidade (quando exibido)
+  const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -550,63 +420,26 @@ const pollRef = useRef<number | null>(null);
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
+
+  // leitura de querystring de retorno (?paid=1&orderId=XYZ) — útil se backend redireciona
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
     const paid = qs.get("paid") === "1";
     const idStr = qs.get("orderId");
     const id = idStr ? parseInt(idStr, 10) : NaN;
-  
+
     if (paid && Number.isFinite(id)) {
       setOrderId(id);
       setShowConfirmation(true);
       setCart([]);
-      try { window.history.replaceState({}, "", window.location.pathname); } catch { /* empty */ }
+      try {
+        window.history.replaceState({}, "", window.location.pathname);
+      } catch {
+        /* empty */
+      }
     }
   }, []);
-  
-  // bloquear scroll & barra de progresso durante "placing" (fluxo de confirmar pedido PIX local)
-  useEffect(() => {
-    if (!ui.placing) {
-      document.body.classList.remove("overflow-hidden");
-      return;
-    }
-    document.body.classList.add("overflow-hidden");
-    setPlacingProgress(0);
-    const interval = window.setInterval(
-      () =>
-        setPlacingProgress((p) => Math.min(p + Math.random() * 7 + 3, 90)),
-      300,
-    );
-    const beforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("beforeunload", beforeUnload);
-      document.body.classList.remove("overflow-hidden");
-    };
-  }, [ui.placing]);
 
-  // limpar carrinho quando trocar de loja
-  useEffect(() => {
-    setCart([]);
-  }, [selectedStore]);
-  useEffect(() => {
-    const qs = new URLSearchParams(window.location.search);
-    const paid = qs.get("paid") === "1";
-    const idStr = qs.get("orderId");
-    const id = idStr ? parseInt(idStr, 10) : NaN;
-    if (paid && Number.isFinite(id)) {
-      setOrderId(id);
-      setShowConfirmation(true);  // abre “Pedido Confirmado”
-      setCart([]);
-      try { window.history.replaceState({}, "", window.location.pathname); } catch { /* empty */ }
-    }
-  }, []);
-  
   // detectar loja mais próxima
   useEffect(() => {
     (async () => {
@@ -788,7 +621,7 @@ const pollRef = useRef<number | null>(null);
     };
     const getSubIdx = (c?: string, s?: string) => {
       if (!c || !s) return 999;
-      const arr = ordemSubcategorias[c]; // ✅ corrigido (sem keyof/typo)
+      const arr = ordemSubcategorias[c];
       if (!arr) return 999;
       const i = arr.indexOf(s);
       return i === -1 ? 999 : i;
@@ -900,52 +733,18 @@ const pollRef = useRef<number | null>(null);
       setTimeout(() => checkoutFirstInputRef.current?.focus(), 0);
   }, [ui.stage]);
 
-  // ESC fecha diálogos
+  // ESC fecha o checkout
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (ui.confirmOpen) dispatch({ type: "CLOSE_CONFIRM" });
-        else if (ui.stage === "pix") dispatch({ type: "OPEN_CHECKOUT" });
-        else dispatch({ type: "RESET" });
+        if (ui.stage === "checkout") dispatch({ type: "RESET" });
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [ui.stage, ui.confirmOpen]);
+  }, [ui.stage]);
 
-  // helpers de erro do servidor
-  const getServerMessage = (err: unknown): string | undefined => {
-    if (typeof err === "object" && err !== null) {
-      const withResponse = err as {
-        response?: { data?: unknown; status?: number };
-        message?: unknown;
-      };
-      const data = withResponse.response?.data;
-      if (typeof data === "object" && data !== null) {
-        const maybeMsg = (data as { message?: unknown }).message;
-        if (typeof maybeMsg === "string") return maybeMsg;
-      }
-      if (typeof withResponse.message === "string") return withResponse.message;
-    }
-    return undefined;
-  };
-
-  // total PIX
-  const totalPix = useMemo(
-    () => subtotal + (deliveryType === "entregar" ? deliveryFee : 0),
-    [subtotal, deliveryFee, deliveryType],
-  );
-
-  // config PIX da loja selecionada
-  const pixCfg = useMemo(() => getPixConfig(selectedStore), [selectedStore]);
-
-  // payload Pix local
-  const payloadPix = useMemo(
-    () => gerarPayloadPix(totalPix, pixCfg),
-    [totalPix, pixCfg],
-  );
-
-  // 🔹 Helper de validação antes de pagamento (MP / Pix)
+  // Validação antes do pagamento
   const validateBeforePayment = useCallback(async (): Promise<boolean> => {
     if (cart.length === 0) {
       showToast("Seu carrinho está vazio!", "warning");
@@ -959,42 +758,39 @@ const pollRef = useRef<number | null>(null);
       showToast("Informe seu nome completo.", "warning");
       return false;
     }
-    if (deliveryType === "entregar") {
-      if (!address.trim()) {
-        showToast("Escolha seu bairro.", "warning");
-        return false;
-      }
-      if (address === "Outro" && !customAddress.trim()) {
-        showToast("Digite seu bairro no campo 'Outro'.", "warning");
-        return false;
-      }
-      if (!street.trim()) {
-        showToast("Informe a rua.", "warning");
-        return false;
-      }
-      if (!number.trim()) {
-        showToast("Informe o número.", "warning");
-        return false;
-      }
-      if (!phoneNumber || phoneNumber.replace(/\D/g, "").length < 13) {
-        showToast("Informe seu WhatsApp com DDD (ex: 49991234567).", "warning");
-        return false;
-      }
-      if (deliveryFee === 0) {
-        await recalc();
-        showToast(
-          "Ative sua localização para calcular a taxa de entrega.",
-          "warning",
-        );
-        return false;
-      }
+
+    // Entrega obrigatória no layout atual
+    if (!address.trim()) {
+      showToast("Escolha seu bairro.", "warning");
+      return false;
     }
+    if (address === "Outro" && !customAddress.trim()) {
+      showToast("Digite seu bairro no campo 'Outro'.", "warning");
+      return false;
+    }
+    if (!street.trim()) {
+      showToast("Informe a rua.", "warning");
+      return false;
+    }
+    if (!number.trim()) {
+      showToast("Informe o número.", "warning");
+      return false;
+    }
+    if (!phoneNumber || phoneNumber.replace(/\D/g, "").length < 13) {
+      showToast("Informe seu WhatsApp com DDD (ex: 49991234567).", "warning");
+      return false;
+    }
+    if (deliveryFee === 0) {
+      await recalc();
+      showToast("Ative sua localização para calcular a taxa de entrega.", "warning");
+      return false;
+    }
+
     return true;
   }, [
     cart.length,
     selectedStore,
     customerName,
-    deliveryType,
     address,
     customAddress,
     street,
@@ -1004,259 +800,130 @@ const pollRef = useRef<number | null>(null);
     recalc,
   ]);
 
-  // finalizar pedido (fluxo PIX local → cria pedido após confirmação)
-  const finalizeOrder = useCallback(async (): Promise<boolean> => {
-    if (orderId !== null) return true;
-    if (cart.some((i) => i.quantity > i.product.stock)) {
-      showToast(
-        "Há itens no carrinho acima do estoque disponível. Ajuste as quantidades.",
-        "warning",
-      );
-      return false;
+  // SDK do Mercado Pago
+  const loadMPSDK = useCallback(async (): Promise<MercadoPagoCtor> => {
+    if (window.MercadoPago) return window.MercadoPago;
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://sdk.mercadopago.com/js/v2";
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("Falha ao carregar SDK do Mercado Pago"));
+      document.head.appendChild(s);
+    });
+    if (!window.MercadoPago) {
+      throw new Error("SDK do Mercado Pago não disponível após carregar script.");
     }
-    if (
-      !customerName.trim() ||
-      (deliveryType === "entregar" && !address.trim())
-    ) {
-      showToast("Preencha as informações obrigatórias.", "warning");
-      return false;
-    }
-    if (!selectedStore) {
-      showToast("Nenhuma unidade selecionada.", "error");
-      return false;
-    }
+    return window.MercadoPago;
+  }, []);
 
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  const checkPaidOnce = useCallback(async (id: number): Promise<boolean> => {
     try {
-      const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
-      const realTotal = subtotal + realDeliveryFee;
-
-      const payload = {
-        customerName: customerName.trim(),
-        address: (address === "Outro" ? customAddress : address).trim(),
-        street: street.trim(),
-        number: number.trim(),
-        complement: complement.trim(),
-        deliveryType,
-        store: selectedStore,
-        items: cart.map((item) => ({
-          productId: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-          imageUrl: item.product.imageUrl,
-        })),
-        total: realTotal,
-        deliveryFee: realDeliveryFee,
-        phoneNumber,
-      };
-      type OrderResponse = { id: number; message?: string };
-
-      const response = await axios.post<OrderResponse>(
-        `${API_URL}/orders`,
-        payload,
-      );
-      const id = response.data?.id;
-      if (typeof id === "number" && Number.isFinite(id)) {
-        setOrderId(id);
-        return true;
-      }
-      setErrorText("Erro: número do pedido não foi retornado corretamente.");
-      return false;
-    } catch (err: unknown) {
-      console.error("❌ Erro ao enviar pedido:", err);
-      const status = (err as { response?: { status?: number } })?.response
-        ?.status;
-      if (status === 409)
-        setErrorText(
-          "Conflito: outro cliente reservou esse estoque. Atualize o carrinho.",
-        );
-      else if (status === 422)
-        setErrorText("Dados inválidos. Verifique os campos e tente novamente.");
-      else setErrorText(getServerMessage(err) ?? "Erro ao enviar pedido.");
+      const r = await fetch(`${API_URL}/orders/${id}`);
+      if (!r.ok) return false;
+      const o = await r.json();
+      return String(o?.status ?? "").toLowerCase() === "pago";
+    } catch {
       return false;
     }
-  }, [
-    orderId,
-    cart,
-    customerName,
-    deliveryType,
-    address,
-    selectedStore,
-    deliveryFee,
-    subtotal,
-    customAddress,
-    street,
-    number,
-    complement,
-    phoneNumber,
-  ]);
+  }, []);
 
-  // 🔹 Invalida automaticamente o pedido (orderId) quando algo relevante muda
-  useEffect(() => {
-    try {
-      const snapshot = cart
-        .map((i: CartItem) => ({
-          id: i.product.id,
-          q: i.quantity,
-          p: i.product.price,
-        }))
-        .sort(
-          (a: { id: number }, b: { id: number }) =>
-            a.id - b.id,
-        );
-      const last = localStorage.getItem("last_cart_snapshot");
-      const now = JSON.stringify(snapshot);
-      if (last !== now) {
-        localStorage.setItem("last_cart_snapshot", now);
-        setOrderId(null);
-        setMpPixQr(null);
-      }
-    } catch (err) {
-      void 0; // evita ESLint no-empty
-    }
-    
-  }, [cart]);
+  // Abre o Wallet Brick
+  const openWalletBrick = useCallback(
+    async (preferenceId: string, currentOrderId: number) => {
+      try {
+        const MP = await loadMPSDK();
 
-  useEffect(() => {
-    setOrderId(null);
-    setMpPixQr(null);
-  }, [deliveryType, deliveryFee]);
+        const publicKey = paymentConfig?.mpPublicKey ?? paymentConfig?.MpPublicKey;
+        if (!publicKey) {
+          showToast("Public Key do Mercado Pago não configurada para esta loja.", "error");
+          return;
+        }
 
-  useEffect(() => {
-    if (deliveryType === "entregar") {
-      setOrderId(null);
-      setMpPixQr(null);
-    }
-  }, [deliveryType, address, customAddress, street, number, complement]);
+        const mp = new MP(publicKey, { locale: "pt-BR" });
+        const bricks = mp.bricks();
 
-  useEffect(() => {
-    setOrderId(null);
-    setMpPixQr(null);
-  }, [selectedStore]);
-// ⬇️ Carrega SDK do Mercado Pago (novo)
-const loadMPSDK = useCallback(async (): Promise<MercadoPagoCtor> => {
-  if (window.MercadoPago) return window.MercadoPago;
-  await new Promise<void>((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://sdk.mercadopago.com/js/v2";
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Falha ao carregar SDK do Mercado Pago"));
-    document.head.appendChild(s);
-  });
-  if (!window.MercadoPago) {
-    throw new Error("SDK do Mercado Pago não disponível após carregar script.");
-  }
-  return window.MercadoPago;
-}, []);
+        setWalletOpen(true);
 
-
-const stopPolling = useCallback(() => {
-  if (pollRef.current) {
-    window.clearInterval(pollRef.current);
-    pollRef.current = null;
-  }
-}, []);
-
-const checkPaidOnce = useCallback(async (id: number): Promise<boolean> => {
-  try {
-    const r = await fetch(`${API_URL}/orders/${id}`);
-    if (!r.ok) return false;
-    const o = await r.json();
-    return String(o?.status ?? "").toLowerCase() === "pago";
-  } catch {
-    return false;
-  }
-}, []);
-
-// ⬇️ Abre o Wallet Brick (novo)
-const openWalletBrick = useCallback(
-  async (preferenceId: string, currentOrderId: number) => {
-    try {
-      const MP = await loadMPSDK();
-
-      // publicKey vem do /paymentconfigs/{store}
-      const publicKey = paymentConfig?.mpPublicKey ?? paymentConfig?.MpPublicKey;
-
-
-      if (!publicKey) {
-        showToast("Public Key do Mercado Pago não configurada para esta loja.", "error");
-        return;
-      }
-
-      const mp = new MP(publicKey, { locale: "pt-BR" });
-      const bricks = mp.bricks();
-
-      setWalletOpen(true);
-
-      const ctrl = await bricks.create("wallet", "mp-wallet-container", {
-        initialization: { preferenceId },
-        customization: { texts: { valueProp: "security_details" } },
-        callbacks: {
-          onReady: () => {
-            // some o overlay de “Preparando pagamento…”
-            setPaymentOverlay(false);
+        const ctrl = await bricks.create("wallet", "mp-wallet-container", {
+          initialization: { preferenceId },
+          customization: { texts: { valueProp: "security_details" } },
+          callbacks: {
+            onReady: () => {
+              setPaymentOverlay(false);
+            },
+            onError: (err: unknown) => {
+              console.error("Wallet error:", err);
+              showToast("Erro no pagamento (Mercado Pago).", "error");
+              setWalletOpen(false);
+            },
           },
-          onError: (err: unknown) => {
-            console.error("Wallet error:", err);
-            showToast("Erro no pagamento (Mercado Pago).", "error");
+        });
+
+        walletCtrlRef.current = ctrl;
+
+        // Polling do pedido até ficar pago
+        let tries = 0;
+        stopPolling();
+        pollRef.current = window.setInterval(async () => {
+          tries++;
+          const paid = await checkPaidOnce(currentOrderId);
+          if (paid) {
+            stopPolling();
+            try {
+              walletCtrlRef.current?.unmount?.();
+            } catch {
+              /* empty */
+            }
             setWalletOpen(false);
-          },
-        },
-      });
+            setOrderId(currentOrderId);
+            setShowConfirmation(true);
+            setCart([]);
+          }
 
-      walletCtrlRef.current = ctrl;
+          if (tries > 180) {
+            // ~12min
+            stopPolling();
+          }
+        }, 4000);
+      } catch (e) {
+        console.error(e);
+        showToast("Não foi possível abrir o pagamento no site.", "error");
+        setWalletOpen(false);
+      }
+    },
+    [loadMPSDK, paymentConfig, showToast, checkPaidOnce, stopPolling, setPaymentOverlay]
+  );
 
-      // Polling do pedido até ficar pago
-      let tries = 0;
-      stopPolling();
-      pollRef.current = window.setInterval(async () => {
-        tries++;
-        const paid = await checkPaidOnce(currentOrderId);
-        if (paid) {
-          stopPolling();
-          try { walletCtrlRef.current?.unmount?.(); } catch { /* empty */ }
-          setWalletOpen(false);
-          setOrderId(currentOrderId);
-          setShowConfirmation(true);
-          setCart([]);
-        }
-        
-        if (tries > 180) { // ~12min
-          stopPolling();
-        }
-      }, 4000);
-    } catch (e) {
-      console.error(e);
-      showToast("Não foi possível abrir o pagamento no site.", "error");
-      setWalletOpen(false);
-    }
-  },
-  [loadMPSDK, paymentConfig, showToast, checkPaidOnce, stopPolling, setPaymentOverlay]
-);
-
-  // 🔹 Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
+  // Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
   const handleMercadoPagoPayment = useCallback(async () => {
     if (paymentBusy) return;
-  
+
     setPaymentBusy(true);
     setPaymentOverlay(true);
     setPaymentOverlayProgress(0);
-  
+
     const overlayTimer = window.setInterval(() => {
       setPaymentOverlayProgress((p) => Math.min(p + Math.random() * 10 + 5, 92));
     }, 300);
-  
+
     try {
       const ok = await validateBeforePayment();
       if (!ok) return;
-  
+
       // 1) usa pedido existente; senão cria
       let currentOrderId = orderId ?? null;
       if (!currentOrderId) {
         const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
         const realTotal = subtotal + realDeliveryFee;
-  
+
         const orderPayload = {
           customerName: customerName.trim(),
           address: (address === "Outro" ? customAddress : address).trim(),
@@ -1276,24 +943,27 @@ const openWalletBrick = useCallback(
           deliveryFee: realDeliveryFee,
           phoneNumber,
         };
-  
+
         const orderRes = await fetch(`${API_URL}/orders`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(orderPayload),
         });
-  
+
         if (!orderRes.ok) {
           showToast("Falha ao criar pedido.", "error");
           return;
         }
-  
+
         let orderData: unknown = null;
         const orderText = await orderRes.text();
-        try { orderData = orderText ? JSON.parse(orderText) : null; } catch (e) { void 0; }
+        try {
+          orderData = orderText ? JSON.parse(orderText) : null;
+        } catch {
+          /* empty */
+        }
         const createdOrderId = isOrderResponse(orderData) ? orderData.id : undefined;
-        
-  
+
         if (!createdOrderId || !Number.isFinite(createdOrderId)) {
           showToast("Pedido criado, mas ID inválido retornado.", "error");
           return;
@@ -1301,27 +971,37 @@ const openWalletBrick = useCallback(
         currentOrderId = createdOrderId;
         setOrderId(createdOrderId);
       }
-  
-      try { localStorage.setItem("last_order_id", String(currentOrderId)); } catch { /* empty */ }
-  
+
+      try {
+        localStorage.setItem("last_order_id", String(currentOrderId));
+      } catch {
+        /* empty */
+      }
+
       // 2) Cria a preference e abre o Wallet (modal no mesmo tab)
-      const payRes = await fetch(`${API_URL}/payments/mp/checkout?orderId=${currentOrderId}`, {
-        method: "POST",
-      });
+      const payRes = await fetch(
+        `${API_URL}/payments/mp/checkout?orderId=${currentOrderId}`,
+        { method: "POST" }
+      );
       if (!payRes.ok) {
         showToast("Falha ao iniciar pagamento (Mercado Pago).", "error");
         return;
       }
+
       let data: unknown = null;
       const text = await payRes.text();
-      try { data = text ? JSON.parse(text) : null; } catch (e) { void 0; }
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        /* empty */
+      }
       const prefId = isCheckoutResponse(data) ? data.preferenceId : undefined;
-      
+
       if (!prefId) {
         showToast("Preferência inválida do Mercado Pago.", "error");
         return;
       }
-  
+
       await openWalletBrick(prefId, currentOrderId!);
       return;
     } catch (e) {
@@ -1352,7 +1032,6 @@ const openWalletBrick = useCallback(
     openWalletBrick,
     setPaymentOverlay,
   ]);
-  
 
   // ---- RENDER ----
   return (
@@ -1382,7 +1061,7 @@ const openWalletBrick = useCallback(
             <strong>orderId:</strong> {String(orderId)}
           </div>
           <div>
-            <strong>deliveryType:</strong> {deliveryType}
+            <strong>deliveryType:</strong> entregar
           </div>
           <div>
             <strong>deliveryFee:</strong> {deliveryFee}
@@ -1394,40 +1073,17 @@ const openWalletBrick = useCallback(
               ? "true ✅"
               : "false ❌"}
           </div>
-          <div style={{ marginTop: 8, opacity: 0.9 }}>
-            <em>Botão de teste (fora do modal):</em>
-          </div>
+          {/* Botão de teste opcional */}
           {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
-          paymentConfig?.isActive ? (
-            <button
-              onClick={handleMercadoPagoPayment}
-              style={{ marginTop: 6 }}
-              className="w-full rounded-full bg-indigo-600 py-2 font-semibold text-white transition hover:bg-indigo-700 active:scale-95"
-            >
-              💳 Pagar com Mercado Pago (TESTE)
-            </button>
-          ) : (
-            <div style={{ marginTop: 6 }}>
-              Condição MP = false (sem render)
-            </div>
-          )}
-          <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
-            <button
-              onClick={() => dispatch({ type: "OPEN_PIX" })}
-              className="rounded bg-yellow-500 px-3 py-1 text-white"
-            >
-              Abrir PIX (forçar)
-            </button>
-            <button
-              onClick={() => {
-                setOrderId(null);
-                dispatch({ type: "OPEN_CHECKOUT" });
-              }}
-              className="rounded bg-gray-300 px-3 py-1 text-gray-900"
-            >
-              Zerar orderId
-            </button>
-          </div>
+            paymentConfig?.isActive && (
+              <button
+                onClick={handleMercadoPagoPayment}
+                style={{ marginTop: 6, width: "100%" }}
+                className="w-full rounded-full bg-indigo-600 py-2 font-semibold text-white transition hover:bg-indigo-700 active:scale-95"
+              >
+                💳 Pagar com Mercado Pago (TESTE)
+              </button>
+            )}
         </div>
       )}
 
@@ -1726,7 +1382,7 @@ const openWalletBrick = useCallback(
       <button
         onClick={() =>
           dispatch({
-            type: ui.stage === "idle" ? "OPEN_CHECKOUT" : "OPEN_CHECKOUT",
+            type: "OPEN_CHECKOUT",
           })
         }
         className="animate-pulse-slow duração-300 fixed bottom-20 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-yellow-500 p-3 text-white shadow-2xl transition-all hover:scale-105 active:scale-95"
@@ -1761,11 +1417,9 @@ const openWalletBrick = useCallback(
                 Finalizar Pedido
               </h2>
 
-              {deliveryType === "entregar" && (
-                <p className="mt-2 text-sm text-gray-700">
-                  🚚 Entrega: {toBRL(deliveryFee)}
-                </p>
-              )}
+              <p className="mt-2 text-sm text-gray-700">
+                🚚 Entrega: {toBRL(deliveryFee)}
+              </p>
 
               {/* Nome */}
               <input
@@ -1777,140 +1431,137 @@ const openWalletBrick = useCallback(
                 onChange={(e) => setCustomerName(e.target.value)}
               />
 
-              {/* Tipo de entrega */}
+              {/* Tipo de entrega fixo visual */}
               <div className="mb-3 w-full rounded-xl border border-gray-300 bg-green-50 px-4 py-2 text-sm text-gray-800">
-  🚚 Entrega em Casa
-</div>
+                🚚 Entrega em Casa
+              </div>
 
+              <div className="flex flex-col gap-3">
+                <select
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
+                  value={address}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    if (e.target.value !== "Outro") setCustomAddress("");
+                  }}
+                >
+                  <option value="">Escolha seu bairro</option>
+                  {[
+                    "Alvorada",
+                    "Bela Vista",
+                    "Belvedere",
+                    "Centro",
+                    "Colônia Cella",
+                    "Cristo Rei",
+                    "Desbravador",
+                    "Dom Gerônimo",
+                    "Efapi",
+                    "Eldorado",
+                    "Engenho Braun",
+                    "Esplanada",
+                    "Jardim América",
+                    "Jardim do Lago",
+                    "Jardim Europa",
+                    "Jardim Itália",
+                    "Jardim Itália II",
+                    "Jardim Paraíso",
+                    "Jardim Peperi",
+                    "Jardim Sul",
+                    "Líder",
+                    "Maria Goretti",
+                    "Monte Castelo",
+                    "Palmital",
+                    "Palmital II",
+                    "Parque das Palmeiras",
+                    "Parque das Palmeiras II",
+                    "Paraíso",
+                    "Paraíso II",
+                    "Passo dos Ferreira",
+                    "Passo dos Fortes",
+                    "Pinheirinho",
+                    "Presidente Médici",
+                    "Presidente Vargas",
+                    "Quedas do Palmital",
+                    "Quinta da Serra",
+                    "Residencial Viena",
+                    "Saic",
+                    "Santa Maria",
+                    "Santa Paulina",
+                    "Santa Terezinha",
+                    "Santo Antônio",
+                    "São Carlos",
+                    "São Cristóvão",
+                    "São José",
+                    "São Lucas",
+                    "São Pedro",
+                    "Seminário",
+                    "Trevo",
+                    "Universitário",
+                    "Vila Esperança",
+                    "Vila Mantelli",
+                    "Vila Real",
+                    "Vila Rica",
+                    "Outro",
+                  ].map((b) => (
+                    <option key={b} value={b}>
+                      {b === "Outro" ? "Outro..." : b}
+                    </option>
+                  ))}
+                </select>
 
-              {deliveryType === "entregar" && (
-                <div className="flex flex-col gap-3">
-                  <select
-                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
-                    value={address}
-                    onChange={(e) => {
-                      setAddress(e.target.value);
-                      if (e.target.value !== "Outro") setCustomAddress("");
-                    }}
-                  >
-                    <option value="">Escolha seu bairro</option>
-                    {[
-                      "Alvorada",
-                      "Bela Vista",
-                      "Belvedere",
-                      "Centro",
-                      "Colônia Cella",
-                      "Cristo Rei",
-                      "Desbravador",
-                      "Dom Gerônimo",
-                      "Efapi",
-                      "Eldorado",
-                      "Engenho Braun",
-                      "Esplanada",
-                      "Jardim América",
-                      "Jardim do Lago",
-                      "Jardim Europa",
-                      "Jardim Itália",
-                      "Jardim Itália II",
-                      "Jardim Paraíso",
-                      "Jardim Peperi",
-                      "Jardim Sul",
-                      "Líder",
-                      "Maria Goretti",
-                      "Monte Castelo",
-                      "Palmital",
-                      "Palmital II",
-                      "Parque das Palmeiras",
-                      "Parque das Palmeiras II",
-                      "Paraíso",
-                      "Paraíso II",
-                      "Passo dos Ferreira",
-                      "Passo dos Fortes",
-                      "Pinheirinho",
-                      "Presidente Médici",
-                      "Presidente Vargas",
-                      "Quedas do Palmital",
-                      "Quinta da Serra",
-                      "Residencial Viena",
-                      "Saic",
-                      "Santa Maria",
-                      "Santa Paulina",
-                      "Santa Terezinha",
-                      "Santo Antônio",
-                      "São Carlos",
-                      "São Cristóvão",
-                      "São José",
-                      "São Lucas",
-                      "São Pedro",
-                      "Seminário",
-                      "Trevo",
-                      "Universitário",
-                      "Vila Esperança",
-                      "Vila Mantelli",
-                      "Vila Real",
-                      "Vila Rica",
-                      "Outro",
-                    ].map((b) => (
-                      <option key={b} value={b}>
-                        {b === "Outro" ? "Outro..." : b}
-                      </option>
-                    ))}
-                  </select>
-
-                  {address === "Outro" && (
-                    <input
-                      type="text"
-                      placeholder="Digite seu bairro"
-                      value={customAddress}
-                      onChange={(e) => setCustomAddress(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
-                    />
-                  )}
-
+                {address === "Outro" && (
                   <input
                     type="text"
-                    placeholder="* Rua (obrigatório)"
-                    value={street}
-                    onChange={(e) => setStreet(e.target.value)}
-                    required
-                    className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
-                      !street
-                        ? "border-red-400 bg-red-50"
-                        : "border-gray-300 bg-gray-50"
-                    } focus:border-red-400 focus:ring focus:ring-red-200`}
+                    placeholder="Digite seu bairro"
+                    value={customAddress}
+                    onChange={(e) => setCustomAddress(e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
                   />
-                  <input
-                    type="text"
-                    placeholder="* Número (obrigatório)"
-                    value={number}
-                    onChange={(e) => setNumber(e.target.value)}
-                    required
-                    className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
-                      !number
-                        ? "border-red-400 bg-red-50"
-                        : "border-gray-300 bg-gray-50"
-                    } focus:border-red-400 focus:ring focus:ring-red-200`}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Complemento (opcional)"
-                    value={complement}
-                    onChange={(e) => setComplement(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="* WhatsApp com DDD (ex: 49991234567)"
-                    value={phoneNumber}
-                    onChange={handlePhoneChange}
-                    className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
-                      !phoneNumber || phoneNumber.length < 13
-                        ? "border-red-400 bg-red-50"
-                        : "border-gray-300 bg-gray-50"
-                    } focus:border-red-400 focus:ring focus:ring-red-200`}
-                  />
-                </div>
-              )}
+                )}
+
+                <input
+                  type="text"
+                  placeholder="* Rua (obrigatório)"
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  required
+                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                    !street
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-300 bg-gray-50"
+                  } focus:border-red-400 focus:ring focus:ring-red-200`}
+                />
+                <input
+                  type="text"
+                  placeholder="* Número (obrigatório)"
+                  value={number}
+                  onChange={(e) => setNumber(e.target.value)}
+                  required
+                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                    !number
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-300 bg-gray-50"
+                  } focus:border-red-400 focus:ring focus:ring-red-200`}
+                />
+                <input
+                  type="text"
+                  placeholder="Complemento (opcional)"
+                  value={complement}
+                  onChange={(e) => setComplement(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700"
+                />
+                <input
+                  type="tel"
+                  placeholder="* WhatsApp com DDD (ex: 49991234567)"
+                  value={phoneNumber}
+                  onChange={handlePhoneChange}
+                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                    !phoneNumber || phoneNumber.length < 13
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-300 bg-gray-50"
+                  } focus:border-red-400 focus:ring focus:ring-red-200`}
+                />
+              </div>
 
               <div className="mt-4">
                 <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
@@ -1921,8 +1572,8 @@ const openWalletBrick = useCallback(
                     🚚 Entrega aproximada: <strong>{toBRL(deliveryFee)}</strong>
                   </p>
                   <p className="text-xs text-gray-500">
-  (Taxa de entrega aplicada ao endereço informado)
-</p>
+                    (Taxa de entrega aplicada ao endereço informado)
+                  </p>
 
                   <p className="text-base font-bold text-green-700">
                     💰 Total com entrega: {toBRL(subtotal + deliveryFee)}
@@ -1938,19 +1589,16 @@ const openWalletBrick = useCallback(
                   </button>
 
                   <button
-                   onClick={async () => {
-                    const ok = await validateBeforePayment();
-                    if (!ok) return;
-                  
-                    // cria ou reaproveita pedido (sua função já faz isso dentro do handleMercadoPagoPayment)
-                    await handleMercadoPagoPayment(); // sem fallback de PIX local
-                  }}
-                  
-                    disabled={paymentBusy || (deliveryType === "entregar" && deliveryFee === 0)}
+                    onClick={async () => {
+                      const ok = await validateBeforePayment();
+                      if (!ok) return;
+                      await handleMercadoPagoPayment();
+                    }}
+                    disabled={paymentBusy || deliveryFee === 0}
                     className={`rounded px-10 py-1 font-semibold transition ${
                       paymentBusy
                         ? "cursor-wait bg-indigo-400 text-white"
-                        : deliveryType === "entregar" && deliveryFee === 0
+                        : deliveryFee === 0
                         ? "cursor-not-allowed bg-gray-300 text-gray-500"
                         : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
                     }`}
@@ -2016,171 +1664,6 @@ const openWalletBrick = useCallback(
       )}
       {/* fim do checkout */}
 
-      {/* Modal PIX local / Mercado Pago */}
-      {ui.stage === "pix" && orderId === null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-        >
-          {/* Wrapper NÃO rolável */}
-          <div className="relative w-full max-w-sm">
-            <button
-              onClick={() => dispatch({ type: "OPEN_CHECKOUT" })}
-              className="absolute right-4 top-4 z-10 text-2xl text-gray-400 transition hover:text-red-500"
-              aria-label="Voltar"
-            >
-              ✕
-            </button>
-
-            {/* Conteúdo rolável */}
-            <div className="animate-zoom-fade max-h-[85vh] overflow-y-auto overscroll-contain rounded-3xl bg-white/90 p-6 pt-10 text-center shadow-2xl">
-              <h2 className="mb-2 text-xl font-semibold text-green-700">
-                Pagamento via PIX
-              </h2>
-              <h2 className="mb-1 text-sm text-gray-600">
-                Loja: <strong>{selectedStore?.toUpperCase()}</strong>
-              </h2>
-              <p className="mb-3 text-xs text-gray-500">
-                Recebedor: <strong>{pixCfg.NOME}</strong>
-              </p>
-
-              <p className="mb-3 text-sm text-gray-600">
-                Escaneie o QR Code ou copie o código abaixo:
-              </p>
-
-              <div className="mb-4 space-y-1 text-left text-sm text-gray-800">
-                <p>
-                  🧁 Subtotal: <strong>{toBRL(subtotal)}</strong>
-                </p>
-                <p>
-                  🚚 Entrega:{" "}
-                  <strong>
-                    {toBRL(deliveryType === "entregar" ? deliveryFee : 0)}
-                  </strong>
-                </p>
-                <p className="text-base font-bold text-green-700">
-                  💰 Total: {toBRL(totalPix)}
-                </p>
-              </div>
-
-              <PixQRCode payload={payloadPix} />
-
-              <button
-                onClick={() => navigator.clipboard.writeText(payloadPix)}
-                className="mt-2 w-full rounded-full bg-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-              >
-                📋 Copiar código Pix
-              </button>
-
-              <div className="mt-6 space-y-2">
-                {/* 🔹 Botão Mercado Pago aparece apenas se a loja tiver provider="mercadopago" e ativo */}
-                {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
-                  paymentConfig?.isActive && (
-                    <button
-                      onClick={handleMercadoPagoPayment}
-                      disabled={paymentBusy}
-                      className={`w-full rounded-full py-2 font-semibold text-white transition ${
-                        paymentBusy
-                          ? "bg-indigo-400 cursor-wait"
-                          : "bg-indigo-600 hover:bg-indigo-700"
-                      }`}
-                    >
-                      {paymentBusy
-                        ? "Iniciando pagamento..."
-                        : "💳 Pagar com Mercado Pago"}
-                    </button>
-                  )}
-
-                <button
-                  onClick={() => dispatch({ type: "OPEN_CONFIRM" })}
-                  className="w-full rounded-full bg-green-500 py-2 font-semibold text-white transition hover:bg-green-600 active:scale-95"
-                >
-                  Confirmar Pagamento
-                </button>
-                <button
-                  onClick={() => dispatch({ type: "OPEN_CHECKOUT" })}
-                  className="w-full rounded-full bg-gray-200 py-2 text-gray-600 transition hover:bg-gray-300"
-                >
-                  Voltar
-                </button>
-              </div>
-            </div>
-            {/* fim do conteúdo rolável */}
-          </div>
-          {/* fim do wrapper não rolável */}
-        </div>
-      )}
-      {/* fim do PIX local */}
-
-      {/* Diálogo de confirmação dentro do PIX (fluxo local) */}
-      {ui.stage === "pix" && ui.confirmOpen && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="animate-zoom-fade w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
-            <h3 className="mb-3 text-lg font-bold text-gray-800">
-              Confirmação
-            </h3>
-            <p className="mb-4 text-sm text-gray-600">
-              Você confirma que <strong>já realizou o pagamento via PIX</strong>?
-              <br />
-              Esse passo finaliza o seu pedido.
-            </p>
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={() => dispatch({ type: "CLOSE_CONFIRM" })}
-                className="rounded-full bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-              >
-                Voltar
-              </button>
-              <button
-                onClick={async () => {
-                  dispatch({ type: "START_PLACING" });
-                  dispatch({ type: "CLOSE_CONFIRM" });
-                  const ok = await finalizeOrder();
-                  setPlacingProgress(100);
-                  setTimeout(() => {
-                    dispatch({ type: "STOP_PLACING" });
-                    if (ok) setShowConfirmation(true);
-                    else setShowError(true);
-                  }, 350);
-                }}
-                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
-              >
-                Sim, Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Overlay enquanto finaliza pedido (fluxo local) */}
-      {ui.placing && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/70 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative h-16 w-16">
-              <div className="absolute inset-0 rounded-full border-4 border-yellow-400/30" />
-              <div className="absolute inset-0 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent" />
-            </div>
-            <div className="w-64 overflow-hidden rounded-full bg-white/80 shadow">
-              <div
-                className="duração-200 h-2 rounded-full bg-yellow-400 transition-all"
-                style={{ width: `${placingProgress}%` }}
-              />
-            </div>
-            <div className="rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-gray-700 shadow">
-              Finalizando seu pedido...
-            </div>
-            <p className="text-xs text-gray-500">
-              Por favor, não feche ou atualize a página.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Overlay “Preparando pagamento...” (Mercado Pago) */}
       {paymentOverlay && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center bg-white/70 backdrop-blur-sm">
@@ -2204,28 +1687,33 @@ const openWalletBrick = useCallback(
           </div>
         </div>
       )}
-{walletOpen && (
-  <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    <div className="w-[95%] max-w-md rounded-2xl bg-white p-3 shadow-2xl">
-      {/* O Wallet Brick renderiza aqui */}
-      <div id="mp-wallet-container" />
-      <div className="mt-3 flex justify-end gap-2">
-        <button
-          onClick={() => {
-            try { walletCtrlRef.current?.unmount?.(); } catch { /* empty */ }
-            setWalletOpen(false);
-            stopPolling();
-          }}
-          className="rounded bg-gray-200 px-3 py-1 text-gray-700 hover:bg-gray-300"
-        >
-          Cancelar
-        </button>
-      </div>
-    </div>
-  </div>
-)}
 
-      {/* Pedido Confirmado (fluxo local) */}
+      {/* Wallet Brick do Mercado Pago */}
+      {walletOpen && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-[95%] max-w-md rounded-2xl bg-white p-3 shadow-2xl">
+            <div id="mp-wallet-container" />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  try {
+                    walletCtrlRef.current?.unmount?.();
+                  } catch {
+                    /* empty */
+                  }
+                  setWalletOpen(false);
+                  stopPolling();
+                }}
+                className="rounded bg-gray-200 px-3 py-1 text-gray-700 hover:bg-gray-300"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pedido Confirmado */}
       {showConfirmation && orderId !== null && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
@@ -2268,7 +1756,6 @@ const openWalletBrick = useCallback(
                 setPhoneNumber("");
                 setAddress("");
                 setCustomAddress("");
-                setDeliveryType("entregar");
 
                 setComponentKey((p) => p + 1);
                 if (selectedStore)
@@ -2284,40 +1771,6 @@ const openWalletBrick = useCallback(
             >
               Voltar para Loja
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Erro (fluxo local) */}
-      {showError && (
-        <div
-          className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
-            <span className="mb-4 block text-5xl text-red-600">✖️</span>
-            <h2 className="mb-2 text-2xl font-bold text-red-700">
-              Não foi possível finalizar
-            </h2>
-            <p className="mb-4 text-sm text-gray-700">{errorText}</p>
-            <div className="mt-4 flex justify-center gap-3">
-              <button
-                onClick={() => {
-                  setShowError(false);
-                  dispatch({ type: "OPEN_PIX" });
-                }}
-                className="rounded-full bg-yellow-500 px-5 py-2 text-white hover:bg-yellow-600"
-              >
-                Tentar novamente
-              </button>
-              <button
-                onClick={() => setShowError(false)}
-                className="rounded-full bg-gray-200 px-5 py-2 text-gray-700 hover:bg-gray-300"
-              >
-                Fechar
-              </button>
-            </div>
           </div>
         </div>
       )}
