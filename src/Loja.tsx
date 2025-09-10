@@ -1217,8 +1217,11 @@ const openWalletBrick = useCallback(
           stopPolling();
           try { walletCtrlRef.current?.unmount?.(); } catch { /* empty */ }
           setWalletOpen(false);
-          window.location.assign(`/?orderId=${currentOrderId}&paid=1`);
+          setOrderId(currentOrderId);
+          setShowConfirmation(true);
+          setCart([]);
         }
+        
         if (tries > 180) { // ~12min
           stopPolling();
         }
