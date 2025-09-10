@@ -2,7 +2,7 @@
 // - Remove 100% do antigo PIX local/QRCode (componentes, helpers, modais, confirmações locais)
 // - Mantém e aprimora o fluxo Mercado Pago (Wallet Brick) com overlay de preparação e polling
 // - Corrige estados e efeitos para não haver referências ao PIX antigo
-// - Mantém filtros, carrinho, seleção de loja, geolocalização, UI e debug essenciais
+// - Mantém filtros, carrinho, seleção de loja, geolocalização, UI essenciais
 
 import React, {
   useCallback,
@@ -40,13 +40,12 @@ interface PaymentConfig {
   provider?: string;
   isActive?: boolean;
   mpPublicKey?: string; // camelCase
-  MpPublicKey?: string; // PascalCase (se o backend retornar assim)
+  MpPublicKey?: string; // PascalCase (compat backend)
 }
 
 /************************************
  * Constantes & helpers
  ************************************/
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ViteEnv = { VITE_API_URL?: string };
 const API_URL: string =
   ((import.meta as unknown as { env?: ViteEnv }).env?.VITE_API_URL) ??
@@ -64,11 +63,6 @@ const fmtBRL = new Intl.NumberFormat("pt-BR", {
 });
 
 const clampQty = (qty: number, max: number) => Math.max(0, Math.min(qty, max));
-
-// DEBUG FLAG por querystring: ?debug=1
-const __DEBUG__ =
-  typeof window !== "undefined" &&
-  new URLSearchParams(window.location.search).get("debug") === "1";
 
 // Normaliza texto (sem acento, minúsculo)
 const normalize = (text: string) =>
@@ -93,7 +87,7 @@ function getDistanceFromLatLonInKm(
       Math.cos(lat2 * (Math.PI / 180)) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const c = 2 * Math.atan2(Math.sqrt(1 - a), Math.sqrt(a));
   return R * c;
 }
 
@@ -407,7 +401,8 @@ export default function Loja() {
   }, []);
 
   // clique fora para fechar dropdown de unidade (quando exibido)
-  const [isStoreSelectorExpanded, setIsStoreSelectorExpanded] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [, setIsStoreSelectorExpanded] = useState(false);
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -421,7 +416,7 @@ export default function Loja() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // leitura de querystring de retorno (?paid=1&orderId=XYZ) — útil se backend redireciona
+  // leitura de querystring de retorno (?paid=1&orderId=XYZ)
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
     const paid = qs.get("paid") === "1";
@@ -457,7 +452,7 @@ export default function Loja() {
         for (let i = 1; i < storeLocations.length; i++) {
           const s = storeLocations[i];
           const d = getDistanceFromLatLonInKm(userLat, userLng, s.lat, s.lng);
-          if (d < min) {
+        if (d < min) {
             min = d;
             closest = s;
           }
@@ -502,7 +497,7 @@ export default function Loja() {
     };
   }, [selectedStore]);
 
-  // buscar config de pagamento da loja (Mercado Pago etc.)
+  // buscar config de pagamento da loja
   useEffect(() => {
     const storeName = (selectedStore ?? "").trim();
     if (!storeName) {
@@ -511,14 +506,8 @@ export default function Loja() {
     }
     fetch(`${API_URL}/paymentconfigs/${encodeURIComponent(storeName)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        console.log("PaymentConfig:", data);
+      .then((data: PaymentConfig | null) => {
         setPaymentConfig(data);
-        if (__DEBUG__) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).__lastPayCfg = data;
-          console.log("[DEBUG] paymentConfig:", data);
-        }
       })
       .catch((e) => {
         console.warn("paymentconfigs fetch error", e);
@@ -1036,107 +1025,6 @@ export default function Loja() {
   // ---- RENDER ----
   return (
     <div key={componentKey} className="loja-container">
-      {__DEBUG__ && (
-        <div
-          style={{
-            position: "fixed",
-            left: 10,
-            bottom: 10,
-            zIndex: 10000,
-            maxWidth: 380,
-            padding: 10,
-            borderRadius: 12,
-            background: "rgba(15,23,42,0.92)",
-            color: "#fff",
-            border: "1px solid rgba(255,255,255,0.15)",
-            fontSize: 12,
-            lineHeight: 1.25,
-          }}
-        >
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>UI Debug</div>
-          <div>
-            <strong>ui.stage:</strong> {ui.stage}
-          </div>
-          <div>
-            <strong>orderId:</strong> {String(orderId)}
-          </div>
-          <div>
-            <strong>deliveryType:</strong> entregar
-          </div>
-          <div>
-            <strong>deliveryFee:</strong> {deliveryFee}
-          </div>
-          <div style={{ marginTop: 6 }}>
-            <strong>condição MP:</strong>{" "}
-            {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
-            paymentConfig?.isActive
-              ? "true ✅"
-              : "false ❌"}
-          </div>
-          {/* Botão de teste opcional */}
-          {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
-            paymentConfig?.isActive && (
-              <button
-                onClick={handleMercadoPagoPayment}
-                style={{ marginTop: 6, width: "100%" }}
-                className="w-full rounded-full bg-indigo-600 py-2 font-semibold text-white transition hover:bg-indigo-700 active:scale-95"
-              >
-                💳 Pagar com Mercado Pago (TESTE)
-              </button>
-            )}
-        </div>
-      )}
-
-      {__DEBUG__ && (
-        <div
-          style={{
-            position: "fixed",
-            right: 10,
-            bottom: 10,
-            zIndex: 9999,
-            maxWidth: 360,
-            padding: 10,
-            borderRadius: 12,
-            background: "rgba(15,23,42,0.9)",
-            color: "#fff",
-            border: "1px solid rgba(255,255,255,0.1)",
-            fontSize: 12,
-            lineHeight: 1.25,
-          }}
-        >
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>MP Debug</div>
-          <div>
-            <strong>selectedStore:</strong> {String(selectedStore)}
-          </div>
-          <div>
-            <strong>URL:</strong> {API_URL}/paymentconfigs/{selectedStore}
-          </div>
-          <div style={{ marginTop: 6 }}>
-            <strong>paymentConfig:</strong>
-            <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-              {JSON.stringify(paymentConfig, null, 2)}
-            </pre>
-          </div>
-          <div style={{ marginTop: 6 }}>
-            <strong>Botão visível?</strong>{" "}
-            {paymentConfig?.provider?.toLowerCase?.() === "mercadopago" &&
-            paymentConfig?.isActive
-              ? "SIM ✅"
-              : "NÃO ❌"}
-          </div>
-          <div style={{ marginTop: 6 }}>
-            <strong>Motivo (se oculto):</strong>{" "}
-            {!paymentConfig
-              ? "Sem config (404/erro no fetch)"
-              : paymentConfig?.provider?.toLowerCase?.() !== "mercadopago"
-              ? "provider ≠ mercadopago"
-              : paymentConfig?.isActive !== true
-              ? "isActive ≠ true"
-              : "—"}
-          </div>
-        </div>
-      )}
-
       {/* espaçamento para o header */}
       <div className="h-[205px]" />
 
@@ -1202,15 +1090,6 @@ export default function Loja() {
             </button>
           ))}
         </div>
-        {isStoreSelectorExpanded && (
-          <div
-            ref={dropdownRef}
-            className="mt-2 rounded-xl border border-yellow-500 bg-white px-4 py-2 text-sm text-gray-800 shadow"
-          >
-            Não conseguimos identificar sua localização. Por favor, selecione
-            manualmente sua unidade acima.
-          </div>
-        )}
 
         <div className="mt-1 text-xs text-gray-500">
           {filtered.length} produto(s) encontrado(s)
@@ -1372,7 +1251,7 @@ export default function Loja() {
           /* apenas navega */
         }}
         to="/meus-pedidos"
-        className="duração-300 fixed bottom-48 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-blue-500 p-2 text-white shadow-2xl transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-48 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-blue-500 p-2 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
       >
         <div className="text-3xl">📜</div>
         <div className="mt-1 text-xs font-bold">Meu</div>
@@ -1385,7 +1264,7 @@ export default function Loja() {
             type: "OPEN_CHECKOUT",
           })
         }
-        className="animate-pulse-slow duração-300 fixed bottom-20 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-yellow-500 p-3 text-white shadow-2xl transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-20 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-yellow-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
         aria-label="Abrir carrinho"
       >
         <div className="text-3xl">🛒</div>
@@ -1765,7 +1644,8 @@ export default function Loja() {
                     )
                     .then((res) => {
                       if (Array.isArray(res.data)) setProducts(res.data);
-                    });
+                    })
+                    .catch(() => {});
               }}
               className="rounded-full bg-green-600 px-6 py-2 text-white hover:bg-green-700"
             >
