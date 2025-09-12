@@ -18,6 +18,7 @@
 │   ├── index.html
 │   └── vite.svg
 ├── dump_projeto.txt
+├── estrutura_pastas_importantes.txt
 ├── estrutura_pastas.txt
 ├── index.html
 ├── modelo.txt
@@ -35,7 +36,6 @@
 │   │   ├── Icon.tsx
 │   │   ├── PenguinBlink.jsx
 │   │   ├── Pin.tsx
-│   │   ├── PixQRCode.tsx
 │   │   └── Typewriter.tsx
 │   ├── index.css
 │   ├── LinhaProdutosAtalhos.tsx
