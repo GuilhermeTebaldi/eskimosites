@@ -99,6 +99,29 @@ const getPosition = () =>
     navigator.geolocation.getCurrentPosition(resolve, reject);
   });
 
+// ===== Confirmação vista (ACK) =====
+const ACK_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+
+function ackKey(id: number) {
+  return `order_ack_${id}`;
+}
+function setOrderAck(id: number) {
+  try {
+    localStorage.setItem(ackKey(id), JSON.stringify({ seenAt: Date.now() }));
+  } catch { /* empty */ }
+}
+function hasOrderAck(id: number) {
+  try {
+    const raw = localStorage.getItem(ackKey(id));
+    if (!raw) return false;
+    const { seenAt } = JSON.parse(raw) ?? {};
+    if (!seenAt) return false;
+    return Date.now() - Number(seenAt) < ACK_TTL_MS;
+  } catch {
+    return false;
+  }
+}
+
 /************************************
  * Hooks utilitários
  ************************************/
@@ -416,37 +439,84 @@ export default function Loja() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-    // leitura de querystring de retorno (?paid=1&orderId=XYZ) ou localStorage
-    useEffect(() => {
-      const qs = new URLSearchParams(window.location.search);
-      const paid = qs.get("paid") === "1";
-      const idStr = qs.get("orderId");
-      const id = idStr ? parseInt(idStr, 10) : NaN;
-  
-      let resolvedId: number | null = null;
-  
-      if (paid && Number.isFinite(id)) {
-        resolvedId = id;
-      } else {
-        // tenta reaproveitar último pedido salvo
-        try {
-          const last = localStorage.getItem("last_order_id");
-          if (last && Number.isFinite(parseInt(last))) {
-            resolvedId = parseInt(last);
-          }
-        } catch {
-          /* empty */
+  // leitura de querystring (?paid=1&orderId=XYZ) ou fallback localStorage,
+  // mas só abre confirmação se o pedido estiver pago e ainda não tiver ACK
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search);
+    const paid = qs.get("paid") === "1";
+    const idStr = qs.get("orderId");
+    const id = idStr ? parseInt(idStr, 10) : NaN;
+
+    async function resolveAndShow(orderId: number) {
+      if (!Number.isFinite(orderId)) return;
+
+      // Se já vimos, não reabrir
+      if (hasOrderAck(orderId)) return;
+
+      try {
+        type OrderDTO = { status?: string; Status?: string };
+        const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
+        const d = res.data ?? {};
+        const status = String((d.status ?? d.Status) ?? "").toLowerCase();
+        
+
+        if (status === "pago" || paid) {
+          setOrderId(orderId);
+          setShowConfirmation(true);
+          setCart([]);
+          try {
+            localStorage.setItem("last_order_id", String(orderId));
+          } catch { /* empty */ }
         }
+      } catch {
+        // silencioso: se não achou o pedido, não abre
       }
-  
-      if (resolvedId !== null && Number.isFinite(resolvedId)) {
-        setOrderId(resolvedId);
-        setShowConfirmation(true);
-        setCart([]);
-        // ⚠️ não limpar querystring imediatamente — só depois de fechar confirmação
+    }
+
+    if (paid && Number.isFinite(id)) {
+      // Se veio com paid=1, abre se estiver pago
+      resolveAndShow(id);
+      return;
+    }
+
+    // Fallback: tentar o último pedido salvo
+    try {
+      const last = localStorage.getItem("last_order_id");
+      const lastId = last ? parseInt(last, 10) : NaN;
+      if (Number.isFinite(lastId)) resolveAndShow(lastId);
+    } catch { /* empty */ }
+  }, []);
+
+  // Polling universal: com orderId definido e sem confirmação aberta,
+  // verifica status a cada 5s até 10 minutos. Ao "pago", abre confirmação.
+  useEffect(() => {
+    if (!orderId || showConfirmation) return;
+
+    let tries = 0;
+    const maxTries = Math.ceil((10 * 60) / 5); // 10 minutos
+    const iv = window.setInterval(async () => {
+      tries++;
+      try {
+        type OrderDTO = { status?: string; Status?: string };
+const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
+const d = res.data ?? {};
+const status = String((d.status ?? d.Status) ?? "").toLowerCase();
+if (status === "pago") {
+
+          setShowConfirmation(true);
+          try {
+            localStorage.setItem("last_order_id", String(orderId));
+          } catch { /* empty */ }
+          window.clearInterval(iv);
+        }
+      } catch {
+        /* ignore */
       }
-    }, []);
-  
+      if (tries >= maxTries) window.clearInterval(iv);
+    }, 5000);
+
+    return () => window.clearInterval(iv);
+  }, [orderId, showConfirmation]);
 
   // detectar loja mais próxima
   useEffect(() => {
@@ -465,7 +535,7 @@ export default function Loja() {
         for (let i = 1; i < storeLocations.length; i++) {
           const s = storeLocations[i];
           const d = getDistanceFromLatLonInKm(userLat, userLng, s.lat, s.lng);
-        if (d < min) {
+          if (d < min) {
             min = d;
             closest = s;
           }
@@ -923,7 +993,7 @@ export default function Loja() {
       // 1) usa pedido existente; senão cria
       let currentOrderId = orderId ?? null;
       if (!currentOrderId) {
-        const realDeliveryFee = deliveryType === "entregar" ? deliveryFee : 0;
+        const realDeliveryFee =  deliveryFee;
         const realTotal = subtotal + realDeliveryFee;
 
         const orderPayload = {
@@ -1637,6 +1707,12 @@ export default function Loja() {
             </p>
             <button
               onClick={() => {
+                // ✅ ACK e limpar last_order_id
+                if (orderId) setOrderAck(orderId);
+                try {
+                  localStorage.removeItem("last_order_id");
+                } catch { /* empty */ }
+
                 setShowConfirmation(false);
                 setOrderId(null);
                 setCart([]);
