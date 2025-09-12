@@ -1671,7 +1671,6 @@ export default function Loja() {
             >
               Voltar para Loja
             </button>
-
           </div>
         </div>
       )}
