@@ -111,6 +111,7 @@ function setOrderAck(id: number) {
   } catch { /* empty */ }
 }
 function hasOrderAck(id: number) {
+  
   try {
     const raw = localStorage.getItem(ackKey(id));
     if (!raw) return false;
@@ -120,6 +121,37 @@ function hasOrderAck(id: number) {
   } catch {
     return false;
   }
+  
+}
+// ===== Assinatura imutável do estado do pedido =====
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function buildOrderSignature(
+  cart: CartItem[],
+  deliveryFee: number,
+  selectedStore: string | null
+): string {
+  const payload = {
+    store: selectedStore ?? "",
+    fee: Number(Number(deliveryFee).toFixed(2)),
+    items: cart
+      .map(i => ({ id: i.product.id, q: i.quantity, p: Number(i.product.price.toFixed(2)) }))
+      .sort((a, b) => a.id - b.id),
+  };
+  return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+}
+
+const SIG_KEY = "last_order_sig";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getLastSig(): string | null {
+  try { return localStorage.getItem(SIG_KEY); } catch { return null; }
+}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function setLastSig(sig: string) {
+  try { localStorage.setItem(SIG_KEY, sig); } catch { /* noop */ }
+}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function clearLastSig() {
+  try { localStorage.removeItem(SIG_KEY); } catch { /* noop */ }
 }
 
 /************************************
@@ -464,10 +496,13 @@ export default function Loja() {
           setOrderId(orderId);
           setShowConfirmation(true);
           setCart([]);
+          setOrderAck(orderId);
+          clearLastSig();
           try {
             localStorage.setItem("last_order_id", String(orderId));
           } catch { /* empty */ }
         }
+        
       } catch {
         // silencioso: se não achou o pedido, não abre
       }
@@ -502,13 +537,16 @@ const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
 const d = res.data ?? {};
 const status = String((d.status ?? d.Status) ?? "").toLowerCase();
 if (status === "pago") {
+  setShowConfirmation(true);
+  setCart([]);
+  if (orderId) setOrderAck(orderId);
+  clearLastSig();
+  try {
+    localStorage.setItem("last_order_id", String(orderId));
+  } catch { /* empty */ }
+  window.clearInterval(iv);
+}
 
-          setShowConfirmation(true);
-          try {
-            localStorage.setItem("last_order_id", String(orderId));
-          } catch { /* empty */ }
-          window.clearInterval(iv);
-        }
       } catch {
         /* ignore */
       }
@@ -958,6 +996,9 @@ if (status === "pago") {
             setOrderId(currentOrderId);
             setShowConfirmation(true);
             setCart([]);
+            setOrderAck(currentOrderId);
+clearLastSig();
+
           }
 
           if (tries > 180) {
@@ -988,6 +1029,16 @@ if (status === "pago") {
 
     try {
       const ok = await validateBeforePayment();
+      // Se já existe pedido pendente mas a "assinatura" mudou, cancela o antigo
+const currentSig = buildOrderSignature(cart, deliveryFee, selectedStore);
+if (orderId && getLastSig() && getLastSig() !== currentSig) {
+  try {
+    await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: "PATCH" });
+  } catch { /* não bloqueia o fluxo */ }
+  setOrderId(null);
+  clearLastSig();
+}
+
       if (!ok) return;
 
       // 1) usa pedido existente; senão cria
@@ -1042,6 +1093,9 @@ if (status === "pago") {
         }
         currentOrderId = createdOrderId;
         setOrderId(createdOrderId);
+        // Guarda a assinatura que originou este pedido
+setLastSig(currentSig);
+
       }
 
       try {

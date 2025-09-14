@@ -13,11 +13,11 @@
 ├── CNAME
 ├── dist
 │   ├── assets
-│   │   ├── index-CMVQWOOU.js
-│   │   └── index-n7kA9yrl.css
+│   │   ├── index-DqbgKaCy.js
+│   │   └── index-Dt-QC_Lk.css
 │   ├── index.html
 │   └── vite.svg
-├── dump_projeto.txt
+├── dump_projeto_Eskimo.txt
 ├── estrutura_pastas_importantes.txt
 ├── estrutura_pastas.txt
 ├── index.html
@@ -41,8 +41,6 @@
 │   ├── LinhaProdutosAtalhos.tsx
 │   ├── Loja.css
 │   ├── Loja.tsx
-│   ├── Loja1.tsx
-│   ├── Loja2.tsx
 │   ├── main.tsx
 │   ├── MeusPedidos.tsx
 │   ├── services
@@ -57,4 +55,4 @@
 ├── tsconfig.node.json
 └── vite.config.ts
 
-10 directories, 48 files
+10 directories, 46 files
