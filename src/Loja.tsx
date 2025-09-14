@@ -87,7 +87,8 @@ function getDistanceFromLatLonInKm(
       Math.cos(lat2 * (Math.PI / 180)) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(1 - a), Math.sqrt(1));
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
   return R * c;
 }
 
@@ -485,12 +486,15 @@ export default function Loja() {
       if (hasOrderAck(orderId)) return;
 
       try {
-        type OrderDTO = { status?: string; Status?: string };
+        type OrderDTO = {
+          paymentStatus: string | undefined; status?: string; Status?: string 
+};
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
-        const status = String((d.status ?? d.Status) ?? "").toLowerCase();
+        const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
 
-        if (status === "pago" || paid) {
+        if (status === "pago" || status === "approved" || status === "paid" || paid) {
+        
           setOrderId(orderId);
           setShowConfirmation(true);
           setCart([]);
@@ -529,11 +533,14 @@ export default function Loja() {
     const iv = window.setInterval(async () => {
       tries++;
       try {
-        type OrderDTO = { status?: string; Status?: string };
+        type OrderDTO = {
+          paymentStatus: string | undefined; status?: string; Status?: string 
+};
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
-        const status = String((d.status ?? d.Status) ?? "").toLowerCase();
-        if (status === "pago") {
+        const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
+if (status === "pago" || status === "approved" || status === "paid") {
+
           setShowConfirmation(true);
           setCart([]);
           if (orderId) setOrderAck(orderId);
@@ -935,11 +942,13 @@ export default function Loja() {
       const r = await fetch(`${API_URL}/orders/${id}`);
       if (!r.ok) return false;
       const o = await r.json();
-      return String(o?.status ?? "").toLowerCase() === "pago";
+      const raw = String((o?.status ?? o?.Status ?? o?.paymentStatus ?? "") as string).toLowerCase();
+      return raw === "pago" || raw === "approved" || raw === "paid";
     } catch {
       return false;
     }
   }, []);
+  
 
   // Abre o Wallet Brick
   const openWalletBrick = useCallback(
