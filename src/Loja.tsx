@@ -990,11 +990,14 @@ export default function Loja() {
             }
             setWalletOpen(false);
             setOrderId(currentOrderId);
-            setShowConfirmation(true);
             setCart([]);
             setOrderAck(currentOrderId);
             clearLastSig();
+          
+            // ✅ Redireciona automaticamente para a tela de pedidos confirmados
+            window.location.href = `/meus-pedidos?orderId=${currentOrderId}&paid=1`;
           }
+          
 
           if (tries > 180) {
             // ~12min
