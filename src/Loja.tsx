@@ -87,7 +87,7 @@ function getDistanceFromLatLonInKm(
       Math.cos(lat2 * (Math.PI / 180)) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(1 - a), Math.sqrt(a));
+  const c = 2 * Math.atan2(Math.sqrt(1 - a), Math.sqrt(1));
   return R * c;
 }
 
@@ -111,7 +111,6 @@ function setOrderAck(id: number) {
   } catch { /* empty */ }
 }
 function hasOrderAck(id: number) {
-  
   try {
     const raw = localStorage.getItem(ackKey(id));
     if (!raw) return false;
@@ -121,8 +120,8 @@ function hasOrderAck(id: number) {
   } catch {
     return false;
   }
-  
 }
+
 // ===== Assinatura imutável do estado do pedido =====
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildOrderSignature(
@@ -490,7 +489,6 @@ export default function Loja() {
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
         const status = String((d.status ?? d.Status) ?? "").toLowerCase();
-        
 
         if (status === "pago" || paid) {
           setOrderId(orderId);
@@ -502,7 +500,6 @@ export default function Loja() {
             localStorage.setItem("last_order_id", String(orderId));
           } catch { /* empty */ }
         }
-        
       } catch {
         // silencioso: se não achou o pedido, não abre
       }
@@ -533,20 +530,19 @@ export default function Loja() {
       tries++;
       try {
         type OrderDTO = { status?: string; Status?: string };
-const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
-const d = res.data ?? {};
-const status = String((d.status ?? d.Status) ?? "").toLowerCase();
-if (status === "pago") {
-  setShowConfirmation(true);
-  setCart([]);
-  if (orderId) setOrderAck(orderId);
-  clearLastSig();
-  try {
-    localStorage.setItem("last_order_id", String(orderId));
-  } catch { /* empty */ }
-  window.clearInterval(iv);
-}
-
+        const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
+        const d = res.data ?? {};
+        const status = String((d.status ?? d.Status) ?? "").toLowerCase();
+        if (status === "pago") {
+          setShowConfirmation(true);
+          setCart([]);
+          if (orderId) setOrderAck(orderId);
+          clearLastSig();
+          try {
+            localStorage.setItem("last_order_id", String(orderId));
+          } catch { /* empty */ }
+          window.clearInterval(iv);
+        }
       } catch {
         /* ignore */
       }
@@ -997,8 +993,7 @@ if (status === "pago") {
             setShowConfirmation(true);
             setCart([]);
             setOrderAck(currentOrderId);
-clearLastSig();
-
+            clearLastSig();
           }
 
           if (tries > 180) {
@@ -1030,21 +1025,20 @@ clearLastSig();
     try {
       const ok = await validateBeforePayment();
       // Se já existe pedido pendente mas a "assinatura" mudou, cancela o antigo
-const currentSig = buildOrderSignature(cart, deliveryFee, selectedStore);
-if (orderId && getLastSig() && getLastSig() !== currentSig) {
-  try {
-    await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: "PATCH" });
-  } catch { /* não bloqueia o fluxo */ }
-  setOrderId(null);
-  clearLastSig();
-}
+      const currentSig = buildOrderSignature(cart, deliveryFee, selectedStore);
+      if (orderId && getLastSig() && getLastSig() !== currentSig) {
+        try {
+          await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: "PATCH" });
+        } catch { /* não bloqueia o fluxo */ }
+        setOrderId(null);
+      }
 
       if (!ok) return;
 
       // 1) usa pedido existente; senão cria
       let currentOrderId = orderId ?? null;
       if (!currentOrderId) {
-        const realDeliveryFee =  deliveryFee;
+        const realDeliveryFee = deliveryFee;
         const realTotal = subtotal + realDeliveryFee;
 
         const orderPayload = {
@@ -1094,8 +1088,7 @@ if (orderId && getLastSig() && getLastSig() !== currentSig) {
         currentOrderId = createdOrderId;
         setOrderId(createdOrderId);
         // Guarda a assinatura que originou este pedido
-setLastSig(currentSig);
-
+        setLastSig(currentSig);
       }
 
       try {
@@ -1103,6 +1096,7 @@ setLastSig(currentSig);
       } catch {
         /* empty */
       }
+      setLastSig(currentSig);
 
       // 2) Cria a preference e abre o Wallet (modal no mesmo tab)
       const payRes = await fetch(
@@ -1607,6 +1601,15 @@ setLastSig(currentSig);
                   <button
                     onClick={async () => {
                       const ok = await validateBeforePayment();
+                      // Se já existe pedido pendente mas a "assinatura" mudou, cancela o antigo
+                      const currentSig = buildOrderSignature(cart, deliveryFee, selectedStore);
+                      if (orderId && getLastSig() && getLastSig() !== currentSig) {
+                        try {
+                          await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: "PATCH" });
+                        } catch { /* não bloqueia o fluxo */ }
+                        setOrderId(null);
+                      }
+
                       if (!ok) return;
                       await handleMercadoPagoPayment();
                     }}
@@ -1711,7 +1714,7 @@ setLastSig(currentSig);
             <div id="mp-wallet-container" />
             <div className="mt-3 flex justify-end gap-2">
               <button
-                onClick={() => {
+                onClick={async () => {
                   try {
                     walletCtrlRef.current?.unmount?.();
                   } catch {
@@ -1719,6 +1722,11 @@ setLastSig(currentSig);
                   }
                   setWalletOpen(false);
                   stopPolling();
+                  if (orderId) {
+                    try { await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: "PATCH" }); } catch { /* empty */ }
+                    clearLastSig();
+                    setOrderId(null);
+                  }
                 }}
                 className="rounded bg-gray-200 px-3 py-1 text-gray-700 hover:bg-gray-300"
               >
@@ -1783,9 +1791,7 @@ setLastSig(currentSig);
                 try {
                   window.history.replaceState({}, "", window.location.pathname);
                 } catch {
-                  /* empty */
-                }
-
+                  /* empty */ }
                 setComponentKey((p) => p + 1);
                 if (selectedStore)
                   axios
