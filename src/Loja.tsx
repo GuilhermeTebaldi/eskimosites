@@ -349,6 +349,16 @@ export default function Loja() {
     },
     [],
   );
+  const notifyPaid = useCallback((id: number) => {
+    try {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("Pagamento confirmado", {
+          body: `Pedido #${id} confirmado. Volte para a loja para ver os detalhes.`,
+        });
+      }
+    } catch { /* ignore */ }
+  }, []);
+  
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
@@ -546,6 +556,8 @@ export default function Loja() {
         if (status === "pago" || status === "approved" || status === "paid") {
           setOrderId(orderId);
           setShowConfirmation(true);
+          notifyPaid(orderId);
+
           setCart([]);
           setOrderAck(orderId);
           clearLastSig();
@@ -1035,6 +1047,8 @@ useEffect(() => {
           
             // ✅ Redireciona automaticamente para a tela de pedidos confirmados
             setShowConfirmation(true);
+            notifyPaid(currentOrderId);
+
 // mantém experiência 100% dentro da Loja
 
           }
@@ -1160,14 +1174,36 @@ useEffect(() => {
         /* empty */
       }
       const prefId = isCheckoutResponse(data) ? data.preferenceId : undefined;
-
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const initUrl = (data as any)?.url; // backend já retorna { url, preferenceId }
+      
       if (!prefId) {
         showToast("Preferência inválida do Mercado Pago.", "error");
         return;
       }
-
-      await openWalletBrick(prefId, currentOrderId!);
+      
+      // 1) Abra o checkout do MP em nova aba.
+      //    Mantemos ESTA aba em "aguardando" e fazendo polling.
+      if (initUrl) {
+        try { window.open(initUrl, "_blank", "noopener"); } catch { /* ignore */ }
+      } else {
+        // fallback: wallet brick se por algum motivo não veio URL
+        await openWalletBrick(prefId, currentOrderId!);
+      }
+      
+      // 2) Garante polling nesta aba até pagar.
+      setOrderId(currentOrderId!);
+      
+      // 3) Tenta pedir permissão de notificação para avisar quando confirmar.
+      try { 
+        if ("Notification" in window && Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+      } catch { /* ignore */ }
+      
       return;
+      
+
     } catch (e) {
       console.error(e);
       showToast("Erro ao processar pagamento com Mercado Pago.", "error");
