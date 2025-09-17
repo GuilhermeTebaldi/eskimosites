@@ -493,8 +493,7 @@ export default function Loja() {
         const d = res.data ?? {};
         const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
 
-        if (status === "pago" || status === "approved" || status === "paid") {
-
+        if (status === "pago" || status === "approved" || status === "paid" || paid) {
         
           setOrderId(orderId);
           setShowConfirmation(true);
@@ -534,14 +533,11 @@ export default function Loja() {
     const iv = window.setInterval(async () => {
       tries++;
       try {
-        type OrderDTO = {
-          paymentStatus: string | undefined; status?: string; Status?: string 
-};
+        type OrderDTO = { status?: string; Status?: string };
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
-        const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
-if (status === "pago" || status === "approved" || status === "paid") {
-
+        const status = String((d.status ?? d.Status) ?? "").toLowerCase();
+        if (status === "pago") {
           setShowConfirmation(true);
           setCart([]);
           if (orderId) setOrderAck(orderId);
@@ -599,34 +595,6 @@ if (status === "pago" || status === "approved" || status === "paid") {
       .then((res) => setDeliveryRate(res.data?.deliveryRate ?? 0))
       .catch((err) => console.error("Erro ao buscar deliveryRate:", err));
   }, []);
-// Verifica automaticamente ao retornar de outra aba/janela (MP) e redireciona
-useEffect(() => {
-  const onVisible = async () => {
-    if (document.visibilityState !== "visible") return;
-    const qs = new URLSearchParams(window.location.search);
-    const idStr = qs.get("orderId");
-    const id = idStr ? parseInt(idStr, 10) : NaN;
-    const targetId = Number.isFinite(id) ? id : (orderId ?? null);
-    if (!targetId) return;
-
-    try {
-      const res = await fetch(`${API_URL}/orders/${targetId}`);
-      if (!res.ok) return;
-      const o = await res.json();
-      const s = String((o?.status ?? o?.Status ?? o?.paymentStatus ?? "") as string).toLowerCase();
-      if (s === "pago" || s === "approved" || s === "paid") {
-        // Redireciona para a mesma página com sinalização mínima
-        window.location.replace(`/?orderId=${targetId}&paid=1`);
-      }
-    } catch { /* ignore */ }
-  };
-  document.addEventListener("visibilitychange", onVisible);
-  window.addEventListener("focus", onVisible);
-  return () => {
-    document.removeEventListener("visibilitychange", onVisible);
-    window.removeEventListener("focus", onVisible);
-  };
-}, [orderId]);
 
   // buscar produtos (UNIFICADO)
   useEffect(() => {
