@@ -59,7 +59,6 @@ export default function MeusPedidos(): JSX.Element {
           setOrder(orderFormatado);
         })
         .catch(() => setError("Pedido não encontrado."))
-        // evitar Promise.finally para compatibilidade TS
         .then(() => setLoading(false));
 
       // Se veio com paid=1 mas o status ainda demorar, faz polling curto
@@ -82,7 +81,7 @@ export default function MeusPedidos(): JSX.Element {
               window.clearInterval(iv);
             }
           } catch {
-            // ignora erros de polling
+            // ignora
           }
         }, 4000);
         return () => window.clearInterval(iv);
@@ -120,7 +119,6 @@ export default function MeusPedidos(): JSX.Element {
       .catch(() => {
         setError("Pedido não encontrado.");
       })
-      // evitar Promise.finally para compatibilidade TS
       .then(() => {
         setLoading(false);
       });
@@ -133,18 +131,54 @@ export default function MeusPedidos(): JSX.Element {
     }
   };
 
-  const renderStatus = (st: string) => {
-    const s = st.toLowerCase();
-    if (s === "pago" || s === "paid" || s === "approved") {
-      return <span className="text-green-600">✅ Confirmado</span>;
-    }
-    if (s === "pendente" || s === "pending" || s === "in_process") {
-      return <span className="text-yellow-500">🕐 Em processo</span>;
-    }
-    if (s === "cancelado" || s === "rejected" || s === "failure") {
-      return <span className="text-red-600">❌ Não aprovado</span>;
-    }
-    return <span className="text-gray-500">{st}</span>;
+  // ---- Lista de status em etapas (vertical) ----
+  const StatusEtapas = ({ status }: { status: string }) => {
+    const s = (status || "").toLowerCase();
+
+    const isPaid = s === "pago" || s === "paid" || s === "approved";
+    const isPending = s === "pendente" || s === "pending" || s === "in_process";
+    const isFail = s === "cancelado" || s === "rejected" || s === "failure";
+
+    // Exibe o token real do backend quando "pago"
+    const apiPaidToken = isPaid ? ` (${s})` : "";
+
+    // Helpers visuais
+    const Row = ({
+      ok,
+      fail,
+      label,
+    }: {
+      ok?: boolean;
+      fail?: boolean;
+      label: string;
+    }) => {
+      const icon = fail ? "❌" : ok ? "✅" : "☐";
+      const cls = fail
+        ? "text-red-600"
+        : ok
+        ? "text-green-700"
+        : "text-gray-500";
+      return (
+        <div className={`flex items-center gap-2 ${cls}`}>
+          <span className="w-5 text-lg leading-none">{icon}</span>
+          <span className="text-base">{label}</span>
+        </div>
+      );
+    };
+
+    // Regras:
+    // - pending => marca somente "Em processo"
+    // - paid/approved => marca Em processo, pago e Confirmado (inclui token do backend)
+    // - failure => marca somente "Não aprovado"
+    // - status desconhecido => mostra todos desmarcados
+    return (
+      <div className="space-y-1">
+        <Row ok={isPending || isPaid} label="Em processo" />
+        <Row ok={isPaid} label="pago" />
+        <Row ok={isPaid} label={`Confirmado${apiPaidToken}`} />
+        <Row fail={isFail} label="Não aprovado" />
+      </div>
+    );
   };
 
   return (
@@ -234,8 +268,10 @@ export default function MeusPedidos(): JSX.Element {
             <div className="mb-2 text-lg">
               <strong>Unidade:</strong> {order.store}
             </div>
-            <div className="mb-4 text-lg">
-              <strong>Status:</strong> {renderStatus(order.status)}
+
+            <div className="mb-4">
+              <div className="mb-1 text-sm font-semibold text-gray-600">Status:</div>
+              <StatusEtapas status={order.status} />
             </div>
 
             <div className="flex flex-col items-end gap-4">
