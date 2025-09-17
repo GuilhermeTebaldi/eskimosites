@@ -475,7 +475,7 @@ export default function Loja() {
   // mas só abre confirmação se o pedido estiver pago e ainda não tiver ACK
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
-   
+    const paid = qs.get("paid") === "1";
     const idStr = qs.get("orderId");
     const id = idStr ? parseInt(idStr, 10) : NaN;
 
@@ -510,13 +510,11 @@ export default function Loja() {
       }
     }
 
-    if (Number.isFinite(id)) {
-      // Ao voltar do MP com orderId, verifica no servidor e abre se estiver pago
+    if (paid && Number.isFinite(id)) {
+      // Se veio com paid=1, abre se estiver pago
       resolveAndShow(id);
       return;
     }
-    
-    
 
     // Fallback: tentar o último pedido salvo
     try {
@@ -542,14 +540,15 @@ export default function Loja() {
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
         const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
+if (status === "pago" || status === "approved" || status === "paid") {
 
-        if (status === "pago" || status === "approved" || status === "paid") {
-          setOrderId(orderId);
           setShowConfirmation(true);
           setCart([]);
-          setOrderAck(orderId);
+          if (orderId) setOrderAck(orderId);
           clearLastSig();
-          try { localStorage.setItem("last_order_id", String(orderId)); } catch { /* empty */ }
+          try {
+            localStorage.setItem("last_order_id", String(orderId));
+          } catch { /* empty */ }
           window.clearInterval(iv);
         }
       } catch {
@@ -616,6 +615,7 @@ useEffect(() => {
       const o = await res.json();
       const s = String((o?.status ?? o?.Status ?? o?.paymentStatus ?? "") as string).toLowerCase();
       if (s === "pago" || s === "approved" || s === "paid") {
+        // Redireciona para a mesma página com sinalização mínima
         window.location.replace(`/?orderId=${targetId}&paid=1`);
       }
     } catch { /* ignore */ }
@@ -627,7 +627,6 @@ useEffect(() => {
     window.removeEventListener("focus", onVisible);
   };
 }, [orderId]);
-
 
   // buscar produtos (UNIFICADO)
   useEffect(() => {
@@ -1034,9 +1033,7 @@ useEffect(() => {
             clearLastSig();
           
             // ✅ Redireciona automaticamente para a tela de pedidos confirmados
-            setShowConfirmation(true);
-// mantém experiência 100% dentro da Loja
-
+            window.location.href = `/meus-pedidos?orderId=${currentOrderId}&paid=1`;
           }
           
 
@@ -1168,7 +1165,6 @@ useEffect(() => {
 
       await openWalletBrick(prefId, currentOrderId!);
       return;
-      
     } catch (e) {
       console.error(e);
       showToast("Erro ao processar pagamento com Mercado Pago.", "error");
