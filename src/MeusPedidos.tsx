@@ -1,8 +1,9 @@
-import { useState } from "react";
+// src/MeusPedidos.tsx
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface OrderAPIResponse {
   id: number;
@@ -24,11 +25,74 @@ interface Order {
 }
 
 export default function MeusPedidos(): JSX.Element {
+  // ---- Estado ----
   const [orderId, setOrderId] = useState<string>("");
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
+  // ---- Auto-carrega via querystring ?orderId=...&paid=1 ----
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const idStr = qs.get("orderId");
+      const paid = qs.get("paid") === "1";
+      if (!idStr) return;
+
+      setOrderId(idStr);
+      setLoading(true);
+      setError("");
+      setOrder(null);
+
+      axios
+        .get<OrderAPIResponse>(`${API_URL}/orders/${Number(idStr)}`)
+        .then((res) => {
+          const o = res.data;
+          const orderFormatado: Order = {
+            id: o.id,
+            store: o.store,
+            status: (o.status || "").toLowerCase(),
+            total: o.total,
+            phoneNumber: o.phoneNumber,
+            name: o.name || o.customerName || "Cliente",
+          };
+          setOrder(orderFormatado);
+        })
+        .catch(() => setError("Pedido não encontrado."))
+        // evitar Promise.finally para compatibilidade TS
+        .then(() => setLoading(false));
+
+      // Se veio com paid=1 mas o status ainda demorar, faz polling curto
+      if (paid) {
+        const iv = window.setInterval(async () => {
+          try {
+            const r = await axios.get<OrderAPIResponse>(
+              `${API_URL}/orders/${Number(idStr)}`
+            );
+            const st = String(r.data?.status ?? "").toLowerCase();
+            if (st === "pago" || st === "approved" || st === "paid") {
+              setOrder({
+                id: r.data.id,
+                store: r.data.store,
+                status: st,
+                total: r.data.total,
+                phoneNumber: r.data.phoneNumber,
+                name: r.data.name || r.data.customerName || "Cliente",
+              });
+              window.clearInterval(iv);
+            }
+          } catch {
+            // ignora erros de polling
+          }
+        }, 4000);
+        return () => window.clearInterval(iv);
+      }
+    } catch {
+      // ignora
+    }
+  }, []);
+
+  // ---- Buscar manualmente por ID digitado ----
   const buscarPedidoPorId = () => {
     if (!orderId) {
       alert("Digite o número do pedido!");
@@ -40,26 +104,23 @@ export default function MeusPedidos(): JSX.Element {
     setOrder(null);
 
     axios
-      .get<OrderAPIResponse[]>(`${API_URL}/orders`)
+      .get<OrderAPIResponse>(`${API_URL}/orders/${Number(orderId)}`)
       .then((res) => {
-        const encontrado = res.data.find((p) => p.id === Number(orderId));
-        if (encontrado) {
-          const orderFormatado: Order = {
-            id: encontrado.id,
-            store: encontrado.store,
-            status: encontrado.status,
-            total: encontrado.total,
-            phoneNumber: encontrado.phoneNumber,
-            name: encontrado.name || encontrado.customerName || "Cliente",
-          };
-          setOrder(orderFormatado);
-        } else {
-          setError("Pedido não encontrado.");
-        }
+        const p = res.data;
+        const orderFormatado: Order = {
+          id: p.id,
+          store: p.store,
+          status: (p.status || "").toLowerCase(),
+          total: p.total,
+          phoneNumber: p.phoneNumber,
+          name: p.name || p.customerName || "Cliente",
+        };
+        setOrder(orderFormatado);
       })
       .catch(() => {
-        setError("Erro ao buscar pedidos.");
+        setError("Pedido não encontrado.");
       })
+      // evitar Promise.finally para compatibilidade TS
       .then(() => {
         setLoading(false);
       });
@@ -70,6 +131,20 @@ export default function MeusPedidos(): JSX.Element {
       navigator.clipboard.writeText(order.id.toString());
       alert(`Número do pedido #${order.id} copiado!`);
     }
+  };
+
+  const renderStatus = (st: string) => {
+    const s = st.toLowerCase();
+    if (s === "pago" || s === "paid" || s === "approved") {
+      return <span className="text-green-600">✅ Confirmado</span>;
+    }
+    if (s === "pendente" || s === "pending" || s === "in_process") {
+      return <span className="text-yellow-500">🕐 Em processo</span>;
+    }
+    if (s === "cancelado" || s === "rejected" || s === "failure") {
+      return <span className="text-red-600">❌ Não aprovado</span>;
+    }
+    return <span className="text-gray-500">{st}</span>;
   };
 
   return (
@@ -105,7 +180,7 @@ export default function MeusPedidos(): JSX.Element {
           ⬅️ Voltar para Loja
         </motion.a>
 
-        <div className="mb-12 flex flex-col items-center gap-5">
+        <div className="mb-12 flex w-full max-w-xl flex-col items-center gap-5">
           <motion.input
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -141,14 +216,14 @@ export default function MeusPedidos(): JSX.Element {
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
               className="h-12 w-12 rounded-full border-4 border-indigo-400 border-t-transparent"
-            ></motion.div>
+            />
           </div>
         ) : order ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="rounded-3xl bg-gray-50 p-8 shadow-2xl hover:shadow-indigo-500/50"
+            className="w-full max-w-xl rounded-3xl bg-gray-50 p-8 shadow-2xl hover:shadow-indigo-500/50"
           >
             <div className="mb-4 text-2xl font-extrabold text-indigo-800">
               📦 Pedido #{order.id}
@@ -160,14 +235,7 @@ export default function MeusPedidos(): JSX.Element {
               <strong>Unidade:</strong> {order.store}
             </div>
             <div className="mb-4 text-lg">
-              <strong>Status:</strong>{" "}
-              {order.status === "pendente" ? (
-                <span className="text-yellow-500">🕐 Em processo</span>
-              ) : order.status === "pago" ? (
-                <span className="text-green-600">✅ Confirmado</span>
-              ) : (
-                <span className="text-gray-500">{order.status}</span>
-              )}
+              <strong>Status:</strong> {renderStatus(order.status)}
             </div>
 
             <div className="flex flex-col items-end gap-4">

@@ -17,8 +17,7 @@
 │   │   └── index-Dt-QC_Lk.css
 │   ├── index.html
 │   └── vite.svg
-├── dump_projeto_Eskimo.txt
-├── estrutura_pastas_importantes.txt
+├── estrutura_pastas_Eskimo.txt
 ├── estrutura_pastas.txt
 ├── index.html
 ├── modelo.txt
@@ -55,4 +54,4 @@
 ├── tsconfig.node.json
 └── vite.config.ts
 
-10 directories, 46 files
+10 directories, 45 files

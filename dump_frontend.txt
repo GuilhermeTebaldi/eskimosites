@@ -1,3 +1,21 @@
+./src/services/api.ts:
+```ts
+import axios from "axios";
+
+// Altere a URL conforme necessário (produção/local)
+const API_URL = import.meta.env.VITE_API_URL;
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+export default api;
+
+```
+
 ./src/Loja.tsx:
 ```tsx
 // Loja.tsx — versão revisada (monolítica) 100% focada em Mercado Pago
@@ -535,14 +553,11 @@ export default function Loja() {
     const iv = window.setInterval(async () => {
       tries++;
       try {
-        type OrderDTO = {
-          paymentStatus: string | undefined; status?: string; Status?: string 
-};
+        type OrderDTO = { status?: string; Status?: string };
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
-        const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
-if (status === "pago" || status === "approved" || status === "paid") {
-
+        const status = String((d.status ?? d.Status) ?? "").toLowerCase();
+        if (status === "pago") {
           setShowConfirmation(true);
           setCart([]);
           if (orderId) setOrderAck(orderId);
@@ -2133,65 +2148,6 @@ export default function MeusPedidos(): JSX.Element {
     </div>
   );
 }
-
-```
-
-./src/services/api.ts:
-```ts
-import axios from "axios";
-
-// Altere a URL conforme necessário (produção/local)
-const API_URL = import.meta.env.VITE_API_URL;
-
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-export default api;
-
-```
-
-./src/main.tsx:
-```tsx
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Loja from "./Loja";
-import MeusPedidos from "./MeusPedidos";
-
-import "./index.css";
-
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Loja />} />
-        <Route path="/meus-pedidos" element={<MeusPedidos />} />
-      </Routes>
-    </BrowserRouter>
-  </React.StrictMode>,
-);
-
-```
-
-./index.html:
-```html
-<!doctype html>
-<html lang="en" class="h-full">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + Framer Motion</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
 
 ```
 
