@@ -89,7 +89,8 @@ function getDistanceFromLatLonInKm(
       Math.cos(lat2 * (Math.PI / 180)) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(1 - a), Math.sqrt(1));
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
   return R * c;
 }
 
@@ -487,12 +488,15 @@ export default function Loja() {
       if (hasOrderAck(orderId)) return;
 
       try {
-        type OrderDTO = { status?: string; Status?: string };
+        type OrderDTO = {
+          paymentStatus: string | undefined; status?: string; Status?: string 
+};
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
-        const status = String((d.status ?? d.Status) ?? "").toLowerCase();
+        const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
 
-        if (status === "pago" || paid) {
+        if (status === "pago" || status === "approved" || status === "paid" || paid) {
+        
           setOrderId(orderId);
           setShowConfirmation(true);
           setCart([]);
@@ -531,11 +535,14 @@ export default function Loja() {
     const iv = window.setInterval(async () => {
       tries++;
       try {
-        type OrderDTO = { status?: string; Status?: string };
+        type OrderDTO = {
+          paymentStatus: string | undefined; status?: string; Status?: string 
+};
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
-        const status = String((d.status ?? d.Status) ?? "").toLowerCase();
-        if (status === "pago") {
+        const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
+if (status === "pago" || status === "approved" || status === "paid") {
+
           setShowConfirmation(true);
           setCart([]);
           if (orderId) setOrderAck(orderId);
@@ -937,11 +944,13 @@ export default function Loja() {
       const r = await fetch(`${API_URL}/orders/${id}`);
       if (!r.ok) return false;
       const o = await r.json();
-      return String(o?.status ?? "").toLowerCase() === "pago";
+      const raw = String((o?.status ?? o?.Status ?? o?.paymentStatus ?? "") as string).toLowerCase();
+      return raw === "pago" || raw === "approved" || raw === "paid";
     } catch {
       return false;
     }
   }, []);
+  
 
   // Abre o Wallet Brick
   const openWalletBrick = useCallback(
@@ -992,11 +1001,14 @@ export default function Loja() {
             }
             setWalletOpen(false);
             setOrderId(currentOrderId);
-            setShowConfirmation(true);
             setCart([]);
             setOrderAck(currentOrderId);
             clearLastSig();
+          
+            // ✅ Redireciona automaticamente para a tela de pedidos confirmados
+            window.location.href = `/meus-pedidos?orderId=${currentOrderId}&paid=1`;
           }
+          
 
           if (tries > 180) {
             // ~12min
@@ -1919,24 +1931,6 @@ export default function Loja() {
 
 ```
 
-./src/services/api.ts:
-```ts
-import axios from "axios";
-
-// Altere a URL conforme necessário (produção/local)
-const API_URL = import.meta.env.VITE_API_URL;
-
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-export default api;
-
-```
-
 ./src/MeusPedidos.tsx:
 ```tsx
 import { useState } from "react";
@@ -2142,6 +2136,24 @@ export default function MeusPedidos(): JSX.Element {
 
 ```
 
+./src/services/api.ts:
+```ts
+import axios from "axios";
+
+// Altere a URL conforme necessário (produção/local)
+const API_URL = import.meta.env.VITE_API_URL;
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+export default api;
+
+```
+
 ./src/main.tsx:
 ```tsx
 import React from "react";
@@ -2182,8 +2194,4 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 </html>
 
 ```
-
-./src/components/WalletBrick.tsx (NÃO ENCONTRADO)
-
-./src/components/PaymentBrick.tsx (NÃO ENCONTRADO)
 

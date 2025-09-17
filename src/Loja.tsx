@@ -475,7 +475,7 @@ export default function Loja() {
   // mas só abre confirmação se o pedido estiver pago e ainda não tiver ACK
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
-    const paid = qs.get("paid") === "1";
+   
     const idStr = qs.get("orderId");
     const id = idStr ? parseInt(idStr, 10) : NaN;
 
@@ -493,7 +493,8 @@ export default function Loja() {
         const d = res.data ?? {};
         const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
 
-        if (status === "pago" || status === "approved" || status === "paid" || paid) {
+        if (status === "pago" || status === "approved" || status === "paid") {
+
         
           setOrderId(orderId);
           setShowConfirmation(true);
@@ -509,11 +510,13 @@ export default function Loja() {
       }
     }
 
-    if (paid && Number.isFinite(id)) {
-      // Se veio com paid=1, abre se estiver pago
+    if (Number.isFinite(id)) {
+      // Ao voltar do MP com orderId, verifica no servidor e abre se estiver pago
       resolveAndShow(id);
       return;
     }
+    
+    
 
     // Fallback: tentar o último pedido salvo
     try {
@@ -539,15 +542,14 @@ export default function Loja() {
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
         const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
-if (status === "pago" || status === "approved" || status === "paid") {
 
+        if (status === "pago" || status === "approved" || status === "paid") {
+          setOrderId(orderId);
           setShowConfirmation(true);
           setCart([]);
-          if (orderId) setOrderAck(orderId);
+          setOrderAck(orderId);
           clearLastSig();
-          try {
-            localStorage.setItem("last_order_id", String(orderId));
-          } catch { /* empty */ }
+          try { localStorage.setItem("last_order_id", String(orderId)); } catch { /* empty */ }
           window.clearInterval(iv);
         }
       } catch {
@@ -598,6 +600,34 @@ if (status === "pago" || status === "approved" || status === "paid") {
       .then((res) => setDeliveryRate(res.data?.deliveryRate ?? 0))
       .catch((err) => console.error("Erro ao buscar deliveryRate:", err));
   }, []);
+// Verifica automaticamente ao retornar de outra aba/janela (MP) e redireciona
+useEffect(() => {
+  const onVisible = async () => {
+    if (document.visibilityState !== "visible") return;
+    const qs = new URLSearchParams(window.location.search);
+    const idStr = qs.get("orderId");
+    const id = idStr ? parseInt(idStr, 10) : NaN;
+    const targetId = Number.isFinite(id) ? id : (orderId ?? null);
+    if (!targetId) return;
+
+    try {
+      const res = await fetch(`${API_URL}/orders/${targetId}`);
+      if (!res.ok) return;
+      const o = await res.json();
+      const s = String((o?.status ?? o?.Status ?? o?.paymentStatus ?? "") as string).toLowerCase();
+      if (s === "pago" || s === "approved" || s === "paid") {
+        window.location.replace(`/?orderId=${targetId}&paid=1`);
+      }
+    } catch { /* ignore */ }
+  };
+  document.addEventListener("visibilitychange", onVisible);
+  window.addEventListener("focus", onVisible);
+  return () => {
+    document.removeEventListener("visibilitychange", onVisible);
+    window.removeEventListener("focus", onVisible);
+  };
+}, [orderId]);
+
 
   // buscar produtos (UNIFICADO)
   useEffect(() => {
@@ -1004,7 +1034,9 @@ if (status === "pago" || status === "approved" || status === "paid") {
             clearLastSig();
           
             // ✅ Redireciona automaticamente para a tela de pedidos confirmados
-            window.location.href = `/meus-pedidos?orderId=${currentOrderId}&paid=1`;
+            setShowConfirmation(true);
+// mantém experiência 100% dentro da Loja
+
           }
           
 
