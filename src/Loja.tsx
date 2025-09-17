@@ -493,8 +493,7 @@ export default function Loja() {
         const d = res.data ?? {};
         const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
 
-        if (status === "pago" || status === "approved" || status === "paid" || paid) {
-        
+        if (status === "pago" || status === "approved" || status === "paid") {
           setOrderId(orderId);
           setShowConfirmation(true);
           setCart([]);
@@ -504,16 +503,18 @@ export default function Loja() {
             localStorage.setItem("last_order_id", String(orderId));
           } catch { /* empty */ }
         }
+        
       } catch {
         // silencioso: se não achou o pedido, não abre
       }
     }
 
     if (paid && Number.isFinite(id)) {
-      // Se veio com paid=1, abre se estiver pago
+      // Mesmo com paid=1, só mostra se backend confirmar como pago
       resolveAndShow(id);
       return;
     }
+    
 
     // Fallback: tentar o último pedido salvo
     try {
