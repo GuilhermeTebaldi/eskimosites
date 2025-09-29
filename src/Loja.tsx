@@ -1205,32 +1205,33 @@ export default function Loja() {
           </div>
         )}
 
-        {/* Seleção de unidade */}
-        <div className="z-50 flex flex-wrap justify-center gap-4 px-5 py-1">
-          {["efapi", "palmital", "passo"].map((store) => (
-            <button
-              key={store}
-              onClick={() => {
-                if (selectedStore !== store) setSelectedStore(store);
-                else {
-                  setSelectedStore(null);
-                  setTimeout(() => setSelectedStore(store), 0);
-                }
-                setCart([]);
-                setShowInstruction(false);
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className={`rounded-full border px-5 py-1 text-sm font-semibold shadow transition-all duration-300 ${
-                selectedStore === store
-                  ? "border-yellow-200 bg-yellow-300 text-gray-900 ring-1 ring-yellow-300"
-                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
-              }`}
-              aria-label={`Selecionar unidade ${store}`}
-            >
-              🍦 {store === "efapi" ? "Efapi" : store === "palmital" ? "Palmital" : "Passo"}
-            </button>
-          ))}
-        </div>
+       {/* Seleção de unidade */}
+<div className="z-50 flex flex-wrap justify-center gap-2 px-3 py-1 md:gap-4 md:px-5">
+  {["efapi", "palmital", "passo"].map((store) => (
+    <button
+      key={store}
+      onClick={() => {
+        if (selectedStore !== store) setSelectedStore(store);
+        else {
+          setSelectedStore(null);
+          setTimeout(() => setSelectedStore(store), 0);
+        }
+        setCart([]);
+        setShowInstruction(false);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }}
+      className={`rounded-full border px-3 py-1 text-xs md:px-5 md:py-2 md:text-sm font-semibold shadow transition-all duration-300 ${
+        selectedStore === store
+          ? "border-yellow-200 bg-yellow-300 text-gray-900 ring-1 ring-yellow-300"
+          : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+      }`}
+      aria-label={`Selecionar unidade ${store}`}
+    >
+      🍦 {store === "efapi" ? "Efapi" : store === "palmital" ? "Palmital" : "Passo"}
+    </button>
+  ))}
+</div>
+
 
         <div className="mt-1 text-xs text-gray-500">
           {filtered.length} produto(s) encontrado(s)
