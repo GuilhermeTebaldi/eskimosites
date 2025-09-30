@@ -370,6 +370,9 @@ export default function Loja() {
 
   const [customerName, setCustomerName] = useState("");
   const [deliveryType] = useState<"retirar" | "entregar">("entregar");
+  const [deliveryRate, setDeliveryRate] = useState<number>(0);
+
+
   const [address, setAddress] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -380,7 +383,8 @@ export default function Loja() {
   );
   const [quantityToAdd, setQuantityToAdd] = useState(1);
 
-  const [deliveryRate, setDeliveryRate] = useState<number>(0);
+  const [minDelivery, setMinDelivery] = useState<number>(0);
+
 
   // Config de pagamento por loja (Mercado Pago)
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(
@@ -403,7 +407,11 @@ export default function Loja() {
     selectedStore,
     storeLocations,
   );
-
+  const effectiveDeliveryFee = useMemo(
+    () => Math.max(deliveryFee, minDelivery),
+    [deliveryFee, minDelivery]
+  );
+  
   // persistir carrinho e unidade
   useEffect(() => {
     setStoredCart(cart);
@@ -592,10 +600,15 @@ export default function Loja() {
   // buscar deliveryRate
   useEffect(() => {
     axios
-      .get<{ deliveryRate: number }>(`${API_URL}/settings`)
-      .then((res) => setDeliveryRate(res.data?.deliveryRate ?? 0))
-      .catch((err) => console.error("Erro ao buscar deliveryRate:", err));
+      .get<{ deliveryRate: number; minDelivery: number }>(`${API_URL}/settings`)
+      .then((res) => {
+        setDeliveryRate(res.data?.deliveryRate ?? 0);
+        setMinDelivery(res.data?.minDelivery ?? 0);
+      })
+      .catch((err) => console.error("Erro ao buscar settings:", err));
   }, []);
+  
+  
 
   // buscar produtos (UNIFICADO)
   useEffect(() => {
@@ -891,11 +904,12 @@ export default function Loja() {
       showToast("Informe seu WhatsApp com DDD (ex: 49991234567).", "warning");
       return false;
     }
-    if (deliveryFee === 0) {
+    if (deliveryFee === 0 && minDelivery === 0) {
       await recalc();
-      showToast("Ative sua localização para calcular a taxa de entrega.", "warning");
+      showToast("Ative sua localização ou informe endereço. Não foi possível calcular a taxa.", "warning");
       return false;
     }
+    
 
     return true;
   }, [
@@ -908,6 +922,7 @@ export default function Loja() {
     number,
     phoneNumber,
     deliveryFee,
+    minDelivery,
     recalc,
   ]);
 
@@ -1035,7 +1050,8 @@ export default function Loja() {
     try {
       const ok = await validateBeforePayment();
       // Se já existe pedido pendente mas a "assinatura" mudou, cancela o antigo
-      const currentSig = buildOrderSignature(cart, deliveryFee, selectedStore);
+      const currentSig = buildOrderSignature(cart, effectiveDeliveryFee, selectedStore);
+
       if (orderId && getLastSig() && getLastSig() !== currentSig) {
         try {
           await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: "PATCH" });
@@ -1048,8 +1064,9 @@ export default function Loja() {
       // 1) usa pedido existente; senão cria
       let currentOrderId = orderId ?? null;
       if (!currentOrderId) {
-        const realDeliveryFee = deliveryFee;
-        const realTotal = subtotal + realDeliveryFee;
+        const realDeliveryFee = effectiveDeliveryFee;
+const realTotal = subtotal + realDeliveryFee;
+
 
         const orderPayload = {
           customerName: customerName.trim(),
@@ -1148,7 +1165,8 @@ export default function Loja() {
     validateBeforePayment,
     orderId,
     deliveryType,
-    deliveryFee,
+    effectiveDeliveryFee,
+
     subtotal,
     customerName,
     address,
@@ -1439,8 +1457,9 @@ export default function Loja() {
               </h2>
 
               <p className="mt-2 text-sm text-gray-700">
-                🚚 Entrega: {toBRL(deliveryFee)}
-              </p>
+  🚚 Entrega: {toBRL(effectiveDeliveryFee)}
+</p>
+
 
               {/* Nome */}
               <input
@@ -1590,15 +1609,14 @@ export default function Loja() {
                     🧁 Produtos: <strong>{toBRL(subtotal)}</strong>
                   </p>
                   <p>
-                    🚚 Entrega aproximada: <strong>{toBRL(deliveryFee)}</strong>
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    (Taxa de entrega aplicada ao endereço informado)
-                  </p>
+  🚚 Entrega aproximada: <strong>{toBRL(effectiveDeliveryFee)}</strong>
+</p>
+<p className="text-base font-bold text-green-700">
+  💰 Total com entrega: {toBRL(subtotal + effectiveDeliveryFee)}
+</p>
 
-                  <p className="text-base font-bold text-green-700">
-                    💰 Total com entrega: {toBRL(subtotal + deliveryFee)}
-                  </p>
+
+                 
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -1613,7 +1631,8 @@ export default function Loja() {
                     onClick={async () => {
                       const ok = await validateBeforePayment();
                       // Se já existe pedido pendente mas a "assinatura" mudou, cancela o antigo
-                      const currentSig = buildOrderSignature(cart, deliveryFee, selectedStore);
+                      const currentSig = buildOrderSignature(cart, effectiveDeliveryFee, selectedStore);
+
                       if (orderId && getLastSig() && getLastSig() !== currentSig) {
                         try {
                           await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: "PATCH" });
@@ -1624,11 +1643,13 @@ export default function Loja() {
                       if (!ok) return;
                       await handleMercadoPagoPayment();
                     }}
-                    disabled={paymentBusy || deliveryFee === 0}
+                    disabled={paymentBusy || effectiveDeliveryFee === 0}
+
                     className={`rounded px-10 py-1 font-semibold transition ${
                       paymentBusy
                         ? "cursor-wait bg-indigo-400 text-white"
-                        : deliveryFee === 0
+                        : effectiveDeliveryFee === 0
+
                         ? "cursor-not-allowed bg-gray-300 text-gray-500"
                         : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
                     }`}
