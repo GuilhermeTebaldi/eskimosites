@@ -8,6 +8,17 @@ body {
   background: #fff;
   -webkit-tap-highlight-color: transparent; /* ✅ Remove highlight no mobile */
 }
+/* Impede zoom por gesto de duplo toque e simplifica gestos */
+html { touch-action: manipulation; }
+button, a { touch-action: manipulation; }
+
+/* iOS: garante 16px em campos para evitar zoom ao focar */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* Desativa auto-ajuste de tamanho de texto no iOS */
+html { -webkit-text-size-adjust: 100%; }
 
 /* Container principal fixo */
 .loja-container {

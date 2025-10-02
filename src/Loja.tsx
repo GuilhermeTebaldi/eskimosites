@@ -1268,7 +1268,7 @@ const realTotal = subtotal + realDeliveryFee;
           <input
             type="text"
             placeholder="Buscar produto..."
-            className="w-full rounded-xl border border-white/40 bg-white/90 px-4 py-2 text-sm shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
+            className="w-full rounded-xl border border-white/40 bg-white/90 px-4 py-2 text-base shadow-md backdrop-blur-md transition focus:outline-none focus:ring-2 focus:ring-red-300"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -1285,8 +1285,8 @@ const realTotal = subtotal + realDeliveryFee;
           <div className="flex gap-2">
             <div className="w-1/2 rounded-xl bg-white/90 shadow-md backdrop-blur-md">
               <select
-                className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-sm text-gray-800 focus:outline-none"
-                value={selectedCategory || ""}
+               className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-base text-gray-800 focus:outline-none"
+               value={selectedCategory || ""}
                 onChange={(e) => {
                   setQuickFilterCategory(null);
                   setQuickFilterSubcategory(null);
@@ -1309,8 +1309,8 @@ const realTotal = subtotal + realDeliveryFee;
 
             <div className="w-1/2 rounded-xl bg-white/90 shadow-md backdrop-blur-md">
               <select
-                className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-sm text-gray-800 focus:outline-none"
-                value={selectedSubcategory || ""}
+               className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-base text-gray-800 focus:outline-none"
+               value={selectedSubcategory || ""}
                 onChange={(e) => {
                   setQuickFilterCategory(null);
                   setQuickFilterSubcategory(null);
@@ -1466,7 +1466,7 @@ const realTotal = subtotal + realDeliveryFee;
                 ref={checkoutFirstInputRef}
                 type="text"
                 placeholder="Seu nome completo"
-                className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
+                className="mb-3 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-base text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
               />
@@ -1478,8 +1478,8 @@ const realTotal = subtotal + realDeliveryFee;
 
               <div className="flex flex-col gap-3">
                 <select
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
-                  value={address}
+                className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-base text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
+                value={address}
                   onChange={(e) => {
                     setAddress(e.target.value);
                     if (e.target.value !== "Outro") setCustomAddress("");
@@ -1555,8 +1555,8 @@ const realTotal = subtotal + realDeliveryFee;
                     placeholder="Digite seu bairro"
                     value={customAddress}
                     onChange={(e) => setCustomAddress(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
-                  />
+                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-base text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
+                    />
                 )}
 
                 <input
@@ -1565,7 +1565,7 @@ const realTotal = subtotal + realDeliveryFee;
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
                   required
-                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                  className={`w-full rounded-xl border px-4 py-2 text-base text-gray-700 ${
                     !street
                       ? "border-red-400 bg-red-50"
                       : "border-gray-300 bg-gray-50"
@@ -1577,7 +1577,7 @@ const realTotal = subtotal + realDeliveryFee;
                   value={number}
                   onChange={(e) => setNumber(e.target.value)}
                   required
-                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                  className={`w-full rounded-xl border px-4 py-2 text-base text-gray-700 ${
                     !number
                       ? "border-red-400 bg-red-50"
                       : "border-gray-300 bg-gray-50"
@@ -1588,14 +1588,14 @@ const realTotal = subtotal + realDeliveryFee;
                   placeholder="Complemento (opcional)"
                   value={complement}
                   onChange={(e) => setComplement(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700"
-                />
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-base text-gray-700"
+                  />
                 <input
                   type="tel"
                   placeholder="* WhatsApp com DDD (ex: 49991234567)"
                   value={phoneNumber}
                   onChange={handlePhoneChange}
-                  className={`w-full rounded-xl border px-4 py-2 text-sm text-gray-700 ${
+                  className={`w-full rounded-xl border px-4 py-2 text-base text-gray-700 ${
                     !phoneNumber || phoneNumber.length < 13
                       ? "border-red-400 bg-red-50"
                       : "border-gray-300 bg-gray-50"
