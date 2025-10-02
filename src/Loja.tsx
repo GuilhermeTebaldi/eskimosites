@@ -29,7 +29,11 @@ interface Product {
   categoryName: string;
   subcategoryName?: string;
   stock: number;
+  sortRank?: number;
+  pinnedTop?: boolean;
+  style?: Record<string, unknown>;
 }
+
 
 interface CartItem {
   product: Product;
@@ -751,6 +755,12 @@ export default function Loja() {
       return i === -1 ? 999 : i;
     };
     return [...filtered].sort((a, b) => {
+      if ((a.pinnedTop ?? false) !== (b.pinnedTop ?? false)) {
+        return (b.pinnedTop ? 1 : 0) - (a.pinnedTop ? 1 : 0);
+      }
+      if ((a.sortRank ?? 9999) !== (b.sortRank ?? 9999)) {
+        return (a.sortRank ?? 9999) - (b.sortRank ?? 9999);
+      }
       const cA = getCatIdx(a.categoryName);
       const cB = getCatIdx(b.categoryName);
       if (cA !== cB) return cA - cB;
@@ -759,6 +769,7 @@ export default function Loja() {
       if (sA !== sB) return sA - sB;
       return a.name.localeCompare(b.name);
     });
+
   }, [filtered]);
 
   // paginação automática (infinite scroll)
