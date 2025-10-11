@@ -17,7 +17,7 @@
 │   │   └── index-Dt-QC_Lk.css
 │   ├── index.html
 │   └── vite.svg
-├── estrutura_pastas_Eskimo.txt
+├── dump_frontend.txt
 ├── estrutura_pastas.txt
 ├── index.html
 ├── modelo.txt
@@ -26,7 +26,9 @@
 ├── pnpm-lock.yaml
 ├── postcss.config.js
 ├── public
-│   └── vite.svg
+│   ├── .DS_Store
+│   ├── vite.svg
+│   └── vite2.png
 ├── README.md
 ├── src
 │   ├── .DS_Store
@@ -54,4 +56,4 @@
 ├── tsconfig.node.json
 └── vite.config.ts
 
-10 directories, 45 files
+10 directories, 47 files
