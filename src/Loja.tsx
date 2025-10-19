@@ -96,12 +96,27 @@ function getDistanceFromLatLonInKm(
   return R * c;
 }
 
-// Geolocalização como Promise
+// Geolocalização como Promise (checando permissão antes)
 const getPosition = () =>
   new Promise<GeolocationPosition>((resolve, reject) => {
-    if (!navigator.geolocation)
+    if (!navigator.geolocation) {
       return reject(new Error("Geolocalização indisponível"));
-    navigator.geolocation.getCurrentPosition(resolve, reject);
+    }
+
+    if (navigator.permissions) {
+      navigator.permissions
+        .query({ name: "geolocation" as PermissionName })
+        .then((perm) => {
+          if (perm.state === "denied") {
+            reject(new Error("Permissão negada permanentemente"));
+          } else {
+            navigator.geolocation.getCurrentPosition(resolve, reject);
+          }
+        })
+        .catch(() => navigator.geolocation.getCurrentPosition(resolve, reject));
+    } else {
+      navigator.geolocation.getCurrentPosition(resolve, reject);
+    }
   });
 
 // ===== Confirmação vista (ACK) =====
@@ -301,6 +316,17 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 /************************************
  * Componente principal
  ************************************/
+
+function formatDescription(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/(\.\s*)([A-ZÁÉÍÓÚÂÊÔÃÕ])/g, ".\n$2")
+    .replace(/(Alérgicos)/gi, "\n\n⚠️ $1")
+    .replace(/(NÃO CONTÉM GLÚTEN)/gi, "\n$1")
+    .replace(/(PESO LÍQ\.)/gi, "\n$1")
+    .trim();
+}
+
 export default function Loja() {
   // Estados de pagamento Mercado Pago
   const [paymentBusy, setPaymentBusy] = useState(false);
@@ -1279,8 +1305,12 @@ const realTotal = subtotal + realDeliveryFee;
                   setSelectedStore(closest.name);
                   setShowInstruction(false);
                   showToast("Localização detectada com sucesso!", "success");
-                } catch {
-                  showToast("Ative a localização e tente novamente.", "warning");
+                } catch (err) {
+                  const msg =
+                    err instanceof Error && err.message.includes("negada")
+                      ? "A permissão de localização está bloqueada no navegador. Libere nas configurações e tente novamente."
+                      : "Ative a localização e tente novamente.";
+                  showToast(msg, "warning");
                 }
               }}
               className="rounded-full bg-blue-500 px-4 py-2 text-sm text-white shadow hover:bg-blue-600 active:scale-95"
@@ -1928,9 +1958,25 @@ const realTotal = subtotal + realDeliveryFee;
             <h3 className="mb-1 text-lg font-semibold text-gray-800">
               {selectedProduct.name}
             </h3>
-            <p className="mb-2 text-sm text-gray-600">
-              {selectedProduct.description}
-            </p>
+            <div
+              className="relative mb-3 max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-gradient-to-b from-white to-gray-50 p-2 shadow-inner"
+              style={{ scrollbarWidth: "thin" }}
+            >
+              <p
+                className="text-sm text-gray-700 whitespace-pre-line leading-relaxed"
+                style={{
+                  whiteSpace: "pre-line",
+                  fontSize: "0.9rem",
+                  lineHeight: "1.4",
+                }}
+              >
+                {formatDescription(selectedProduct.description)}
+              </p>
+
+              {/* Indicador sutil no topo, não sobre o texto */}
+              <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-gray-50/90 to-transparent" />
+
+                </div>
             <div className="mb-2 text-base font-bold text-green-700">
               {toBRL(selectedProduct.price)}
             </div>
