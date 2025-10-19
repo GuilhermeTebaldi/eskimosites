@@ -12,10 +12,12 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos";
 import { Link } from "react-router-dom";
 import "./Loja.css";
+import PromoFlutuante from "./components/PromoFlutuante";
 
 /************************************
  * Tipos
@@ -46,6 +48,19 @@ interface PaymentConfig {
   mpPublicKey?: string; // camelCase
   MpPublicKey?: string; // PascalCase (compat backend)
 }
+
+type FlyAnimation = {
+  id: number;
+  imageUrl: string;
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+};
+
+type AddToCartOptions = {
+  imageUrl?: string;
+  originRect?: DOMRect;
+  onBeforeAnimate?: () => void;
+};
 
 /************************************
  * Constantes & helpers
@@ -350,6 +365,12 @@ export default function Loja() {
   const [showInstruction, setShowInstruction] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const modalImageRef = useRef<HTMLImageElement | null>(null);
+  const cartButtonRef = useRef<HTMLButtonElement | null>(null);
+  const cartShakeTimerRef = useRef<number | null>(null);
+  const lastProductRectRef = useRef<DOMRect | null>(null);
+  const [flyAnimations, setFlyAnimations] = useState<FlyAnimation[]>([]);
+  const [cartShake, setCartShake] = useState(false);
 
   const { storedCart, setStoredCart, storedStore, setStoredStore } =
     useLocalStorageCart();
@@ -382,6 +403,8 @@ export default function Loja() {
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      if (cartShakeTimerRef.current)
+        window.clearTimeout(cartShakeTimerRef.current);
     };
   }, []);
 
@@ -414,6 +437,69 @@ export default function Loja() {
   const [quantityToAdd, setQuantityToAdd] = useState(1);
 
   const [minDelivery, setMinDelivery] = useState<number>(0);
+
+  const triggerCartAnimation = useCallback(
+    (imageUrl?: string, originRect?: DOMRect) => {
+      const cartRect = cartButtonRef.current?.getBoundingClientRect();
+      if (!cartRect) return;
+
+      const cartCenter = {
+        x: cartRect.left + cartRect.width / 2,
+        y: cartRect.top + cartRect.height / 2,
+      };
+
+      const startCenter = originRect
+        ? {
+            x: originRect.left + originRect.width / 2,
+            y: originRect.top + originRect.height / 2,
+          }
+        : {
+            x: cartCenter.x - 120,
+            y: cartCenter.y - 200,
+          };
+
+      const hasMovement =
+        Math.abs(startCenter.x - cartCenter.x) > 8 ||
+        Math.abs(startCenter.y - cartCenter.y) > 8;
+      const adjustedStart = hasMovement
+        ? startCenter
+        : {
+            x: cartCenter.x - 140,
+            y: cartCenter.y - 160,
+          };
+
+      const animId = Date.now() + Math.random();
+      const flyer: FlyAnimation = {
+        id: animId,
+        imageUrl:
+          imageUrl ??
+          "https://eskimo.com.br/wp-content/uploads/2023/08/Seletto-brigadeiro-sem-lupa.png",
+        start: startCenter,
+        end: cartCenter,
+      };
+
+      setFlyAnimations((prev) => [
+        ...prev,
+        { ...flyer, start: adjustedStart, end: cartCenter },
+      ]);
+
+      window.setTimeout(() => {
+        setFlyAnimations((prev) => prev.filter((item) => item.id !== animId));
+      }, 900);
+
+      if (cartShakeTimerRef.current)
+        window.clearTimeout(cartShakeTimerRef.current);
+      setCartShake(false);
+      window.requestAnimationFrame(() => {
+        setCartShake(true);
+        cartShakeTimerRef.current = window.setTimeout(() => {
+          setCartShake(false);
+          cartShakeTimerRef.current = null;
+        }, 600);
+      });
+    },
+    [],
+  );
 
 
   // Config de pagamento por loja (Mercado Pago)
@@ -864,7 +950,12 @@ export default function Loja() {
 
   // Handlers de carrinho
   const addToCart = useCallback(
-    (product: Product, quantity: number = 1) => {
+    (
+      product: Product,
+      quantity: number = 1,
+      animation?: AddToCartOptions,
+    ): void => {
+      let addedQuantity = 0;
       setCart((prev) => {
         const existing = prev.find((i) => i.product.id === product.id);
         const currentInCart = existing?.quantity ?? 0;
@@ -874,6 +965,7 @@ export default function Loja() {
           return prev;
         }
         const toAdd = Math.min(quantity, remaining);
+        addedQuantity = toAdd;
         if (existing)
           return prev.map((i) =>
             i.product.id === product.id
@@ -882,10 +974,17 @@ export default function Loja() {
           );
         return [...prev, { product, quantity: toAdd }];
       });
-      setSelectedProduct(null);
-      setQuantityToAdd(1);
+
+      if (addedQuantity > 0) {
+        const imageForAnim = animation?.imageUrl ?? product.imageUrl;
+        const originForAnim = animation?.originRect;
+        animation?.onBeforeAnimate?.();
+        requestAnimationFrame(() =>
+          triggerCartAnimation(imageForAnim, originForAnim),
+        );
+      }
     },
-    [showToast],
+    [showToast, triggerCartAnimation],
   );
 
   const removeFromCart = useCallback(
@@ -1449,7 +1548,10 @@ const realTotal = subtotal + realDeliveryFee;
               <div key={product.id} className="product-card">
                 <div
                   className="product-image-wrapper"
-                  onClick={() => {
+                  onClick={(event: React.MouseEvent<HTMLDivElement>) => {
+                    const target = event.currentTarget;
+                    lastProductRectRef.current =
+                      target.getBoundingClientRect();
                     const remaining =
                       product.stock - getQtyInCart(product.id);
                     if (remaining <= 0) {
@@ -1506,12 +1608,15 @@ const realTotal = subtotal + realDeliveryFee;
       </Link>
 
       <button
+        ref={cartButtonRef}
         onClick={() =>
           dispatch({
             type: "OPEN_CHECKOUT",
           })
         }
-        className="fixed bottom-20 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-yellow-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
+        className={`fixed bottom-20 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-yellow-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 ${
+          cartShake ? "cart-shake" : ""
+        }`}
         aria-label="Abrir carrinho"
       >
         <div className="text-3xl">🛒</div>
@@ -1953,6 +2058,7 @@ const realTotal = subtotal + realDeliveryFee;
               loading="lazy"
               src={selectedProduct.imageUrl}
               alt={selectedProduct.name}
+              ref={modalImageRef}
               className="mb-3 h-60 w-full rounded-lg object-contain"
             />
             <h3 className="mb-1 text-lg font-semibold text-gray-800">
@@ -2007,9 +2113,23 @@ const realTotal = subtotal + realDeliveryFee;
                 </button>
               </div>
               <button
-                onClick={() =>
-                  addToCart(selectedProduct, quantityToAdd || 1)
-                }
+                onClick={() => {
+                  if (!selectedProduct) return;
+                  const originRect =
+                    modalImageRef.current?.getBoundingClientRect() ??
+                    lastProductRectRef.current ??
+                    undefined;
+                  const productToAdd = selectedProduct;
+                  const qty = quantityToAdd || 1;
+                  addToCart(productToAdd, qty, {
+                    imageUrl: productToAdd.imageUrl,
+                    originRect,
+                    onBeforeAnimate: () => {
+                      setSelectedProduct(null);
+                      setQuantityToAdd(1);
+                    },
+                  });
+                }}
                 disabled={remainingForSelected <= 0}
                 className={`rounded px-4 py-1 font-semibold transition ${
                   remainingForSelected <= 0
@@ -2046,6 +2166,39 @@ const realTotal = subtotal + realDeliveryFee;
           {toast.message}
         </div>
       )}
+      <PromoFlutuante addToCart={addToCart} />
+      <AnimatePresence>
+        {flyAnimations.map((anim) => {
+          const deltaX = anim.end.x - anim.start.x;
+          const deltaY = anim.end.y - anim.start.y;
+          const arcHeight = Math.max(80, Math.abs(deltaY) * 0.6);
+          const midX = deltaX * 0.6;
+          const midY = deltaY - arcHeight;
+          return (
+            <motion.img
+              key={anim.id}
+              src={anim.imageUrl}
+              initial={{ x: -32, y: -32, opacity: 1, scale: 1, rotate: 0 }}
+              animate={{
+                x: [-32, midX - 32, deltaX - 32],
+                y: [-32, midY - 32, deltaY - 32],
+                opacity: [1, 0.85, 0],
+                scale: [1, 0.92, 0.55],
+                rotate: [0, 10, 0],
+              }}
+              transition={{ duration: 0.75, ease: "easeInOut" }}
+              exit={{ opacity: 0 }}
+              onAnimationComplete={() =>
+                setFlyAnimations((prev) =>
+                  prev.filter((item) => item.id !== anim.id),
+                )
+              }
+              className="pointer-events-none fixed z-[999] h-16 w-16 rounded-full border-2 border-white object-cover shadow-2xl"
+              style={{ left: anim.start.x, top: anim.start.y }}
+            />
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }
