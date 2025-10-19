@@ -576,13 +576,10 @@ export default function Loja() {
         const pos = await getPosition();
         const userLat = pos.coords.latitude;
         const userLng = pos.coords.longitude;
+  
+        // calcula loja mais próxima
         let closest = storeLocations[0];
-        let min = getDistanceFromLatLonInKm(
-          userLat,
-          userLng,
-          closest.lat,
-          closest.lng,
-        );
+        let min = getDistanceFromLatLonInKm(userLat, userLng, closest.lat, closest.lng);
         for (let i = 1; i < storeLocations.length; i++) {
           const s = storeLocations[i];
           const d = getDistanceFromLatLonInKm(userLat, userLng, s.lat, s.lng);
@@ -593,14 +590,23 @@ export default function Loja() {
         }
         setSelectedStore(closest.name);
         setShowInstruction(false);
-        
       } catch (err) {
-        console.log("Não foi possível obter a localização:", err);
-        setShowInstruction(true);
-        setIsStoreSelectorExpanded(true);
+        console.warn("Geolocalização indisponível, aplicando fallback:", err);
+  
+        // 🔁 Fallback automático se não conseguir localizar
+        const lastStore = localStorage.getItem("eskimo_store");
+        if (lastStore) {
+          setSelectedStore(lastStore);
+          setShowInstruction(false);
+        } else {
+          // padrão: efapi
+          setSelectedStore("efapi");
+          setShowInstruction(false);
+        }
       }
     })();
   }, [storeLocations]);
+  
 
   // buscar deliveryRate
   useEffect(() => {
