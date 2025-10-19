@@ -593,6 +593,7 @@ export default function Loja() {
         }
         setSelectedStore(closest.name);
         setShowInstruction(false);
+        
       } catch (err) {
         console.log("Não foi possível obter a localização:", err);
         setShowInstruction(true);
