@@ -50,7 +50,7 @@ interface PaymentConfig {
 }
 
 type FlyAnimation = {
-  id: number;
+  id: string;
   imageUrl: string;
   start: { x: number; y: number };
   end: { x: number; y: number };
@@ -59,6 +59,7 @@ type FlyAnimation = {
 type AddToCartOptions = {
   imageUrl?: string;
   originRect?: DOMRect;
+  productId?: number;
   onBeforeAnimate?: () => void;
 };
 
@@ -368,7 +369,6 @@ export default function Loja() {
   const modalImageRef = useRef<HTMLImageElement | null>(null);
   const cartButtonRef = useRef<HTMLButtonElement | null>(null);
   const cartShakeTimerRef = useRef<number | null>(null);
-  const lastProductRectRef = useRef<DOMRect | null>(null);
   const [flyAnimations, setFlyAnimations] = useState<FlyAnimation[]>([]);
   const [cartShake, setCartShake] = useState(false);
 
@@ -439,19 +439,31 @@ export default function Loja() {
   const [minDelivery, setMinDelivery] = useState<number>(0);
 
   const triggerCartAnimation = useCallback(
-    (imageUrl?: string, originRect?: DOMRect) => {
+    (imageUrl?: string, originRect?: DOMRect, productId?: number) => {
       const cartRect = cartButtonRef.current?.getBoundingClientRect();
       if (!cartRect) return;
+
+      let sourceRect = originRect;
+      if (
+        !sourceRect &&
+        typeof productId === "number" &&
+        typeof document !== "undefined"
+      ) {
+        const card = document.querySelector<HTMLElement>(
+          `[data-product-card="${productId}"]`,
+        );
+        sourceRect = card?.getBoundingClientRect() ?? undefined;
+      }
 
       const cartCenter = {
         x: cartRect.left + cartRect.width / 2,
         y: cartRect.top + cartRect.height / 2,
       };
 
-      const startCenter = originRect
+      const startCenter = sourceRect
         ? {
-            x: originRect.left + originRect.width / 2,
-            y: originRect.top + originRect.height / 2,
+            x: sourceRect.left + sourceRect.width / 2,
+            y: sourceRect.top + sourceRect.height / 2,
           }
         : {
             x: cartCenter.x - 120,
@@ -468,20 +480,20 @@ export default function Loja() {
             y: cartCenter.y - 160,
           };
 
-      const animId = Date.now() + Math.random();
+      const animId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`;
       const flyer: FlyAnimation = {
         id: animId,
         imageUrl:
           imageUrl ??
           "https://eskimo.com.br/wp-content/uploads/2023/08/Seletto-brigadeiro-sem-lupa.png",
-        start: startCenter,
+        start: adjustedStart,
         end: cartCenter,
       };
 
-      setFlyAnimations((prev) => [
-        ...prev,
-        { ...flyer, start: adjustedStart, end: cartCenter },
-      ]);
+      setFlyAnimations((prev) => [...prev, flyer]);
 
       window.setTimeout(() => {
         setFlyAnimations((prev) => prev.filter((item) => item.id !== animId));
@@ -978,9 +990,10 @@ export default function Loja() {
       if (addedQuantity > 0) {
         const imageForAnim = animation?.imageUrl ?? product.imageUrl;
         const originForAnim = animation?.originRect;
+        const productIdForAnim = animation?.productId ?? product.id;
         animation?.onBeforeAnimate?.();
         requestAnimationFrame(() =>
-          triggerCartAnimation(imageForAnim, originForAnim),
+          triggerCartAnimation(imageForAnim, originForAnim, productIdForAnim),
         );
       }
     },
@@ -1545,13 +1558,14 @@ const realTotal = subtotal + realDeliveryFee;
         ) : (
           <div className="produtos-grid">
             {paginados.map((product) => (
-              <div key={product.id} className="product-card">
+              <div
+                key={product.id}
+                className="product-card"
+                data-product-card={product.id}
+              >
                 <div
                   className="product-image-wrapper"
-                  onClick={(event: React.MouseEvent<HTMLDivElement>) => {
-                    const target = event.currentTarget;
-                    lastProductRectRef.current =
-                      target.getBoundingClientRect();
+                  onClick={() => {
                     const remaining =
                       product.stock - getQtyInCart(product.id);
                     if (remaining <= 0) {
@@ -2116,14 +2130,13 @@ const realTotal = subtotal + realDeliveryFee;
                 onClick={() => {
                   if (!selectedProduct) return;
                   const originRect =
-                    modalImageRef.current?.getBoundingClientRect() ??
-                    lastProductRectRef.current ??
-                    undefined;
+                    modalImageRef.current?.getBoundingClientRect() ?? undefined;
                   const productToAdd = selectedProduct;
                   const qty = quantityToAdd || 1;
                   addToCart(productToAdd, qty, {
                     imageUrl: productToAdd.imageUrl,
                     originRect,
+                    productId: productToAdd.id,
                     onBeforeAnimate: () => {
                       setSelectedProduct(null);
                       setQuantityToAdd(1);

@@ -22,6 +22,7 @@ interface PromoFlutuanteProps {
     options?: {
       imageUrl?: string;
       originRect?: DOMRect;
+      productId?: number;
       onBeforeAnimate?: () => void;
     },
   ) => void;
@@ -140,6 +141,7 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
                     addToCart(promoProduto, 1, {
                       imageUrl: promoProduto.imageUrl,
                       originRect: originRect ?? undefined,
+                      productId: promoProduto.id,
                       onBeforeAnimate: () => setOpen(false),
                     });
                   }}
