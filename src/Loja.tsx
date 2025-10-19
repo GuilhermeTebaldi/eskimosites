@@ -625,8 +625,8 @@ export default function Loja() {
   useEffect(() => {
     if (!selectedStore) return;
     let isMounted = true;
-    setLoading(true);
-    (async () => {
+
+    const fetchProducts = async () => {
       try {
         const res = await axios.get<Product[]>(
           `${API_URL}/products/list?store=${selectedStore}&page=1&pageSize=200`,
@@ -637,9 +637,17 @@ export default function Loja() {
       } finally {
         if (isMounted) setLoading(false);
       }
-    })();
+    };
+
+    setLoading(true);
+    fetchProducts();
+
+    // 🔁 Atualiza automaticamente a cada 10 s
+    const interval = setInterval(fetchProducts, 10000);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
   }, [selectedStore]);
 
