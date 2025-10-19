@@ -569,20 +569,30 @@ export default function Loja() {
     return () => window.clearInterval(iv);
   }, [orderId, showConfirmation]);
 
-  // detectar loja mais próxima
+  // detectar loja mais próxima (com obrigatoriedade de permissão)
   useEffect(() => {
     (async () => {
       try {
         const pos = await getPosition();
         const userLat = pos.coords.latitude;
         const userLng = pos.coords.longitude;
-  
+
         // calcula loja mais próxima
         let closest = storeLocations[0];
-        let min = getDistanceFromLatLonInKm(userLat, userLng, closest.lat, closest.lng);
+        let min = getDistanceFromLatLonInKm(
+          userLat,
+          userLng,
+          closest.lat,
+          closest.lng,
+        );
         for (let i = 1; i < storeLocations.length; i++) {
           const s = storeLocations[i];
-          const d = getDistanceFromLatLonInKm(userLat, userLng, s.lat, s.lng);
+          const d = getDistanceFromLatLonInKm(
+            userLat,
+            userLng,
+            s.lat,
+            s.lng,
+          );
           if (d < min) {
             min = d;
             closest = s;
@@ -591,18 +601,11 @@ export default function Loja() {
         setSelectedStore(closest.name);
         setShowInstruction(false);
       } catch (err) {
-        console.warn("Geolocalização indisponível, aplicando fallback:", err);
-  
-        // 🔁 Fallback automático se não conseguir localizar
-        const lastStore = localStorage.getItem("eskimo_store");
-        if (lastStore) {
-          setSelectedStore(lastStore);
-          setShowInstruction(false);
-        } else {
-          // padrão: efapi
-          setSelectedStore("efapi");
-          setShowInstruction(false);
-        }
+        console.warn("Permissão de localização negada:", err);
+        setSelectedStore(null);
+        setShowInstruction(true);
+        // 🔁 mostra botão de pedir novamente permissão
+        showToast("Ative sua localização para calcular entrega.", "warning");
       }
     })();
   }, [storeLocations]);
@@ -1242,10 +1245,48 @@ const realTotal = subtotal + realDeliveryFee;
         </div>
 
         {showInstruction && (
-          <div className="flex justify-center">
-            <div className="mb-3 animate-pulse text-sm text-gray-900">
-              👉 Escolha sua unidade para começar
+          <div className="flex flex-col items-center justify-center gap-2 mb-3">
+            <div className="text-sm text-gray-900 animate-pulse">
+              ⚙️ Precisamos da sua localização para calcular a entrega
             </div>
+            <button
+              onClick={async () => {
+                try {
+                  const pos = await getPosition();
+                  const userLat = pos.coords.latitude;
+                  const userLng = pos.coords.longitude;
+
+                  let closest = storeLocations[0];
+                  let min = getDistanceFromLatLonInKm(
+                    userLat,
+                    userLng,
+                    closest.lat,
+                    closest.lng,
+                  );
+                  for (let i = 1; i < storeLocations.length; i++) {
+                    const s = storeLocations[i];
+                    const d = getDistanceFromLatLonInKm(
+                      userLat,
+                      userLng,
+                      s.lat,
+                      s.lng,
+                    );
+                    if (d < min) {
+                      min = d;
+                      closest = s;
+                    }
+                  }
+                  setSelectedStore(closest.name);
+                  setShowInstruction(false);
+                  showToast("Localização detectada com sucesso!", "success");
+                } catch {
+                  showToast("Ative a localização e tente novamente.", "warning");
+                }
+              }}
+              className="rounded-full bg-blue-500 px-4 py-2 text-sm text-white shadow hover:bg-blue-600 active:scale-95"
+            >
+              📍 Ativar localização
+            </button>
           </div>
         )}
 
