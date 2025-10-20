@@ -36,7 +36,6 @@ interface Product {
   style?: Record<string, unknown>;
 }
 
-
 interface CartItem {
   product: Product;
   quantity: number;
@@ -68,7 +67,7 @@ type AddToCartOptions = {
  ************************************/
 type ViteEnv = { VITE_API_URL?: string };
 const API_URL: string =
-  ((import.meta as unknown as { env?: ViteEnv }).env?.VITE_API_URL) ??
+  (import.meta as unknown as { env?: ViteEnv }).env?.VITE_API_URL ??
   "http://localhost:8080/api";
 
 const UI = {
@@ -107,7 +106,7 @@ function getDistanceFromLatLonInKm(
       Math.cos(lat2 * (Math.PI / 180)) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c;
 }
@@ -144,7 +143,9 @@ function ackKey(id: number) {
 function setOrderAck(id: number) {
   try {
     localStorage.setItem(ackKey(id), JSON.stringify({ seenAt: Date.now() }));
-  } catch { /* empty */ }
+  } catch {
+    /* empty */
+  }
 }
 function hasOrderAck(id: number) {
   try {
@@ -163,13 +164,17 @@ function hasOrderAck(id: number) {
 function buildOrderSignature(
   cart: CartItem[],
   deliveryFee: number,
-  selectedStore: string | null
+  selectedStore: string | null,
 ): string {
   const payload = {
     store: selectedStore ?? "",
     fee: Number(Number(deliveryFee).toFixed(2)),
     items: cart
-      .map(i => ({ id: i.product.id, q: i.quantity, p: Number(i.product.price.toFixed(2)) }))
+      .map((i) => ({
+        id: i.product.id,
+        q: i.quantity,
+        p: Number(i.product.price.toFixed(2)),
+      }))
       .sort((a, b) => a.id - b.id),
   };
   return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
@@ -178,15 +183,27 @@ function buildOrderSignature(
 const SIG_KEY = "last_order_sig";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getLastSig(): string | null {
-  try { return localStorage.getItem(SIG_KEY); } catch { return null; }
+  try {
+    return localStorage.getItem(SIG_KEY);
+  } catch {
+    return null;
+  }
 }
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function setLastSig(sig: string) {
-  try { localStorage.setItem(SIG_KEY, sig); } catch { /* noop */ }
+  try {
+    localStorage.setItem(SIG_KEY, sig);
+  } catch {
+    /* noop */
+  }
 }
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function clearLastSig() {
-  try { localStorage.removeItem(SIG_KEY); } catch { /* noop */ }
+  try {
+    localStorage.removeItem(SIG_KEY);
+  } catch {
+    /* noop */
+  }
 }
 
 /************************************
@@ -277,7 +294,7 @@ type Bricks = {
   create: (
     name: "wallet",
     containerId: string,
-    options: WalletOptions
+    options: WalletOptions,
   ) => Promise<WalletController>;
 };
 interface MercadoPagoCtor {
@@ -425,7 +442,6 @@ export default function Loja() {
   const [deliveryType] = useState<"retirar" | "entregar">("entregar");
   const [deliveryRate, setDeliveryRate] = useState<number>(0);
 
-
   const [address, setAddress] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -513,7 +529,6 @@ export default function Loja() {
     [],
   );
 
-
   // Config de pagamento por loja (Mercado Pago)
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(
     null,
@@ -537,9 +552,9 @@ export default function Loja() {
   );
   const effectiveDeliveryFee = useMemo(
     () => Math.max(deliveryFee, minDelivery),
-    [deliveryFee, minDelivery]
+    [deliveryFee, minDelivery],
   );
-  
+
   // persistir carrinho e unidade
   useEffect(() => {
     setStoredCart(cart);
@@ -623,11 +638,15 @@ export default function Loja() {
 
       try {
         type OrderDTO = {
-          paymentStatus: string | undefined; status?: string; Status?: string 
-};
+          paymentStatus: string | undefined;
+          status?: string;
+          Status?: string;
+        };
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
-        const status = String((d.status ?? d.Status ?? d.paymentStatus ?? "")).toLowerCase();
+        const status = String(
+          d.status ?? d.Status ?? d.paymentStatus ?? "",
+        ).toLowerCase();
 
         if (status === "pago" || status === "approved" || status === "paid") {
           setOrderId(orderId);
@@ -637,9 +656,10 @@ export default function Loja() {
           clearLastSig();
           try {
             localStorage.setItem("last_order_id", String(orderId));
-          } catch { /* empty */ }
+          } catch {
+            /* empty */
+          }
         }
-        
       } catch {
         // silencioso: se não achou o pedido, não abre
       }
@@ -650,14 +670,15 @@ export default function Loja() {
       resolveAndShow(id);
       return;
     }
-    
 
     // Fallback: tentar o último pedido salvo
     try {
       const last = localStorage.getItem("last_order_id");
       const lastId = last ? parseInt(last, 10) : NaN;
       if (Number.isFinite(lastId)) resolveAndShow(lastId);
-    } catch { /* empty */ }
+    } catch {
+      /* empty */
+    }
   }, []);
 
   // Polling universal: com orderId definido e sem confirmação aberta,
@@ -673,7 +694,7 @@ export default function Loja() {
         type OrderDTO = { status?: string; Status?: string };
         const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
         const d = res.data ?? {};
-        const status = String((d.status ?? d.Status) ?? "").toLowerCase();
+        const status = String(d.status ?? d.Status ?? "").toLowerCase();
         if (status === "pago") {
           setShowConfirmation(true);
           setCart([]);
@@ -681,7 +702,9 @@ export default function Loja() {
           clearLastSig();
           try {
             localStorage.setItem("last_order_id", String(orderId));
-          } catch { /* empty */ }
+          } catch {
+            /* empty */
+          }
           window.clearInterval(iv);
         }
       } catch {
@@ -711,12 +734,7 @@ export default function Loja() {
         );
         for (let i = 1; i < storeLocations.length; i++) {
           const s = storeLocations[i];
-          const d = getDistanceFromLatLonInKm(
-            userLat,
-            userLng,
-            s.lat,
-            s.lng,
-          );
+          const d = getDistanceFromLatLonInKm(userLat, userLng, s.lat, s.lng);
           if (d < min) {
             min = d;
             closest = s;
@@ -733,7 +751,6 @@ export default function Loja() {
       }
     })();
   }, [storeLocations]);
-  
 
   // buscar deliveryRate
   useEffect(() => {
@@ -745,8 +762,6 @@ export default function Loja() {
       })
       .catch((err) => console.error("Erro ao buscar settings:", err));
   }, []);
-  
-  
 
   // buscar produtos (UNIFICADO)
   useEffect(() => {
@@ -831,14 +846,14 @@ export default function Loja() {
           ? quickFilterCategory
             ? p.categoryName === quickFilterCategory
             : selectedCategory
-            ? p.categoryName === selectedCategory
-            : true
+              ? p.categoryName === selectedCategory
+              : true
           : true;
       const matchesSubcategory = quickFilterSubcategory
         ? p.subcategoryName === quickFilterSubcategory
         : selectedSubcategory
-        ? p.subcategoryName === selectedSubcategory
-        : true;
+          ? p.subcategoryName === selectedSubcategory
+          : true;
       return matchesSearch && matchesCategory && matchesSubcategory;
     });
   }, [
@@ -911,7 +926,6 @@ export default function Loja() {
       if (sA !== sB) return sA - sB;
       return a.name.localeCompare(b.name);
     });
-
   }, [filtered]);
 
   // paginação automática (infinite scroll)
@@ -1073,10 +1087,12 @@ export default function Loja() {
     }
     if (deliveryFee === 0 && minDelivery === 0) {
       await recalc();
-      showToast("Ative sua localização ou informe endereço. Não foi possível calcular a taxa.", "warning");
+      showToast(
+        "Ative sua localização ou informe endereço. Não foi possível calcular a taxa.",
+        "warning",
+      );
       return false;
     }
-    
 
     return true;
   }, [
@@ -1101,11 +1117,14 @@ export default function Loja() {
       s.src = "https://sdk.mercadopago.com/js/v2";
       s.async = true;
       s.onload = () => resolve();
-      s.onerror = () => reject(new Error("Falha ao carregar SDK do Mercado Pago"));
+      s.onerror = () =>
+        reject(new Error("Falha ao carregar SDK do Mercado Pago"));
       document.head.appendChild(s);
     });
     if (!window.MercadoPago) {
-      throw new Error("SDK do Mercado Pago não disponível após carregar script.");
+      throw new Error(
+        "SDK do Mercado Pago não disponível após carregar script.",
+      );
     }
     return window.MercadoPago;
   }, []);
@@ -1122,13 +1141,14 @@ export default function Loja() {
       const r = await fetch(`${API_URL}/orders/${id}`);
       if (!r.ok) return false;
       const o = await r.json();
-      const raw = String((o?.status ?? o?.Status ?? o?.paymentStatus ?? "") as string).toLowerCase();
+      const raw = String(
+        (o?.status ?? o?.Status ?? o?.paymentStatus ?? "") as string,
+      ).toLowerCase();
       return raw === "pago" || raw === "approved" || raw === "paid";
     } catch {
       return false;
     }
   }, []);
-  
 
   // Abre o Wallet Brick
   const openWalletBrick = useCallback(
@@ -1136,9 +1156,13 @@ export default function Loja() {
       try {
         const MP = await loadMPSDK();
 
-        const publicKey = paymentConfig?.mpPublicKey ?? paymentConfig?.MpPublicKey;
+        const publicKey =
+          paymentConfig?.mpPublicKey ?? paymentConfig?.MpPublicKey;
         if (!publicKey) {
-          showToast("Public Key do Mercado Pago não configurada para esta loja.", "error");
+          showToast(
+            "Public Key do Mercado Pago não configurada para esta loja.",
+            "error",
+          );
           return;
         }
 
@@ -1182,11 +1206,10 @@ export default function Loja() {
             setCart([]);
             setOrderAck(currentOrderId);
             clearLastSig();
-          
+
             // ✅ Redireciona automaticamente para a tela de pedidos confirmados
             window.location.href = `/meus-pedidos?orderId=${currentOrderId}&paid=1`;
           }
-          
 
           if (tries > 180) {
             // ~12min
@@ -1199,7 +1222,14 @@ export default function Loja() {
         setWalletOpen(false);
       }
     },
-    [loadMPSDK, paymentConfig, showToast, checkPaidOnce, stopPolling, setPaymentOverlay]
+    [
+      loadMPSDK,
+      paymentConfig,
+      showToast,
+      checkPaidOnce,
+      stopPolling,
+      setPaymentOverlay,
+    ],
   );
 
   // Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
@@ -1211,18 +1241,28 @@ export default function Loja() {
     setPaymentOverlayProgress(0);
 
     const overlayTimer = window.setInterval(() => {
-      setPaymentOverlayProgress((p) => Math.min(p + Math.random() * 10 + 5, 92));
+      setPaymentOverlayProgress((p) =>
+        Math.min(p + Math.random() * 10 + 5, 92),
+      );
     }, 300);
 
     try {
       const ok = await validateBeforePayment();
       // Se já existe pedido pendente mas a "assinatura" mudou, cancela o antigo
-      const currentSig = buildOrderSignature(cart, effectiveDeliveryFee, selectedStore);
+      const currentSig = buildOrderSignature(
+        cart,
+        effectiveDeliveryFee,
+        selectedStore,
+      );
 
       if (orderId && getLastSig() && getLastSig() !== currentSig) {
         try {
-          await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: "PATCH" });
-        } catch { /* não bloqueia o fluxo */ }
+          await fetch(`${API_URL}/orders/${orderId}/cancel`, {
+            method: "PATCH",
+          });
+        } catch {
+          /* não bloqueia o fluxo */
+        }
         setOrderId(null);
       }
 
@@ -1232,8 +1272,7 @@ export default function Loja() {
       let currentOrderId = orderId ?? null;
       if (!currentOrderId) {
         const realDeliveryFee = effectiveDeliveryFee;
-const realTotal = subtotal + realDeliveryFee;
-
+        const realTotal = subtotal + realDeliveryFee;
 
         const orderPayload = {
           customerName: customerName.trim(),
@@ -1273,7 +1312,9 @@ const realTotal = subtotal + realDeliveryFee;
         } catch {
           /* empty */
         }
-        const createdOrderId = isOrderResponse(orderData) ? orderData.id : undefined;
+        const createdOrderId = isOrderResponse(orderData)
+          ? orderData.id
+          : undefined;
 
         if (!createdOrderId || !Number.isFinite(createdOrderId)) {
           showToast("Pedido criado, mas ID inválido retornado.", "error");
@@ -1295,7 +1336,7 @@ const realTotal = subtotal + realDeliveryFee;
       // 2) Cria a preference e abre o Wallet (modal no mesmo tab)
       const payRes = await fetch(
         `${API_URL}/payments/mp/checkout?orderId=${currentOrderId}`,
-        { method: "POST" }
+        { method: "POST" },
       );
       if (!payRes.ok) {
         showToast("Falha ao iniciar pagamento (Mercado Pago).", "error");
@@ -1383,8 +1424,8 @@ const realTotal = subtotal + realDeliveryFee;
         </div>
 
         {showInstruction && (
-          <div className="flex flex-col items-center justify-center gap-2 mb-3">
-            <div className="text-sm text-gray-900 animate-pulse">
+          <div className="mb-3 flex flex-col items-center justify-center gap-2">
+            <div className="animate-pulse text-sm text-gray-900">
               ⚙️ Precisamos da sua localização para calcular a entrega
             </div>
             <button
@@ -1432,33 +1473,37 @@ const realTotal = subtotal + realDeliveryFee;
           </div>
         )}
 
-       {/* Seleção de unidade */}
-<div className="z-50 flex flex-wrap justify-center gap-2 px-3 py-1 md:gap-4 md:px-5">
-  {["efapi", "palmital", "passo"].map((store) => (
-    <button
-      key={store}
-      onClick={() => {
-        if (selectedStore !== store) setSelectedStore(store);
-        else {
-          setSelectedStore(null);
-          setTimeout(() => setSelectedStore(store), 0);
-        }
-        setCart([]);
-        setShowInstruction(false);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }}
-      className={`rounded-full border px-3 py-1 text-xs md:px-5 md:py-2 md:text-sm font-semibold shadow transition-all duration-300 ${
-        selectedStore === store
-          ? "border-yellow-200 bg-yellow-300 text-gray-900 ring-1 ring-yellow-300"
-          : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
-      }`}
-      aria-label={`Selecionar unidade ${store}`}
-    >
-      🍦 {store === "efapi" ? "Efapi" : store === "palmital" ? "Palmital" : "Passo"}
-    </button>
-  ))}
-</div>
-
+        {/* Seleção de unidade */}
+        <div className="z-50 flex flex-wrap justify-center gap-2 px-3 py-1 md:gap-4 md:px-5">
+          {["efapi", "palmital", "passo"].map((store) => (
+            <button
+              key={store}
+              onClick={() => {
+                if (selectedStore !== store) setSelectedStore(store);
+                else {
+                  setSelectedStore(null);
+                  setTimeout(() => setSelectedStore(store), 0);
+                }
+                setCart([]);
+                setShowInstruction(false);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold shadow transition-all duration-300 md:px-5 md:py-2 md:text-sm ${
+                selectedStore === store
+                  ? "border-yellow-200 bg-yellow-300 text-gray-900 ring-1 ring-yellow-300"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+              }`}
+              aria-label={`Selecionar unidade ${store}`}
+            >
+              🍦{" "}
+              {store === "efapi"
+                ? "Efapi"
+                : store === "palmital"
+                  ? "Palmital"
+                  : "Passo"}
+            </button>
+          ))}
+        </div>
 
         <div className="mt-1 text-xs text-gray-500">
           {filtered.length} produto(s) encontrado(s)
@@ -1494,8 +1539,8 @@ const realTotal = subtotal + realDeliveryFee;
           <div className="flex gap-2">
             <div className="w-1/2 rounded-xl bg-white/90 shadow-md backdrop-blur-md">
               <select
-               className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-base text-gray-800 focus:outline-none"
-               value={selectedCategory || ""}
+                className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-base text-gray-800 focus:outline-none"
+                value={selectedCategory || ""}
                 onChange={(e) => {
                   setQuickFilterCategory(null);
                   setQuickFilterSubcategory(null);
@@ -1518,8 +1563,8 @@ const realTotal = subtotal + realDeliveryFee;
 
             <div className="w-1/2 rounded-xl bg-white/90 shadow-md backdrop-blur-md">
               <select
-               className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-base text-gray-800 focus:outline-none"
-               value={selectedSubcategory || ""}
+                className="w-full appearance-none rounded-xl bg-transparent px-4 py-2 text-base text-gray-800 focus:outline-none"
+                value={selectedSubcategory || ""}
                 onChange={(e) => {
                   setQuickFilterCategory(null);
                   setQuickFilterSubcategory(null);
@@ -1531,13 +1576,14 @@ const realTotal = subtotal + realDeliveryFee;
                 aria-label="Selecionar subcategoria"
               >
                 <option value="">Tipo</option>
-                {(selectedCategory ? getSubcategories(selectedCategory) : []).map(
-                  (sub) => (
-                    <option key={sub} value={sub}>
-                      {sub}
-                    </option>
-                  ),
-                )}
+                {(selectedCategory
+                  ? getSubcategories(selectedCategory)
+                  : []
+                ).map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -1566,8 +1612,7 @@ const realTotal = subtotal + realDeliveryFee;
                 <div
                   className="product-image-wrapper"
                   onClick={() => {
-                    const remaining =
-                      product.stock - getQtyInCart(product.id);
+                    const remaining = product.stock - getQtyInCart(product.id);
                     if (remaining <= 0) {
                       showToast(
                         "Estoque máximo já está no seu carrinho.",
@@ -1604,9 +1649,7 @@ const realTotal = subtotal + realDeliveryFee;
       )}
 
       {/* Rodapé */}
-      <footer className="mt-12 border-t border-gray-200 pt-8 pb-6 text-center bg-gradient-to-b from-white to-gray-50">
-        
-      </footer>
+      <footer className="mt-12 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50 pb-6 pt-8 text-center"></footer>
 
       {/* Botões flutuantes */}
       <Link
@@ -1663,9 +1706,8 @@ const realTotal = subtotal + realDeliveryFee;
               </h2>
 
               <p className="mt-2 text-sm text-gray-700">
-  🚚 Entrega: {toBRL(effectiveDeliveryFee)}
-</p>
-
+                🚚 Entrega: {toBRL(effectiveDeliveryFee)}
+              </p>
 
               {/* Nome */}
               <input
@@ -1684,8 +1726,8 @@ const realTotal = subtotal + realDeliveryFee;
 
               <div className="flex flex-col gap-3">
                 <select
-                className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-base text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
-                value={address}
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-base text-gray-700 transition focus:border-red-400 focus:ring focus:ring-red-200"
+                  value={address}
                   onChange={(e) => {
                     setAddress(e.target.value);
                     if (e.target.value !== "Outro") setCustomAddress("");
@@ -1762,7 +1804,7 @@ const realTotal = subtotal + realDeliveryFee;
                     value={customAddress}
                     onChange={(e) => setCustomAddress(e.target.value)}
                     className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-base text-gray-700 focus:border-red-400 focus:ring focus:ring-red-200"
-                    />
+                  />
                 )}
 
                 <input
@@ -1795,7 +1837,7 @@ const realTotal = subtotal + realDeliveryFee;
                   value={complement}
                   onChange={(e) => setComplement(e.target.value)}
                   className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-base text-gray-700"
-                  />
+                />
                 <input
                   type="tel"
                   placeholder="* WhatsApp com DDD (ex: 49991234567)"
@@ -1815,14 +1857,13 @@ const realTotal = subtotal + realDeliveryFee;
                     🧁 Produtos: <strong>{toBRL(subtotal)}</strong>
                   </p>
                   <p>
-  🚚 Entrega aproximada: <strong>{toBRL(effectiveDeliveryFee)}</strong>
-</p>
-<p className="text-base font-bold text-green-700">
-  💰 Total com entrega: {toBRL(subtotal + effectiveDeliveryFee)}
-</p>
-
-
-                 
+                    🚚 Entrega aproximada:{" "}
+                    <strong>{toBRL(effectiveDeliveryFee)}</strong>
+                  </p>
+                  <p className="text-base font-bold text-green-700">
+                    💰 Total com entrega:{" "}
+                    {toBRL(subtotal + effectiveDeliveryFee)}
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -1837,12 +1878,24 @@ const realTotal = subtotal + realDeliveryFee;
                     onClick={async () => {
                       const ok = await validateBeforePayment();
                       // Se já existe pedido pendente mas a "assinatura" mudou, cancela o antigo
-                      const currentSig = buildOrderSignature(cart, effectiveDeliveryFee, selectedStore);
+                      const currentSig = buildOrderSignature(
+                        cart,
+                        effectiveDeliveryFee,
+                        selectedStore,
+                      );
 
-                      if (orderId && getLastSig() && getLastSig() !== currentSig) {
+                      if (
+                        orderId &&
+                        getLastSig() &&
+                        getLastSig() !== currentSig
+                      ) {
                         try {
-                          await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: "PATCH" });
-                        } catch { /* não bloqueia o fluxo */ }
+                          await fetch(`${API_URL}/orders/${orderId}/cancel`, {
+                            method: "PATCH",
+                          });
+                        } catch {
+                          /* não bloqueia o fluxo */
+                        }
                         setOrderId(null);
                       }
 
@@ -1850,17 +1903,17 @@ const realTotal = subtotal + realDeliveryFee;
                       await handleMercadoPagoPayment();
                     }}
                     disabled={paymentBusy || effectiveDeliveryFee === 0}
-
                     className={`rounded px-10 py-1 font-semibold transition ${
                       paymentBusy
                         ? "cursor-wait bg-indigo-400 text-white"
                         : effectiveDeliveryFee === 0
-
-                        ? "cursor-not-allowed bg-gray-300 text-gray-500"
-                        : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
+                          ? "cursor-not-allowed bg-gray-300 text-gray-500"
+                          : "bg-red-500 text-white hover:bg-red-600 active:scale-95"
                     }`}
                   >
-                    {paymentBusy ? "Iniciando pagamento..." : "Ir para Pagamento"}
+                    {paymentBusy
+                      ? "Iniciando pagamento..."
+                      : "Ir para Pagamento"}
                   </button>
                 </div>
               </div>
@@ -1939,7 +1992,8 @@ const realTotal = subtotal + realDeliveryFee;
               Preparando o pagamento…
             </div>
             <p className="text-xs text-gray-500">
-              Se a nova aba não abrir, verifique o bloqueio de pop-ups do seu navegador.
+              Se a nova aba não abrir, verifique o bloqueio de pop-ups do seu
+              navegador.
             </p>
           </div>
         </div>
@@ -1961,7 +2015,13 @@ const realTotal = subtotal + realDeliveryFee;
                   setWalletOpen(false);
                   stopPolling();
                   if (orderId) {
-                    try { await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: "PATCH" }); } catch { /* empty */ }
+                    try {
+                      await fetch(`${API_URL}/orders/${orderId}/cancel`, {
+                        method: "PATCH",
+                      });
+                    } catch {
+                      /* empty */
+                    }
                     clearLastSig();
                     setOrderId(null);
                   }
@@ -1995,7 +2055,9 @@ const realTotal = subtotal + realDeliveryFee;
                 #{orderId}
               </div>
               <button
-                onClick={() => navigator.clipboard.writeText(orderId.toString())}
+                onClick={() =>
+                  navigator.clipboard.writeText(orderId.toString())
+                }
                 className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700"
               >
                 Copiar
@@ -2011,7 +2073,9 @@ const realTotal = subtotal + realDeliveryFee;
                 if (orderId) setOrderAck(orderId);
                 try {
                   localStorage.removeItem("last_order_id");
-                } catch { /* empty */ }
+                } catch {
+                  /* empty */
+                }
 
                 setShowConfirmation(false);
                 setOrderId(null);
@@ -2029,7 +2093,8 @@ const realTotal = subtotal + realDeliveryFee;
                 try {
                   window.history.replaceState({}, "", window.location.pathname);
                 } catch {
-                  /* empty */ }
+                  /* empty */
+                }
                 setComponentKey((p) => p + 1);
                 if (selectedStore)
                   axios
@@ -2083,7 +2148,7 @@ const realTotal = subtotal + realDeliveryFee;
               style={{ scrollbarWidth: "thin" }}
             >
               <p
-                className="text-sm text-gray-700 whitespace-pre-line leading-relaxed"
+                className="whitespace-pre-line text-sm leading-relaxed text-gray-700"
                 style={{
                   whiteSpace: "pre-line",
                   fontSize: "0.9rem",
@@ -2094,9 +2159,8 @@ const realTotal = subtotal + realDeliveryFee;
               </p>
 
               {/* Indicador sutil no topo, não sobre o texto */}
-              <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-gray-50/90 to-transparent" />
-
-                </div>
+              <div className="pointer-events-none absolute left-0 right-0 top-0 h-4 bg-gradient-to-b from-gray-50/90 to-transparent" />
+            </div>
             <div className="mb-2 text-base font-bold text-green-700">
               {toBRL(selectedProduct.price)}
             </div>
@@ -2105,16 +2169,12 @@ const realTotal = subtotal + realDeliveryFee;
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() =>
-                    setQuantityToAdd((q) => Math.max(1, q - 1))
-                  }
+                  onClick={() => setQuantityToAdd((q) => Math.max(1, q - 1))}
                   className="rounded bg-gray-200 px-3 py-1 text-gray-700"
                 >
                   −
                 </button>
-                <span className="min-w-[2ch] text-center">
-                  {quantityToAdd}
-                </span>
+                <span className="min-w-[2ch] text-center">{quantityToAdd}</span>
                 <button
                   onClick={() =>
                     setQuantityToAdd((q) =>
@@ -2169,10 +2229,10 @@ const realTotal = subtotal + realDeliveryFee;
               toast.type === "success"
                 ? "rgba(34,197,94,0.95)"
                 : toast.type === "warning"
-                ? "rgba(234,179,8,0.95)"
-                : toast.type === "error"
-                ? "rgba(239,68,68,0.95)"
-                : "rgba(2,132,199,0.95)",
+                  ? "rgba(234,179,8,0.95)"
+                  : toast.type === "error"
+                    ? "rgba(239,68,68,0.95)"
+                    : "rgba(2,132,199,0.95)",
             color: "#fff",
           }}
         >

@@ -86,11 +86,11 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
   return (
     <div
       ref={containerRef}
-      className="fixed left-0 bottom-40 z-40 flex items-center"
+      className="fixed bottom-40 left-0 z-40 flex items-center"
     >
       {/* Botão lateral */}
       <motion.div
-        className="bg-red-600 text-white px-3 py-2 rounded-r-xl cursor-pointer shadow-lg"
+        className="cursor-pointer rounded-r-xl bg-red-600 px-3 py-2 text-white shadow-lg"
         initial={{ x: 0 }}
         animate={{ x: open ? slideOffset : 0 }}
         onClick={() => setOpen((prev) => !prev)}
@@ -104,34 +104,34 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
         {open && (
           <motion.div
             key="painel"
-            className="fixed bottom-0 left-0 h-[80vh] w-80 sm:w-96 bg-white shadow-2xl border-r border-gray-200 overflow-y-auto rounded-tr-2xl"
+            className="fixed bottom-0 left-0 h-[80vh] w-80 overflow-y-auto rounded-tr-2xl border-r border-gray-200 bg-white shadow-2xl sm:w-96"
             initial={{ x: -slideOffset }}
             animate={{ x: 0 }}
             exit={{ x: -slideOffset }}
             transition={{ type: "spring", stiffness: 260, damping: 25 }}
           >
-            <div className="p-4 bg-red-600 text-white flex justify-between items-center">
+            <div className="flex items-center justify-between bg-red-600 p-4 text-white">
               <h2 className="text-lg font-bold">Promoções</h2>
               <button
-                className="text-white/80 hover:text-white transition-colors"
+                className="text-white/80 transition-colors hover:text-white"
                 onClick={() => setOpen(false)}
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-4 space-y-4">
+            <div className="space-y-4 p-4">
               {/* Card de produto */}
-              <div className="border rounded-xl p-3 hover:shadow-md transition">
+              <div className="rounded-xl border p-3 transition hover:shadow-md">
                 <img
                   ref={productImageRef}
                   src={promoProduto.imageUrl}
                   alt={promoProduto.name}
-                  className="rounded-lg mb-2"
+                  className="mb-2 rounded-lg"
                 />
                 <p className="font-semibold">{promoProduto.name}</p>
                 <p className="text-sm text-gray-500 line-through">R$ 5,50</p>
-                <p className="text-red-600 font-bold">
+                <p className="font-bold text-red-600">
                   R$ {promoProduto.price.toFixed(2)}
                 </p>
                 <button
@@ -145,7 +145,7 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
                       onBeforeAnimate: () => setOpen(false),
                     });
                   }}
-                  className="mt-2 bg-green-600 text-white w-full py-1 rounded-md text-sm hover:bg-green-700"
+                  className="mt-2 w-full rounded-md bg-green-600 py-1 text-sm text-white hover:bg-green-700"
                 >
                   Adicionar ao Carrinho
                 </button>
