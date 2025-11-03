@@ -11,3 +11,23 @@ const api = axios.create({
 });
 
 export default api;
+// Status - horário de funcionamento
+export const StatusAPI = {
+  async isOpen(signal?: AbortSignal): Promise<{
+    isOpen: boolean;
+    message?: string;
+    now?: string;
+    nextOpening?: string;
+  }> {
+    const r = await api.get("/status/isOpen", { signal });
+    return r.data;
+  },
+};
+
+// Settings - caso queira ler as janelas configuradas
+export const SettingsAPI = {
+  async get(signal?: AbortSignal): Promise<any> {
+    const r = await api.get("/settings", { signal });
+    return r.data;
+  },
+};

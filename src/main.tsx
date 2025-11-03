@@ -1,18 +1,122 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Loja from "./Loja";
 import MeusPedidos from "./MeusPedidos";
+import { StatusAPI } from "./services/api";
 
 import "./index.css";
+
+type StatusPayload = {
+  isOpen: boolean;
+  message?: string;
+  now?: string;
+  nextOpening?: string;
+};
+
+function AppGate({ children }: { children: React.ReactNode }) {
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<StatusPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Consulta inicial + revalidação periódica
+  useEffect(() => {
+    let abort = new AbortController();
+
+    async function fetchStatus() {
+      try {
+        setError(null);
+        const data = await StatusAPI.isOpen(abort.signal);
+        // Normaliza payload defensivamente
+        const normalized: StatusPayload = {
+          isOpen: Boolean((data as any)?.isOpen),
+          message: (data as any)?.message,
+          now: (data as any)?.now,
+          nextOpening: (data as any)?.nextOpening,
+        };
+        setStatus(normalized);
+      } catch (e: any) {
+        setError("Não foi possível verificar o horário de funcionamento.");
+        // Em erro de backend, por padrão não bloqueia. Ajuste para true se quiser bloquear em falha.
+        setStatus({ isOpen: true });
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchStatus();
+
+    // Revalida a cada 60s
+    const interval = setInterval(() => {
+      // cria novo AbortController a cada ciclo
+      abort.abort();
+      abort = new AbortController();
+      fetchStatus();
+    }, 60000);
+
+    return () => {
+      abort.abort();
+      clearInterval(interval);
+    };
+  }, []);
+
+  const isClosed = useMemo(() => status?.isOpen === false, [status]);
+
+  return (
+    <>
+      <div className={isClosed ? "site-locked" : ""}>
+        {children}
+      </div>
+
+      {/* Overlay fora do horário */}
+      {isClosed && (
+        <div id="hours-overlay" role="alert" aria-live="assertive">
+          <div className="card">
+            <h1>Fora do horário de funcionamento</h1>
+            <p>
+              {status?.message ??
+                "No momento não estamos atendendo. Tente novamente mais tarde."}
+            </p>
+            {status?.nextOpening ? (
+              <p style={{ marginTop: "0.5rem", opacity: 0.85 }}>
+                Próxima abertura: {status.nextOpening}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Mensagem de erro sem bloquear o site */}
+      {!loading && error && !isClosed ? (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 12,
+            right: 12,
+            background: "rgba(0,0,0,0.8)",
+            color: "#fff",
+            padding: "8px 12px",
+            borderRadius: 8,
+            fontSize: 12,
+            zIndex: 9999,
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Loja />} />
-        <Route path="/meus-pedidos" element={<MeusPedidos />} />
-      </Routes>
+      <AppGate>
+        <Routes>
+          <Route path="/" element={<Loja />} />
+          <Route path="/meus-pedidos" element={<MeusPedidos />} />
+        </Routes>
+      </AppGate>
     </BrowserRouter>
-  </React.StrictMode>,
+  </React.StrictMode>
 );
