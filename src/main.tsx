@@ -22,12 +22,13 @@ function AppGate({ children }: { children: React.ReactNode }) {
 
   // Consulta inicial + revalidação periódica
   useEffect(() => {
-    let abort = new AbortController();
+    let cancelled = false;
 
-    async function fetchStatus() {
+    const fetchStatus = async () => {
       try {
         setError(null);
-        const data = await StatusAPI.isOpen(abort.signal);
+        const data = await StatusAPI.isOpen();
+        if (cancelled) return;
         const normalized: StatusPayload = {
           isOpen: Boolean(data?.isOpen),
           message: data?.message,
@@ -35,27 +36,26 @@ function AppGate({ children }: { children: React.ReactNode }) {
           nextOpening: data?.nextOpening,
         };
         setStatus(normalized);
-      } catch (e: unknown) {
+      } catch {
+        if (cancelled) return;
         setError("Não foi possível verificar o horário de funcionamento.");
         // Em erro de backend, por padrão não bloqueia. Ajuste para true se quiser bloquear em falha.
         setStatus({ isOpen: true });
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    }
+    };
 
-    fetchStatus();
+    void fetchStatus();
 
-    // Revalida a cada 60s
     const interval = setInterval(() => {
-      // cria novo AbortController a cada ciclo
-      abort.abort();
-      abort = new AbortController();
-      fetchStatus();
+      void fetchStatus();
     }, 60000);
 
     return () => {
-      abort.abort();
+      cancelled = true;
       clearInterval(interval);
     };
   }, []);

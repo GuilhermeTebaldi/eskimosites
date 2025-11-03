@@ -20,8 +20,8 @@ export type StatusResponse = {
 };
 
 export const StatusAPI = {
-  async isOpen(signal?: AbortSignal): Promise<StatusResponse> {
-    const response = await api.get<StatusResponse>("/status/isOpen", { signal });
+  async isOpen(): Promise<StatusResponse> {
+    const response = await api.get<StatusResponse>("/status/isOpen");
     return response.data;
   },
 };
