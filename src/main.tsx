@@ -27,15 +27,14 @@ function AppGate({ children }: { children: React.ReactNode }) {
       try {
         setError(null);
         const data = await StatusAPI.isOpen(abort.signal);
-        // Normaliza payload defensivamente
         const normalized: StatusPayload = {
-          isOpen: Boolean((data as any)?.isOpen),
-          message: (data as any)?.message,
-          now: (data as any)?.now,
-          nextOpening: (data as any)?.nextOpening,
+          isOpen: Boolean(data?.isOpen),
+          message: data?.message,
+          now: data?.now,
+          nextOpening: data?.nextOpening,
         };
         setStatus(normalized);
-      } catch (e: any) {
+      } catch (e: unknown) {
         setError("Não foi possível verificar o horário de funcionamento.");
         // Em erro de backend, por padrão não bloqueia. Ajuste para true se quiser bloquear em falha.
         setStatus({ isOpen: true });
