@@ -14,6 +14,7 @@ type StatusPayload = {
   nextOpening?: string;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 function AppGate({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<StatusPayload | null>(null);
