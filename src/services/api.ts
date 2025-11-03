@@ -12,3 +12,16 @@ const api = axios.create({
 });
 
 export default api;
+export type StatusResponse = {
+  isOpen: boolean;
+  message?: string;
+  now?: string;
+  nextOpening?: string;
+};
+
+export const StatusAPI = {
+  async isOpen(signal?: AbortSignal): Promise<StatusResponse> {
+    const response = await api.get<StatusResponse>("/status/isOpen", { signal });
+    return response.data;
+  },
+};
