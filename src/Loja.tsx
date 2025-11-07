@@ -1491,20 +1491,7 @@ export default function Loja() {
           </div>
         )}
 
-        <div className="mb-2 flex justify-center px-4">
-          <select
-            value={selectedStore ?? ""}
-            onChange={(e) =>
-              setSelectedStore(e.target.value ? e.target.value : null)
-            }
-            className="w-full max-w-xs rounded-full border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm focus:border-amber-400 focus:outline-none"
-          >
-            <option value="">Selecione a loja</option>
-            <option value="efapi">EFAPI</option>
-            <option value="palmital">PALMITAL</option>
-            <option value="passo">PASSO</option>
-          </select>
-        </div>
+        
 
         {/* Seleção de unidade */}
         <div className="z-50 flex flex-wrap justify-center gap-2 px-3 py-1 md:gap-4 md:px-5">
