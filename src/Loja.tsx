@@ -389,12 +389,33 @@ export default function Loja() {
   const [flyAnimations, setFlyAnimations] = useState<FlyAnimation[]>([]);
   const [cartShake, setCartShake] = useState(false);
 
-  const { storedCart, setStoredCart, storedStore, setStoredStore } =
-    useLocalStorageCart();
+  const { storedCart, setStoredCart } = useLocalStorageCart();
   const [cart, setCart] = useState<CartItem[]>(storedCart);
-  const [selectedStore, setSelectedStore] = useState<string | null>(
-    storedStore,
-  );
+  const [selectedStore, setSelectedStore] = useState<string | null>(() => {
+    try {
+      const value = localStorage.getItem("eskimo_store");
+      return value && value.trim() !== "" ? value : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (selectedStore) {
+        localStorage.setItem("eskimo_store", selectedStore);
+      } else {
+        localStorage.removeItem("eskimo_store");
+      }
+    } catch {
+      /* noop */
+    }
+
+    const event = new CustomEvent<string | null>("eskimo:store-change", {
+      detail: selectedStore,
+    });
+    window.dispatchEvent(event);
+  }, [selectedStore]);
 
   // Toast simples local
   const [toast, setToast] = useState<{
@@ -559,9 +580,6 @@ export default function Loja() {
   useEffect(() => {
     setStoredCart(cart);
   }, [cart, setStoredCart]);
-  useEffect(() => {
-    if (selectedStore) setStoredStore(selectedStore);
-  }, [selectedStore, setStoredStore]);
 
   // qtd no carrinho para um produto
   const getQtyInCart = useCallback(
@@ -1472,6 +1490,21 @@ export default function Loja() {
             </button>
           </div>
         )}
+
+        <div className="mb-2 flex justify-center px-4">
+          <select
+            value={selectedStore ?? ""}
+            onChange={(e) =>
+              setSelectedStore(e.target.value ? e.target.value : null)
+            }
+            className="w-full max-w-xs rounded-full border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm focus:border-amber-400 focus:outline-none"
+          >
+            <option value="">Selecione a loja</option>
+            <option value="efapi">EFAPI</option>
+            <option value="palmital">PALMITAL</option>
+            <option value="passo">PASSO</option>
+          </select>
+        </div>
 
         {/* Seleção de unidade */}
         <div className="z-50 flex flex-wrap justify-center gap-2 px-3 py-1 md:gap-4 md:px-5">

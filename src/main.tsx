@@ -7,6 +7,12 @@ import { StatusAPI } from "./services/api";
 
 import "./index.css";
 
+declare global {
+  interface WindowEventMap {
+    "eskimo:store-change": CustomEvent<string | null>;
+  }
+}
+
 type StatusPayload = {
   isOpen: boolean;
   message?: string;
@@ -19,6 +25,40 @@ function AppGate({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [store, setStore] = useState<string | null>(null);
+
+  // Sincroniza loja selecionada (localStorage + eventos)
+  useEffect(() => {
+    const key = "eskimo_store";
+
+    const readStore = () => {
+      try {
+        const value = localStorage.getItem(key);
+        setStore(value && value.trim() !== "" ? value : null);
+      } catch {
+        setStore(null);
+      }
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === key) {
+        readStore();
+      }
+    };
+
+    const handleCustom = (event: CustomEvent<string | null>) => {
+      setStore(event.detail && event.detail.trim() !== "" ? event.detail : null);
+    };
+
+    readStore();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("eskimo:store-change", handleCustom);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("eskimo:store-change", handleCustom);
+    };
+  }, []);
 
   // Consulta inicial + revalidação periódica
   useEffect(() => {
@@ -27,7 +67,7 @@ function AppGate({ children }: { children: React.ReactNode }) {
     const fetchStatus = async () => {
       try {
         setError(null);
-        const data = await StatusAPI.isOpen();
+        const data = await StatusAPI.isOpen(store ?? undefined);
         if (cancelled) return;
         const normalized: StatusPayload = {
           isOpen: Boolean(data?.isOpen),
@@ -58,7 +98,7 @@ function AppGate({ children }: { children: React.ReactNode }) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [store]);
 
   const isClosed = useMemo(() => status?.isOpen === false, [status]);
 

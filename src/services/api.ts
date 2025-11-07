@@ -20,8 +20,11 @@ export type StatusResponse = {
 };
 
 export const StatusAPI = {
-  async isOpen(): Promise<StatusResponse> {
-    const response = await api.get<StatusResponse>("/status/isOpen");
+  async isOpen(store?: string): Promise<StatusResponse> {
+    const endpoint = store
+      ? `/status/isOpen/${encodeURIComponent(store)}`
+      : "/status/isOpen";
+    const response = await api.get<StatusResponse>(endpoint);
     return response.data;
   },
 };
