@@ -11,6 +11,19 @@ const api = axios.create({
   },
 });
 
+api.interceptors.request.use((config) => {
+  try {
+    const store = localStorage.getItem("eskimo_store");
+    if (store && store.trim() !== "") {
+      config.headers = config.headers ?? {};
+      config.headers["X-Store"] = store.trim().toLowerCase();
+    }
+  } catch {
+    /* ignore */
+  }
+  return config;
+});
+
 export default api;
 export type StatusResponse = {
   isOpen: boolean;

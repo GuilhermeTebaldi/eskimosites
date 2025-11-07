@@ -427,6 +427,17 @@ export default function Loja() {
     window.dispatchEvent(event);
   }, [selectedStore]);
 
+  const fetchWithStore = useCallback(
+    (input: RequestInfo | URL, init?: RequestInit) => {
+      const headers = new Headers(init?.headers || {});
+      if (selectedStore && selectedStore.trim() !== "") {
+        headers.set("X-Store", selectedStore.trim().toLowerCase());
+      }
+      return fetch(input, { ...init, headers });
+    },
+    [selectedStore],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -435,7 +446,7 @@ export default function Loja() {
         const endpoint = selectedStore
           ? `${API_URL}/status/isOpen/${encodeURIComponent(selectedStore)}`
           : `${API_URL}/status/isOpen`;
-        const res = await fetch(endpoint);
+        const res = await fetchWithStore(endpoint);
         const data = res.ok ? await res.json() : { isOpen: true };
         if (!cancelled) {
           setStatus(data);
@@ -454,7 +465,7 @@ export default function Loja() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [selectedStore]);
+  }, [fetchWithStore, selectedStore]);
 
   // Toast simples local
   const [toast, setToast] = useState<{
@@ -857,7 +868,7 @@ export default function Loja() {
       setPaymentConfig(null);
       return;
     }
-    fetch(`${API_URL}/paymentconfigs/${encodeURIComponent(storeName)}`)
+    fetchWithStore(`${API_URL}/paymentconfigs/${encodeURIComponent(storeName)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: PaymentConfig | null) => {
         setPaymentConfig(data);
@@ -866,7 +877,7 @@ export default function Loja() {
         console.warn("paymentconfigs fetch error", e);
         setPaymentConfig(null);
       });
-  }, [selectedStore]);
+  }, [fetchWithStore, selectedStore]);
 
   // categorias e subcategorias memorizadas
   const categories = useMemo(
@@ -1202,7 +1213,7 @@ export default function Loja() {
 
   const checkPaidOnce = useCallback(async (id: number): Promise<boolean> => {
     try {
-      const r = await fetch(`${API_URL}/orders/${id}`);
+      const r = await fetchWithStore(`${API_URL}/orders/${id}`);
       if (!r.ok) return false;
       const o = await r.json();
       const raw = String(
@@ -1212,7 +1223,7 @@ export default function Loja() {
     } catch {
       return false;
     }
-  }, []);
+  }, [fetchWithStore]);
 
   // Abre o Wallet Brick
   const openWalletBrick = useCallback(
@@ -1328,7 +1339,7 @@ export default function Loja() {
 
       if (orderId && getLastSig() && getLastSig() !== currentSig) {
         try {
-          await fetch(`${API_URL}/orders/${orderId}/cancel`, {
+          await fetchWithStore(`${API_URL}/orders/${orderId}/cancel`, {
             method: "PATCH",
           });
         } catch {
@@ -1365,7 +1376,7 @@ export default function Loja() {
           phoneNumber,
         };
 
-        const orderRes = await fetch(`${API_URL}/orders`, {
+        const orderRes = await fetchWithStore(`${API_URL}/orders`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(orderPayload),
@@ -1405,7 +1416,7 @@ export default function Loja() {
       setLastSig(currentSig);
 
       // 2) Cria a preference e abre o Wallet (modal no mesmo tab)
-      const payRes = await fetch(
+      const payRes = await fetchWithStore(
         `${API_URL}/payments/mp/checkout?orderId=${currentOrderId}`,
         { method: "POST" },
       );
@@ -1460,6 +1471,7 @@ export default function Loja() {
     isClosed,
     showToast,
     status?.message,
+    fetchWithStore,
   ]);
 
   // ---- RENDER ----
@@ -1975,9 +1987,9 @@ export default function Loja() {
                         getLastSig() !== currentSig
                       ) {
                         try {
-                          await fetch(`${API_URL}/orders/${orderId}/cancel`, {
-                            method: "PATCH",
-                          });
+                        await fetchWithStore(`${API_URL}/orders/${orderId}/cancel`, {
+                          method: "PATCH",
+                        });
                         } catch {
                           /* não bloqueia o fluxo */
                         }
@@ -2101,9 +2113,9 @@ export default function Loja() {
                   stopPolling();
                   if (orderId) {
                     try {
-                      await fetch(`${API_URL}/orders/${orderId}/cancel`, {
-                        method: "PATCH",
-                      });
+                    await fetchWithStore(`${API_URL}/orders/${orderId}/cancel`, {
+                      method: "PATCH",
+                    });
                     } catch {
                       /* empty */
                     }
