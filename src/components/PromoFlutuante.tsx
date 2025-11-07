@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import api from "../services/api";
 
 type PromoProduct = {
   id: number;
@@ -13,6 +14,25 @@ type PromoProduct = {
   sortRank?: number;
   pinnedTop?: boolean;
   style?: Record<string, unknown>;
+};
+
+type PromotionResponse = {
+  id: number;
+  productId: number;
+  previousPrice?: number;
+  currentPrice?: number;
+  highlightText?: string;
+  updatedAt?: string;
+  product?: {
+    id: number;
+    name: string;
+    description?: string | null;
+    price: number;
+    imageUrl?: string | null;
+    categoryName?: string | null;
+    subcategoryName?: string | null;
+    stock?: number | null;
+  };
 };
 
 interface PromoFlutuanteProps {
@@ -38,6 +58,9 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
   });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const productImageRef = useRef<HTMLImageElement | null>(null);
+  const [promotion, setPromotion] = useState<PromotionResponse | null>(null);
+  const [promotionLoading, setPromotionLoading] = useState(true);
+  const [promotionSupported, setPromotionSupported] = useState(true);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -70,18 +93,63 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
       document.removeEventListener("touchstart", handlePointerDown);
     };
   }, [open]);
+  const promoProduto = useMemo<PromoProduct | null>(() => {
+    if (!promotion?.product) return null;
+    const product = promotion.product;
+    return {
+      id: product.id,
+      name: product.name,
+      description:
+        promotion.highlightText && promotion.highlightText.trim().length > 0
+          ? promotion.highlightText
+          : product.description ?? "Aproveite esta oferta exclusiva!",
+      price: promotion.currentPrice ?? product.price,
+      imageUrl: product.imageUrl ?? "https://via.placeholder.com/160?text=Eskim%C3%B3",
+      categoryName: product.categoryName ?? "Promoções",
+      stock: product.stock ?? 0,
+      subcategoryName: product.subcategoryName ?? undefined,
+    };
+  }, [promotion]);
 
-  // produto de exemplo (poderá vir da seção /promoções futuramente)
-  const promoProduto: PromoProduct = {
-    id: 9999,
-    name: "Sorvete Brigadeiro",
-    description: "Promoção especial de lançamento 🍫",
-    price: 3.99,
-    imageUrl:
-      "https://eskimo.com.br/wp-content/uploads/2023/08/Seletto-brigadeiro-sem-lupa.png",
-    categoryName: "Promoções",
-    stock: 50,
-  };
+  const previousPrice = promotion?.previousPrice ?? promotion?.product?.price;
+
+  useEffect(() => {
+    if (!promotionSupported) {
+      setPromotion(null);
+      setPromotionLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchPromotion = async () => {
+      try {
+        const { data } = await api.get<PromotionResponse | null>("/promotions/active");
+        if (!isMounted) return;
+        setPromotion(data);
+      } catch (error: unknown) {
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        if (status === 404) {
+          if (isMounted) {
+            setPromotion(null);
+            setPromotionSupported(false);
+          }
+        } else {
+          console.error("Erro ao carregar promoção flutuante:", error);
+          if (isMounted) setPromotion(null);
+        }
+      } finally {
+        if (isMounted) setPromotionLoading(false);
+      }
+    };
+
+    fetchPromotion();
+    const interval = window.setInterval(fetchPromotion, 120000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [promotionSupported]);
 
   return (
     <div
@@ -121,35 +189,55 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
             </div>
 
             <div className="space-y-4 p-4">
-              {/* Card de produto */}
-              <div className="rounded-xl border p-3 transition hover:shadow-md">
-                <img
-                  ref={productImageRef}
-                  src={promoProduto.imageUrl}
-                  alt={promoProduto.name}
-                  className="mb-2 rounded-lg"
-                />
-                <p className="font-semibold">{promoProduto.name}</p>
-                <p className="text-sm text-gray-500 line-through">R$ 5,50</p>
-                <p className="font-bold text-red-600">
-                  R$ {promoProduto.price.toFixed(2)}
-                </p>
-                <button
-                  onClick={() => {
-                    const originRect =
-                      productImageRef.current?.getBoundingClientRect();
-                    addToCart(promoProduto, 1, {
-                      imageUrl: promoProduto.imageUrl,
-                      originRect: originRect ?? undefined,
-                      productId: promoProduto.id,
-                      onBeforeAnimate: () => setOpen(false),
-                    });
-                  }}
-                  className="mt-2 w-full rounded-md bg-green-600 py-1 text-sm text-white hover:bg-green-700"
-                >
-                  Adicionar ao Carrinho
-                </button>
-              </div>
+              {promotionLoading ? (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+                  Carregando promoção...
+                </div>
+              ) : promoProduto ? (
+                <div className="rounded-xl border p-3 transition hover:shadow-md">
+                  <img
+                    ref={productImageRef}
+                    src={promoProduto.imageUrl}
+                    alt={promoProduto.name}
+                    className="mb-2 rounded-lg"
+                    onError={(e) => {
+                      e.currentTarget.src = "https://via.placeholder.com/160?text=Eskim%C3%B3";
+                    }}
+                  />
+                  <p className="text-xs uppercase text-gray-500">
+                    {promoProduto.categoryName}
+                  </p>
+                  <p className="font-semibold text-gray-800">{promoProduto.name}</p>
+                  <p className="text-sm text-gray-600">{promoProduto.description}</p>
+                  {typeof previousPrice === "number" && previousPrice > promoProduto.price && (
+                    <p className="mt-2 text-sm text-gray-500 line-through">
+                      R$ {previousPrice.toFixed(2)}
+                    </p>
+                  )}
+                  <p className="font-bold text-red-600">
+                    R$ {promoProduto.price.toFixed(2)}
+                  </p>
+                  <button
+                    onClick={() => {
+                      const originRect =
+                        productImageRef.current?.getBoundingClientRect();
+                      addToCart(promoProduto, 1, {
+                        imageUrl: promoProduto.imageUrl,
+                        originRect: originRect ?? undefined,
+                        productId: promoProduto.id,
+                        onBeforeAnimate: () => setOpen(false),
+                      });
+                    }}
+                    className="mt-3 w-full rounded-md bg-green-600 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                  >
+                    Adicionar ao Carrinho
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+                  Nenhuma promoção ativa no momento. Volte em instantes! ❄️
+                </div>
+              )}
             </div>
           </motion.div>
         )}
