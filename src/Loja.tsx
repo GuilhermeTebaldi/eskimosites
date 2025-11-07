@@ -375,6 +375,8 @@ export default function Loja() {
   const [walletOpen, setWalletOpen] = useState(false);
   const walletCtrlRef = useRef<WalletController | null>(null);
   const pollRef = useRef<number | null>(null);
+  const autoRedirectInProgressRef = useRef(false);
+  const noOpenStoreToastRef = useRef(false);
 
   // refs para acessibilidade
   const checkoutFirstInputRef = useRef<HTMLInputElement>(null);
@@ -386,7 +388,7 @@ export default function Loja() {
   // estado geral
   const [orderId, setOrderId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("55");
   const [showInstruction, setShowInstruction] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -406,6 +408,7 @@ export default function Loja() {
       return null;
     }
   });
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const isClosed = useMemo(() => status?.isOpen === false, [status]);
@@ -438,34 +441,11 @@ export default function Loja() {
     [selectedStore],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchStatus = async () => {
-      try {
-        const endpoint = selectedStore
-          ? `${API_URL}/status/isOpen/${encodeURIComponent(selectedStore)}`
-          : `${API_URL}/status/isOpen`;
-        const res = await fetchWithStore(endpoint);
-        const data = res.ok ? await res.json() : { isOpen: true };
-        if (!cancelled) {
-          setStatus(data);
-        }
-      } catch {
-        if (!cancelled) {
-          setStatus({ isOpen: true });
-        }
-      }
-    };
-
-    fetchStatus();
-    const interval = window.setInterval(fetchStatus, 60000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [fetchWithStore, selectedStore]);
+  const updateSelectedStore = useCallback((store: string | null) => {
+    autoRedirectInProgressRef.current = false;
+    noOpenStoreToastRef.current = false;
+    setSelectedStore(store);
+  }, []);
 
   // Toast simples local
   const [toast, setToast] = useState<{
@@ -508,6 +488,116 @@ export default function Loja() {
   const [componentKey, setComponentKey] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [customAddress, setCustomAddress] = useState("");
+
+  // lojas (constante)
+  const storeLocations = useMemo(
+    () => [
+      { name: "efapi", lat: -27.112815, lng: -52.670769 },
+      { name: "palmital", lat: -27.1152884, lng: -52.6166752 },
+      { name: "passo", lat: -27.077056, lng: -52.6122383 },
+    ],
+    [],
+  );
+
+  const autoSelectNearestOpenStore = useCallback(
+    async (currentStore: string) => {
+      const ordered = [...storeLocations];
+      if (userCoords) {
+        ordered.sort(
+          (a, b) =>
+            getDistanceFromLatLonInKm(
+              userCoords.lat,
+              userCoords.lng,
+              a.lat,
+              a.lng,
+            ) -
+            getDistanceFromLatLonInKm(
+              userCoords.lat,
+              userCoords.lng,
+              b.lat,
+              b.lng,
+            ),
+        );
+      }
+
+      for (const store of ordered) {
+        if (store.name === currentStore) continue;
+        try {
+          const res = await fetch(
+            `${API_URL}/status/isOpen/${encodeURIComponent(store.name)}`,
+          );
+          if (!res.ok) continue;
+          const candidate = await res.json();
+          if (candidate?.isOpen) {
+            updateSelectedStore(store.name);
+            setStatus(candidate);
+            showToast(
+              `Direcionamos você para ${store.name.toUpperCase()} (aberta agora).`,
+              "info",
+            );
+            noOpenStoreToastRef.current = false;
+            return true;
+          }
+        } catch {
+          // ignora falha isolada e tenta próxima loja
+        }
+      }
+      return false;
+    },
+    [showToast, storeLocations, updateSelectedStore, userCoords],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchStatus = async () => {
+      try {
+        const endpoint = selectedStore
+          ? `${API_URL}/status/isOpen/${encodeURIComponent(selectedStore)}`
+          : `${API_URL}/status/isOpen`;
+        const res = await fetchWithStore(endpoint);
+        const data = res.ok ? await res.json() : { isOpen: true };
+        if (cancelled) return;
+        setStatus(data);
+
+        if (selectedStore && data?.isOpen === false) {
+          if (!autoRedirectInProgressRef.current) {
+            autoRedirectInProgressRef.current = true;
+            autoSelectNearestOpenStore(selectedStore).then((found) => {
+              autoRedirectInProgressRef.current = false;
+              if (!found && !noOpenStoreToastRef.current) {
+                showToast(
+                  "Nenhuma unidade está aberta no momento.",
+                  "warning",
+                );
+                noOpenStoreToastRef.current = true;
+              }
+            });
+          }
+        } else if (data?.isOpen) {
+          autoRedirectInProgressRef.current = false;
+          noOpenStoreToastRef.current = false;
+        }
+      } catch {
+        if (!cancelled) {
+          setStatus({ isOpen: true });
+        }
+      }
+    };
+
+    fetchStatus();
+    const interval = window.setInterval(fetchStatus, 60000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [
+    autoSelectNearestOpenStore,
+    fetchWithStore,
+    selectedStore,
+    showToast,
+  ]);
 
   const [customerName, setCustomerName] = useState("");
   const [deliveryType] = useState<"retirar" | "entregar">("entregar");
@@ -605,16 +695,6 @@ export default function Loja() {
     null,
   );
 
-  // lojas (constante)
-  const storeLocations = useMemo(
-    () => [
-      { name: "efapi", lat: -27.112815, lng: -52.670769 },
-      { name: "palmital", lat: -27.1152884, lng: -52.6166752 },
-      { name: "passo", lat: -27.077056, lng: -52.6122383 },
-    ],
-    [],
-  );
-
   // hook da taxa de entrega
   const { deliveryFee, recalc } = useDeliveryFee(
     deliveryRate,
@@ -625,6 +705,11 @@ export default function Loja() {
     () => Math.max(deliveryFee, minDelivery),
     [deliveryFee, minDelivery],
   );
+  const phoneDigits = phoneNumber.startsWith("55")
+    ? phoneNumber.slice(2)
+    : phoneNumber;
+  const isPhoneValid =
+    phoneNumber.replace(/\D/g, "").length >= 13;
 
   // persistir carrinho e unidade
   useEffect(() => {
@@ -791,6 +876,7 @@ export default function Loja() {
         const pos = await getPosition();
         const userLat = pos.coords.latitude;
         const userLng = pos.coords.longitude;
+        setUserCoords({ lat: userLat, lng: userLng });
 
         // calcula loja mais próxima
         let closest = storeLocations[0];
@@ -808,11 +894,12 @@ export default function Loja() {
             closest = s;
           }
         }
-        setSelectedStore(closest.name);
+        updateSelectedStore(closest.name);
         setShowInstruction(false);
       } catch (err) {
         console.warn("Permissão de localização negada:", err);
-        setSelectedStore(null);
+        setUserCoords(null);
+        updateSelectedStore(null);
         setShowInstruction(true);
         // 🔁 mostra botão de pedir novamente permissão
         showToast("Ative sua localização para calcular entrega.", "warning");
@@ -1035,9 +1122,9 @@ export default function Loja() {
   // máscara e envio limpo do telefone
   const handlePhoneChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      let valor = e.target.value.replace(/\D/g, "");
-      if (!valor.startsWith("55")) valor = "55" + valor;
-      if (valor.length <= 13) setPhoneNumber(valor);
+      let digits = e.target.value.replace(/\D/g, "");
+      if (digits.length > 11) digits = digits.slice(0, 11);
+      setPhoneNumber(digits ? `55${digits}` : "55");
     },
     [],
   );
@@ -1156,7 +1243,7 @@ export default function Loja() {
       showToast("Informe o número.", "warning");
       return false;
     }
-    if (!phoneNumber || phoneNumber.replace(/\D/g, "").length < 13) {
+    if (!isPhoneValid) {
       showToast("Informe seu WhatsApp com DDD (ex: 49991234567).", "warning");
       return false;
     }
@@ -1182,6 +1269,7 @@ export default function Loja() {
     deliveryFee,
     minDelivery,
     recalc,
+    isPhoneValid,
   ]);
 
   // SDK do Mercado Pago
@@ -1529,6 +1617,7 @@ export default function Loja() {
                   const pos = await getPosition();
                   const userLat = pos.coords.latitude;
                   const userLng = pos.coords.longitude;
+                  setUserCoords({ lat: userLat, lng: userLng });
 
                   let closest = storeLocations[0];
                   let min = getDistanceFromLatLonInKm(
@@ -1550,7 +1639,7 @@ export default function Loja() {
                       closest = s;
                     }
                   }
-                  setSelectedStore(closest.name);
+                  updateSelectedStore(closest.name);
                   setShowInstruction(false);
                   showToast("Localização detectada com sucesso!", "success");
                 } catch (err) {
@@ -1576,10 +1665,11 @@ export default function Loja() {
             <button
               key={store}
               onClick={() => {
-                if (selectedStore !== store) setSelectedStore(store);
+                if (selectedStore !== store) updateSelectedStore(store);
                 else {
-                  setSelectedStore(null);
-                  setTimeout(() => setSelectedStore(store), 0);
+                  setUserCoords(null);
+                  updateSelectedStore(null);
+                  setTimeout(() => updateSelectedStore(store), 0);
                 }
                 setCart([]);
                 setShowInstruction(false);
@@ -1935,17 +2025,24 @@ export default function Loja() {
                   onChange={(e) => setComplement(e.target.value)}
                   className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-base text-gray-700"
                 />
-                <input
-                  type="tel"
-                  placeholder="* WhatsApp com DDD (ex: 49991234567)"
-                  value={phoneNumber}
-                  onChange={handlePhoneChange}
-                  className={`w-full rounded-xl border px-4 py-2 text-base text-gray-700 ${
-                    !phoneNumber || phoneNumber.length < 13
-                      ? "border-red-400 bg-red-50"
-                      : "border-gray-300 bg-gray-50"
-                  } focus:border-red-400 focus:ring focus:ring-red-200`}
-                />
+                <div
+                  className={`flex items-center rounded-xl border px-3 py-2 text-base ${
+                    isPhoneValid
+                      ? "border-gray-300 bg-gray-50"
+                      : "border-red-400 bg-red-50"
+                  } focus-within:border-red-400 focus-within:ring focus-within:ring-red-200`}
+                >
+                  <span className="pr-2 text-sm font-semibold text-gray-600">
+                    +55
+                  </span>
+                  <input
+                    type="tel"
+                    placeholder="* WhatsApp (ex: 9991234567)"
+                    value={phoneDigits}
+                    onChange={handlePhoneChange}
+                    className="w-full border-none bg-transparent text-base text-gray-700 focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="mt-4">
