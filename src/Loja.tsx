@@ -62,6 +62,13 @@ type AddToCartOptions = {
   onBeforeAnimate?: () => void;
 };
 
+type StatusPayload = {
+  isOpen: boolean;
+  message?: string;
+  now?: string;
+  nextOpening?: string | null;
+};
+
 /************************************
  * Constantes & helpers
  ************************************/
@@ -400,6 +407,9 @@ export default function Loja() {
     }
   });
 
+  const [status, setStatus] = useState<StatusPayload | null>(null);
+  const isClosed = useMemo(() => status?.isOpen === false, [status]);
+
   useEffect(() => {
     try {
       if (selectedStore) {
@@ -415,6 +425,35 @@ export default function Loja() {
       detail: selectedStore,
     });
     window.dispatchEvent(event);
+  }, [selectedStore]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchStatus = async () => {
+      try {
+        const endpoint = selectedStore
+          ? `${API_URL}/status/isOpen/${encodeURIComponent(selectedStore)}`
+          : `${API_URL}/status/isOpen`;
+        const res = await fetch(endpoint);
+        const data = res.ok ? await res.json() : { isOpen: true };
+        if (!cancelled) {
+          setStatus(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setStatus({ isOpen: true });
+        }
+      }
+    };
+
+    fetchStatus();
+    const interval = window.setInterval(fetchStatus, 60000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
   }, [selectedStore]);
 
   // Toast simples local
@@ -999,6 +1038,13 @@ export default function Loja() {
       quantity: number = 1,
       animation?: AddToCartOptions,
     ): void => {
+      if (isClosed) {
+        showToast(
+          status?.message || "Fora do horário de funcionamento.",
+          "warning",
+        );
+        return;
+      }
       let addedQuantity = 0;
       setCart((prev) => {
         const existing = prev.find((i) => i.product.id === product.id);
@@ -1029,7 +1075,7 @@ export default function Loja() {
         );
       }
     },
-    [showToast, triggerCartAnimation],
+    [isClosed, showToast, status?.message, triggerCartAnimation],
   );
 
   const removeFromCart = useCallback(
@@ -1252,6 +1298,13 @@ export default function Loja() {
 
   // Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
   const handleMercadoPagoPayment = useCallback(async () => {
+    if (isClosed) {
+      showToast(
+        status?.message || "Loja fechada no momento.",
+        "warning",
+      );
+      return;
+    }
     if (paymentBusy) return;
 
     setPaymentBusy(true);
@@ -1392,7 +1445,6 @@ export default function Loja() {
     orderId,
     deliveryType,
     effectiveDeliveryFee,
-
     subtotal,
     customerName,
     address,
@@ -1405,12 +1457,25 @@ export default function Loja() {
     phoneNumber,
     openWalletBrick,
     setPaymentOverlay,
+    isClosed,
+    showToast,
+    status?.message,
   ]);
 
   // ---- RENDER ----
   return (
     <div key={componentKey} className="loja-container">
       {/* espaçamento para o header */}
+      {isClosed && (
+        <div className="fixed left-0 right-0 top-0 z-[60] bg-red-600 text-white text-center text-sm font-semibold shadow-lg">
+          <div className="px-4 py-2">
+            {status?.message || "Loja fechada"}
+            {status?.nextOpening
+              ? ` · Próxima abertura: ${status.nextOpening}`
+              : ""}
+          </div>
+        </div>
+      )}
       <div className="h-[205px]" />
 
       <LinhaProdutosAtalhos
