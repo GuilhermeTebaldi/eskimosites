@@ -41,6 +41,26 @@ interface CartItem {
   quantity: number;
 }
 
+type PromotionDTO = {
+  id: number;
+  productId: number;
+  previousPrice: number | null;
+  currentPrice: number;
+  highlightText?: string | null;
+  product?: {
+    id: number;
+    name: string;
+    description: string;
+    price: number;
+    imageUrl: string;
+    categoryName: string;
+    subcategoryName?: string;
+    stock: number;
+    sortRank?: number;
+    pinnedTop?: boolean;
+  } | null;
+};
+
 interface PaymentConfig {
   provider?: string;
   isActive?: boolean;
@@ -452,6 +472,7 @@ export default function Loja() {
     type: "info" | "success" | "warning" | "error";
     message: string;
   } | null>(null);
+  const [promos, setPromos] = useState<PromotionDTO[]>([]);
   const toastTimerRef = useRef<number | null>(null);
   const showToast = useCallback(
     (
@@ -599,6 +620,31 @@ export default function Loja() {
     showToast,
   ]);
 
+  useEffect(() => {
+    if (!selectedStore) {
+      setPromos([]);
+      return;
+    }
+    let cancelled = false;
+
+    const loadPromotions = async () => {
+      try {
+        const res = await fetchWithStore(`${API_URL}/promotions/list`);
+        const data = res.ok ? await res.json() : [];
+        if (!cancelled) setPromos(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setPromos([]);
+      }
+    };
+
+    loadPromotions();
+    const interval = window.setInterval(loadPromotions, 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [fetchWithStore, selectedStore]);
+
   const [customerName, setCustomerName] = useState("");
   const [deliveryType] = useState<"retirar" | "entregar">("entregar");
   const [deliveryRate, setDeliveryRate] = useState<number>(0);
@@ -721,6 +767,19 @@ export default function Loja() {
     (productId: number) =>
       cart.find((i) => i.product.id === productId)?.quantity ?? 0,
     [cart],
+  );
+
+  const openProductDetails = useCallback(
+    (product: Product) => {
+      const remaining = product.stock - getQtyInCart(product.id);
+      if (remaining <= 0) {
+        showToast("Estoque máximo já está no seu carrinho.", "warning");
+        return;
+      }
+      setSelectedProduct(product);
+      setQuantityToAdd(1);
+    },
+    [getQtyInCart, showToast],
   );
 
   // subtotal
@@ -1798,18 +1857,7 @@ export default function Loja() {
               >
                 <div
                   className="product-image-wrapper"
-                  onClick={() => {
-                    const remaining = product.stock - getQtyInCart(product.id);
-                    if (remaining <= 0) {
-                      showToast(
-                        "Estoque máximo já está no seu carrinho.",
-                        "warning",
-                      );
-                      return;
-                    }
-                    setSelectedProduct(product);
-                    setQuantityToAdd(1);
-                  }}
+                  onClick={() => openProductDetails(product)}
                 >
                   <img
                     loading="lazy"
@@ -2433,7 +2481,7 @@ export default function Loja() {
           {toast.message}
         </div>
       )}
-      <PromoFlutuante addToCart={addToCart} />
+      <PromoFlutuante promos={promos} addToCart={addToCart} openProduct={openProductDetails} />
       <AnimatePresence>
         {flyAnimations.map((anim) => {
           const deltaX = anim.end.x - anim.start.x;

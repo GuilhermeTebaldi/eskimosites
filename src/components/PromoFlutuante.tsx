@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import api from "../services/api";
+
+const fmtBRL = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
 
 type PromoProduct = {
   id: number;
@@ -13,29 +17,19 @@ type PromoProduct = {
   subcategoryName?: string;
   sortRank?: number;
   pinnedTop?: boolean;
-  style?: Record<string, unknown>;
 };
 
-type PromotionResponse = {
+type PromotionDTO = {
   id: number;
   productId: number;
-  previousPrice?: number;
-  currentPrice?: number;
-  highlightText?: string;
-  updatedAt?: string;
-  product?: {
-    id: number;
-    name: string;
-    description?: string | null;
-    price: number;
-    imageUrl?: string | null;
-    categoryName?: string | null;
-    subcategoryName?: string | null;
-    stock?: number | null;
-  };
+  previousPrice: number | null;
+  currentPrice: number;
+  highlightText?: string | null;
+  product?: PromoProduct | null;
 };
 
 interface PromoFlutuanteProps {
+  promos: PromotionDTO[];
   addToCart: (
     product: PromoProduct,
     quantity?: number,
@@ -46,9 +40,10 @@ interface PromoFlutuanteProps {
       onBeforeAnimate?: () => void;
     },
   ) => void;
+  openProduct?: (product: PromoProduct) => void;
 }
 
-export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
+export default function PromoFlutuante({ promos, addToCart, openProduct }: PromoFlutuanteProps) {
   const [open, setOpen] = useState(false);
   const [slideOffset, setSlideOffset] = useState(() => {
     if (typeof window !== "undefined") {
@@ -57,10 +52,13 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
     return 320;
   });
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const productImageRef = useRef<HTMLImageElement | null>(null);
-  const [promotion, setPromotion] = useState<PromotionResponse | null>(null);
-  const [promotionLoading, setPromotionLoading] = useState(true);
-  const [promotionSupported, setPromotionSupported] = useState(true);
+  const imageRefs = useRef<Record<number, HTMLImageElement | null>>({});
+
+  const promoList = useMemo(
+    () => (Array.isArray(promos) ? promos.filter((p) => p?.product) : []),
+    [promos],
+  );
+  const hasPromos = promoList.length > 0;
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -74,6 +72,7 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
     window.addEventListener("resize", updateOffset);
     return () => window.removeEventListener("resize", updateOffset);
   }, []);
+
   useEffect(() => {
     if (!open) return undefined;
 
@@ -93,70 +92,25 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
       document.removeEventListener("touchstart", handlePointerDown);
     };
   }, [open]);
-  const promoProduto = useMemo<PromoProduct | null>(() => {
-    if (!promotion?.product) return null;
-    const product = promotion.product;
-    return {
-      id: product.id,
-      name: product.name,
-      description:
-        promotion.highlightText && promotion.highlightText.trim().length > 0
-          ? promotion.highlightText
-          : product.description ?? "Aproveite esta oferta exclusiva!",
-      price: promotion.currentPrice ?? product.price,
-      imageUrl: product.imageUrl ?? "https://via.placeholder.com/160?text=Eskim%C3%B3",
-      categoryName: product.categoryName ?? "Promoções",
-      stock: product.stock ?? 0,
-      subcategoryName: product.subcategoryName ?? undefined,
-    };
-  }, [promotion]);
 
-  const previousPrice = promotion?.previousPrice ?? promotion?.product?.price;
+  const handleAddToCart = (promoId: number, prod: PromoProduct) => {
+    const originRect = imageRefs.current[promoId]?.getBoundingClientRect();
+    addToCart(prod, 1, {
+      imageUrl: prod.imageUrl,
+      originRect: originRect ?? undefined,
+      productId: prod.id,
+      onBeforeAnimate: () => setOpen(false),
+    });
+  };
+  const handleOpenProduct = (prod: PromoProduct) => {
+    if (!openProduct) return;
+    openProduct(prod);
+  };
 
-  useEffect(() => {
-    if (!promotionSupported) {
-      setPromotion(null);
-      setPromotionLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-
-    const fetchPromotion = async () => {
-      try {
-        const { data } = await api.get<PromotionResponse | null>("/promotions/active");
-        if (!isMounted) return;
-        setPromotion(data);
-      } catch (error: unknown) {
-        const status = (error as { response?: { status?: number } })?.response?.status;
-        if (status === 404) {
-          if (isMounted) {
-            setPromotion(null);
-            setPromotionSupported(false);
-          }
-        } else {
-          console.error("Erro ao carregar promoção flutuante:", error);
-          if (isMounted) setPromotion(null);
-        }
-      } finally {
-        if (isMounted) setPromotionLoading(false);
-      }
-    };
-
-    fetchPromotion();
-    const interval = window.setInterval(fetchPromotion, 120000);
-    return () => {
-      isMounted = false;
-      window.clearInterval(interval);
-    };
-  }, [promotionSupported]);
+  if (!hasPromos) return null;
 
   return (
-    <div
-      ref={containerRef}
-      className="fixed bottom-40 left-0 z-40 flex items-center"
-    >
-      {/* Botão lateral */}
+    <div ref={containerRef} className="fixed bottom-40 left-0 z-40 flex items-center">
       <motion.div
         className="cursor-pointer rounded-r-xl bg-red-600 px-3 py-2 text-white shadow-lg"
         initial={{ x: 0 }}
@@ -164,10 +118,9 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
         onClick={() => setOpen((prev) => !prev)}
         whileHover={{ scale: 1.05 }}
       >
-        🎁 Promoções
+      Promoções 🎁
       </motion.div>
 
-      {/* Painel expandido */}
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -178,8 +131,8 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
             exit={{ x: -slideOffset }}
             transition={{ type: "spring", stiffness: 260, damping: 25 }}
           >
-            <div className="flex items-center justify-between bg-red-600 p-4 text-white">
-              <h2 className="text-lg font-bold">Promoções</h2>
+            <div className="flex items-center justify-between bg-red-600 p-3 text-white">
+              <h2 className="text-base font-semibold">Promoções</h2>
               <button
                 className="text-white/80 transition-colors hover:text-white"
                 onClick={() => setOpen(false)}
@@ -188,56 +141,67 @@ export default function PromoFlutuante({ addToCart }: PromoFlutuanteProps) {
               </button>
             </div>
 
-            <div className="space-y-4 p-4">
-              {promotionLoading ? (
-                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
-                  Carregando promoção...
-                </div>
-              ) : promoProduto ? (
-                <div className="rounded-xl border p-3 transition hover:shadow-md">
-                  <img
-                    ref={productImageRef}
-                    src={promoProduto.imageUrl}
-                    alt={promoProduto.name}
-                    className="mb-2 rounded-lg"
-                    onError={(e) => {
-                      e.currentTarget.src = "https://via.placeholder.com/160?text=Eskim%C3%B3";
-                    }}
-                  />
-                  <p className="text-xs uppercase text-gray-500">
-                    {promoProduto.categoryName}
-                  </p>
-                  <p className="font-semibold text-gray-800">{promoProduto.name}</p>
-                  <p className="text-sm text-gray-600">{promoProduto.description}</p>
-                  {typeof previousPrice === "number" && previousPrice > promoProduto.price && (
-                    <p className="mt-2 text-sm text-gray-500 line-through">
-                      R$ {previousPrice.toFixed(2)}
-                    </p>
-                  )}
-                  <p className="font-bold text-red-600">
-                    R$ {promoProduto.price.toFixed(2)}
-                  </p>
-                  <button
-                    onClick={() => {
-                      const originRect =
-                        productImageRef.current?.getBoundingClientRect();
-                      addToCart(promoProduto, 1, {
-                        imageUrl: promoProduto.imageUrl,
-                        originRect: originRect ?? undefined,
-                        productId: promoProduto.id,
-                        onBeforeAnimate: () => setOpen(false),
-                      });
-                    }}
-                    className="mt-3 w-full rounded-md bg-green-600 py-2 text-sm font-semibold text-white hover:bg-green-700"
+            <div className="space-y-3 p-3">
+              {promoList.map((pr) => {
+                const prod = pr.product!;
+                const isOut = (prod.stock ?? 0) <= 0;
+                return (
+                  <div
+                    key={pr.id}
+                    className="flex items-center gap-3 rounded-xl border border-gray-200 p-2 transition hover:shadow-md"
                   >
-                    Adicionar ao Carrinho
-                  </button>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
-                  Nenhuma promoção ativa no momento. Volte em instantes! ❄️
-                </div>
-              )}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenProduct(prod)}
+                      className="flex flex-1 items-center gap-3 text-left"
+                    >
+                      <div className="shrink-0">
+                        <img
+                          ref={(el) => {
+                            imageRefs.current[pr.id] = el;
+                          }}
+                          src={prod.imageUrl}
+                          alt={prod.name}
+                          className="h-14 w-14 rounded-lg border bg-white object-contain"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src =
+                              "https://via.placeholder.com/80?text=Eskim%C3%B3";
+                          }}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-gray-800">
+                          {prod.name}
+                        </p>
+                        <p className="truncate text-[11px] text-gray-500">
+                          {pr.highlightText ?? prod.description}
+                        </p>
+                        <div className="text-xs text-gray-500">
+                          {pr.previousPrice != null && pr.previousPrice > 0 && (
+                            <span className="mr-1 line-through">
+                              {fmtBRL.format(Number(pr.previousPrice))}
+                            </span>
+                          )}
+                          <span className="font-bold text-red-600">
+                            {fmtBRL.format(Number(pr.currentPrice))}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => handleAddToCart(pr.id, prod)}
+                      disabled={isOut}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                        isOut
+                          ? "cursor-not-allowed bg-gray-200 text-gray-500"
+                          : "bg-green-600 text-white hover:bg-green-700"
+                      }`}
+                    >
+                      {isOut ? "S/ estoque" : "Add"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
         )}
