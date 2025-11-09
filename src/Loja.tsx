@@ -89,6 +89,32 @@ type StatusPayload = {
   nextOpening?: string | null;
 };
 
+interface StoreCustomerProfile {
+  id: number;
+  email: string;
+  fullName: string;
+  nickname: string;
+  phoneNumber?: string | null;
+  neighborhood?: string | null;
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  addressLabel?: string | null;
+  profileImageBase64?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CustomerOrderSummary {
+  id: number;
+  status: string;
+  store: string;
+  total: number;
+  createdAt: string;
+  deliveryType?: string;
+  phoneNumber?: string;
+}
+
 /************************************
  * Constantes & helpers
  ************************************/
@@ -433,6 +459,32 @@ export default function Loja() {
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const isClosed = useMemo(() => status?.isOpen === false, [status]);
 
+  const [customerToken, setCustomerToken] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("eskimo_customer_token");
+    } catch {
+      return null;
+    }
+  });
+  const [storeCustomer, setStoreCustomer] = useState<StoreCustomerProfile | null>(null);
+  const [profileDraft, setProfileDraft] = useState<StoreCustomerProfile | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [homePanelOpen, setHomePanelOpen] = useState(false);
+  const [homeHasAlert, setHomeHasAlert] = useState(false);
+  const [homeActiveTab, setHomeActiveTab] = useState<"orders" | "profile">(
+    "orders",
+  );
+  const [myOrders, setMyOrders] = useState<CustomerOrderSummary[]>([]);
+  const [authForm, setAuthForm] = useState({
+    fullName: "",
+    nickname: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+
   useEffect(() => {
     try {
       if (selectedStore) {
@@ -456,9 +508,12 @@ export default function Loja() {
       if (selectedStore && selectedStore.trim() !== "") {
         headers.set("X-Store", selectedStore.trim().toLowerCase());
       }
+      if (customerToken) {
+        headers.set("Authorization", `Bearer ${customerToken}`);
+      }
       return fetch(input, { ...init, headers });
     },
-    [selectedStore],
+    [selectedStore, customerToken],
   );
 
   const updateSelectedStore = useCallback((store: string | null) => {
@@ -466,6 +521,14 @@ export default function Loja() {
     noOpenStoreToastRef.current = false;
     setSelectedStore(store);
   }, []);
+
+  useEffect(() => {
+    if (customerToken) {
+      axios.defaults.headers.common.Authorization = `Bearer ${customerToken}`;
+    } else {
+      delete axios.defaults.headers.common.Authorization;
+    }
+  }, [customerToken]);
 
   // Toast simples local
   const [toast, setToast] = useState<{
@@ -498,6 +561,34 @@ export default function Loja() {
   }, []);
 
   const [showConfirmation, setShowConfirmation] = useState(false);
+
+  useEffect(() => {
+    if (!storeCustomer) return;
+    setCustomerName((prev) =>
+      prev && prev.trim().length > 0 ? prev : storeCustomer.fullName ?? prev,
+    );
+    setAddress((prev) =>
+      prev && prev.trim().length > 0
+        ? prev
+        : storeCustomer.neighborhood ?? prev,
+    );
+    setStreet((prev) =>
+      prev && prev.trim().length > 0 ? prev : storeCustomer.street ?? prev,
+    );
+    setNumber((prev) =>
+      prev && prev.trim().length > 0 ? prev : storeCustomer.number ?? prev,
+    );
+    setComplement((prev) =>
+      prev && prev.trim().length > 0
+        ? prev
+        : storeCustomer.complement ?? prev,
+    );
+    setPhoneNumber((prev) =>
+      prev && prev.trim().length > 2
+        ? prev
+        : storeCustomer.phoneNumber ?? prev,
+    );
+  }, [storeCustomer]);
 
   const [quickFilterCategory, setQuickFilterCategory] = useState<string | null>(
     null,
@@ -972,6 +1063,238 @@ export default function Loja() {
     };
   }, [selectedStore]);
 
+  const fetchCustomerProfile = useCallback(async () => {
+    if (!customerToken) {
+      setStoreCustomer(null);
+      setProfileDraft(null);
+      return null;
+    }
+    try {
+      const res = await fetchWithStore(`${API_URL}/store-customers/me`);
+      if (!res.ok) throw new Error("Perfil não encontrado");
+      const data = (await res.json()) as StoreCustomerProfile;
+      setStoreCustomer(data);
+      setProfileDraft(data);
+      return data;
+    } catch (err) {
+      console.warn("Falha ao carregar perfil do cliente:", err);
+      setStoreCustomer(null);
+      setProfileDraft(null);
+      setCustomerToken(null);
+      try {
+        localStorage.removeItem("eskimo_customer_token");
+      } catch {
+        /* ignore */
+      }
+      return null;
+    }
+  }, [customerToken, fetchWithStore]);
+
+  useEffect(() => {
+    void fetchCustomerProfile();
+  }, [fetchCustomerProfile]);
+
+  useEffect(() => {
+    if (storeCustomer) setProfileDraft(storeCustomer);
+  }, [storeCustomer]);
+
+  useEffect(() => {
+    if (!authModalOpen) return;
+    setAuthForm((prev) => ({
+      ...prev,
+      password: "",
+      confirmPassword: "",
+    }));
+  }, [authModalOpen, authMode]);
+
+  const loadMyOrders = useCallback(async () => {
+    if (!customerToken) {
+      setMyOrders([]);
+      return;
+    }
+    try {
+      const res = await fetchWithStore(`${API_URL}/orders/my`);
+      if (!res.ok) throw new Error("Não foi possível carregar pedidos.");
+      const data = (await res.json()) as CustomerOrderSummary[];
+      setMyOrders(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn(err);
+      setMyOrders([]);
+    }
+  }, [customerToken, fetchWithStore]);
+
+  useEffect(() => {
+    if (homePanelOpen) {
+      void loadMyOrders();
+      setHomeHasAlert(false);
+    }
+  }, [homePanelOpen, loadMyOrders]);
+
+  const handleAuthSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (authLoading) return;
+      try {
+        setAuthLoading(true);
+        const endpoint =
+          authMode === "register"
+            ? `${API_URL}/store-customers/register`
+            : `${API_URL}/store-customers/login`;
+
+        const payload =
+          authMode === "register"
+            ? {
+                email: authForm.email.trim(),
+                fullName: authForm.fullName.trim(),
+                nickname: authForm.nickname.trim(),
+                password: authForm.password,
+                confirmPassword: authForm.confirmPassword,
+              }
+            : {
+                email: authForm.email.trim(),
+                password: authForm.password,
+              };
+
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const text = await res.text();
+        let data: { token?: string; customer?: StoreCustomerProfile } | null =
+          null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch {
+          data = null;
+        }
+        if (!res.ok) {
+          const message =
+            (data as { message?: string })?.message ??
+            "Falha ao autenticar cliente.";
+          showToast(message, "error");
+          return;
+        }
+        if (data?.token) {
+          setCustomerToken(data.token);
+          try {
+            localStorage.setItem("eskimo_customer_token", data.token);
+          } catch {
+            /* ignore */
+          }
+        }
+        if (data?.customer) {
+          setStoreCustomer(data.customer);
+          setProfileDraft(data.customer);
+        } else {
+          void fetchCustomerProfile();
+        }
+        showToast(
+          authMode === "register"
+            ? "Conta criada com sucesso!"
+            : "Login realizado!",
+          "success",
+        );
+        setAuthModalOpen(false);
+        setAuthForm((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+        setTimeout(() => {
+          void loadMyOrders();
+        }, 200);
+      } catch (err) {
+        console.error(err);
+        showToast("Erro ao comunicar com o servidor.", "error");
+      } finally {
+        setAuthLoading(false);
+      }
+    },
+    [
+      authForm,
+      authLoading,
+      authMode,
+      fetchCustomerProfile,
+      loadMyOrders,
+      showToast,
+    ],
+  );
+
+  const handleLogout = useCallback(() => {
+    setCustomerToken(null);
+    setStoreCustomer(null);
+    setProfileDraft(null);
+    setMyOrders([]);
+    setHomePanelOpen(false);
+    setHomeActiveTab("orders");
+    setHomeHasAlert(false);
+    try {
+      localStorage.removeItem("eskimo_customer_token");
+    } catch {
+      /* ignore */
+    }
+    showToast("Você saiu da sua conta.", "info");
+  }, [showToast]);
+
+  const handleProfileSave = useCallback(async () => {
+    if (!profileDraft || !customerToken) {
+      showToast("Faça login para atualizar o perfil.", "warning");
+      return;
+    }
+    try {
+      const res = await fetchWithStore(`${API_URL}/store-customers/me`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: profileDraft.fullName,
+          nickname: profileDraft.nickname,
+          phoneNumber: profileDraft.phoneNumber,
+          neighborhood: profileDraft.neighborhood,
+          street: profileDraft.street,
+          number: profileDraft.number,
+          complement: profileDraft.complement,
+          addressLabel: profileDraft.addressLabel,
+          profileImageBase64: profileDraft.profileImageBase64,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let message = "Falha ao salvar perfil.";
+        try {
+          const data = JSON.parse(text);
+          message = data?.message ?? message;
+        } catch {
+          /* ignore */
+        }
+        showToast(message, "error");
+        return;
+      }
+      const updated = (await res.json()) as StoreCustomerProfile;
+      setStoreCustomer(updated);
+      setProfileDraft(updated);
+      showToast("Perfil atualizado!", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Erro ao salvar perfil.", "error");
+    }
+  }, [customerToken, fetchWithStore, profileDraft, showToast]);
+
+  const handleAvatarChange = useCallback(
+    (file: File | null) => {
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) {
+        showToast("Imagem deve ter até 2MB.", "warning");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setProfileDraft((prev) =>
+          prev ? { ...prev, profileImageBase64: base64 } : prev,
+        );
+      };
+      reader.readAsDataURL(file);
+    },
+    [showToast],
+  );
+
   // buscar config de pagamento da loja
   useEffect(() => {
     const storeName = (selectedStore ?? "").trim();
@@ -1153,6 +1476,14 @@ export default function Loja() {
     [],
   );
 
+  const requireCustomerAuth = useCallback((): boolean => {
+    if (storeCustomer) return true;
+    showToast("Crie sua conta ou faça login para continuar.", "warning");
+    setAuthMode("register");
+    setAuthModalOpen(true);
+    return false;
+  }, [showToast, storeCustomer]);
+
   // Handlers de carrinho
   const addToCart = useCallback(
     (
@@ -1160,6 +1491,9 @@ export default function Loja() {
       quantity: number = 1,
       animation?: AddToCartOptions,
     ): void => {
+      if (!requireCustomerAuth()) {
+        return;
+      }
       if (isClosed) {
         showToast(
           status?.message || "Fora do horário de funcionamento.",
@@ -1197,7 +1531,13 @@ export default function Loja() {
         );
       }
     },
-    [isClosed, showToast, status?.message, triggerCartAnimation],
+    [
+      isClosed,
+      requireCustomerAuth,
+      showToast,
+      status?.message,
+      triggerCartAnimation,
+    ],
   );
 
   const removeFromCart = useCallback(
@@ -1344,6 +1684,8 @@ export default function Loja() {
         /* empty */
       }
       setShowConfirmation(true);
+      setHomeHasAlert(true);
+      void loadMyOrders();
     },
     [
       setPaymentOverlay,
@@ -1352,6 +1694,7 @@ export default function Loja() {
       setOrderId,
       setCart,
       setShowConfirmation,
+      loadMyOrders,
     ],
   );
 
@@ -1479,6 +1822,7 @@ export default function Loja() {
 
   // Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
   const handleMercadoPagoPayment = useCallback(async () => {
+    if (!requireCustomerAuth()) return;
     if (isClosed) {
       showToast(
         status?.message || "Loja fechada no momento.",
@@ -1576,6 +1920,8 @@ export default function Loja() {
         setOrderId(createdOrderId);
         // Guarda a assinatura que originou este pedido
         setLastSig(currentSig);
+        setHomeHasAlert(true);
+        void loadMyOrders();
       }
 
       try {
@@ -1642,6 +1988,7 @@ export default function Loja() {
     showToast,
     status?.message,
     fetchWithStore,
+    requireCustomerAuth,
   ]);
 
   // ---- RENDER ----
@@ -1923,12 +2270,32 @@ export default function Loja() {
       </Link>
 
       <button
+        onClick={() => {
+          setHomePanelOpen(true);
+          setHomeActiveTab("orders");
+        }}
+        className={`fixed bottom-[17rem] right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-indigo-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 ${
+          homeHasAlert ? "animate-pulse" : ""
+        }`}
+      >
+        <div className="relative text-3xl">
+          🏠
+          {homeHasAlert && (
+            <>
+              <span className="absolute -top-1 -right-1 inline-flex h-3 w-3 animate-ping rounded-full bg-yellow-300 opacity-75" />
+              <span className="absolute -top-1 -right-1 inline-flex h-3 w-3 rounded-full bg-yellow-400" />
+            </>
+          )}
+        </div>
+        <div className="mt-1 text-xs font-semibold">Minha área</div>
+      </button>
+
+      <button
         ref={cartButtonRef}
-        onClick={() =>
-          dispatch({
-            type: "OPEN_CHECKOUT",
-          })
-        }
+        onClick={() => {
+          if (!requireCustomerAuth()) return;
+          dispatch({ type: "OPEN_CHECKOUT" });
+        }}
         className={`fixed bottom-20 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-yellow-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 ${
           cartShake ? "cart-shake" : ""
         }`}
@@ -2264,6 +2631,156 @@ export default function Loja() {
         </div>
       )}
 
+      {authModalOpen && (
+        <div className="fixed inset-0 z-[215] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-indigo-600">
+                {authMode === "register" ? "Crie sua conta" : "Entrar"}
+              </h2>
+              <button
+                onClick={() => setAuthModalOpen(false)}
+                className="text-2xl text-gray-400 transition hover:text-red-500"
+                aria-label="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mb-4 flex rounded-full bg-gray-100 p-1">
+              <button
+                onClick={() => setAuthMode("login")}
+                className={`flex-1 rounded-full px-3 py-1 text-sm font-semibold transition ${
+                  authMode === "login"
+                    ? "bg-white text-indigo-600 shadow"
+                    : "text-gray-500"
+                }`}
+              >
+                Já tenho conta
+              </button>
+              <button
+                onClick={() => setAuthMode("register")}
+                className={`flex-1 rounded-full px-3 py-1 text-sm font-semibold transition ${
+                  authMode === "register"
+                    ? "bg-white text-indigo-600 shadow"
+                    : "text-gray-500"
+                }`}
+              >
+                Criar conta
+              </button>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} className="space-y-3">
+              {authMode === "register" && (
+                <>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600">
+                      Nome completo
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={authForm.fullName}
+                      onChange={(e) =>
+                        setAuthForm((prev) => ({
+                          ...prev,
+                          fullName: e.target.value,
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600">
+                      Apelido
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={authForm.nickname}
+                      onChange={(e) =>
+                        setAuthForm((prev) => ({
+                          ...prev,
+                          nickname: e.target.value,
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="text-xs font-semibold text-gray-600">
+                  E-mail
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={authForm.email}
+                  onChange={(e) =>
+                    setAuthForm((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">
+                  Senha
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={authForm.password}
+                  onChange={(e) =>
+                    setAuthForm((prev) => ({
+                      ...prev,
+                      password: e.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                />
+              </div>
+              {authMode === "register" && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">
+                    Repetir senha
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={authForm.confirmPassword}
+                    onChange={(e) =>
+                      setAuthForm((prev) => ({
+                        ...prev,
+                        confirmPassword: e.target.value,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                  />
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="mt-2 w-full rounded-2xl bg-indigo-600 py-2 text-white font-semibold shadow transition hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {authLoading
+                  ? "Enviando..."
+                  : authMode === "register"
+                    ? "Criar conta"
+                    : "Entrar"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Wallet Brick do Mercado Pago */}
       {walletOpen && (
         <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -2296,6 +2813,328 @@ export default function Loja() {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {homePanelOpen && (
+        <div className="fixed inset-0 z-[205] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-[95%] max-w-md rounded-3xl bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400">
+                  Minha Área
+                </p>
+                <h3 className="text-xl font-bold text-indigo-700">
+                  {storeCustomer
+                    ? storeCustomer.nickname || storeCustomer.fullName
+                    : "Visitante"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setHomePanelOpen(false)}
+                className="text-2xl text-gray-300 transition hover:text-red-500"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4 flex rounded-full bg-gray-100 p-1">
+              <button
+                onClick={() => setHomeActiveTab("orders")}
+                className={`flex-1 rounded-full px-3 py-1 text-sm font-semibold transition ${
+                  homeActiveTab === "orders"
+                    ? "bg-white text-indigo-600 shadow"
+                    : "text-gray-500"
+                }`}
+              >
+                Pedidos
+              </button>
+              <button
+                onClick={() => setHomeActiveTab("profile")}
+                className={`flex-1 rounded-full px-3 py-1 text-sm font-semibold transition ${
+                  homeActiveTab === "profile"
+                    ? "bg-white text-indigo-600 shadow"
+                    : "text-gray-500"
+                }`}
+              >
+                Perfil
+              </button>
+            </div>
+
+            {homeActiveTab === "orders" && (
+              <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-2">
+                {storeCustomer ? (
+                  myOrders.length > 0 ? (
+                    myOrders.map((order) => {
+                      const created = new Date(order.createdAt);
+                      const readable = created.toLocaleString("pt-BR", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      });
+                      const paid =
+                        order.status === "pago" ||
+                        order.status === "approved" ||
+                        order.status === "paid";
+                      return (
+                        <div
+                          key={order.id}
+                          className="rounded-2xl border border-gray-100 bg-gradient-to-r from-white to-gray-50 p-4 shadow-sm"
+                        >
+                          <div className="flex items-center justify-between text-sm font-semibold text-gray-700">
+                            <span>Pedido #{order.id}</span>
+                            <span
+                              className={`text-xs ${
+                                paid ? "text-green-600" : "text-orange-500"
+                              }`}
+                            >
+                              {paid ? "Pago" : order.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500">{readable}</p>
+                          <p className="mt-2 text-lg font-bold text-gray-900">
+                            {toBRL(order.total)}
+                          </p>
+                          <div className="mt-3 flex justify-between text-xs text-gray-500">
+                            <span>{order.store?.toUpperCase()}</span>
+                            <span>
+                              {order.deliveryType === "entregar"
+                                ? "Entrega"
+                                : "Retirada"}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              window.location.href = `/meus-pedidos?orderId=${order.id}&paid=${
+                                paid ? "1" : "0"
+                              }`;
+                            }}
+                            className="mt-3 w-full rounded-xl bg-indigo-50 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100"
+                          >
+                            Ver detalhes
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
+                      Ainda não encontramos pedidos vinculados a esta conta.
+                    </div>
+                  )
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
+                    Faça login para ver seus pedidos.
+                    <button
+                      className="mt-2 text-indigo-600 underline"
+                      onClick={() => {
+                        setHomePanelOpen(false);
+                        setAuthMode("login");
+                        setAuthModalOpen(true);
+                      }}
+                    >
+                      Entrar agora
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {homeActiveTab === "profile" && (
+              <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+                {profileDraft ? (
+                  <>
+                    <div className="flex items-center gap-4">
+                      <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-indigo-100">
+                        {profileDraft.profileImageBase64 ? (
+                          <img
+                            src={profileDraft.profileImageBase64}
+                            alt="Avatar"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-indigo-50 text-xl">
+                            👤
+                          </div>
+                        )}
+                      </div>
+                      <label className="cursor-pointer rounded-xl bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-600 hover:bg-indigo-100">
+                        Trocar foto
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) =>
+                            handleAvatarChange(
+                              e.target.files && e.target.files[0]
+                                ? e.target.files[0]
+                                : null,
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="grid gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500">
+                          Nome completo
+                        </label>
+                        <input
+                          type="text"
+                          value={profileDraft.fullName}
+                          onChange={(e) =>
+                            setProfileDraft((prev) =>
+                              prev
+                                ? { ...prev, fullName: e.target.value }
+                                : prev,
+                            )
+                          }
+                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500">
+                          Apelido
+                        </label>
+                        <input
+                          type="text"
+                          value={profileDraft.nickname}
+                          onChange={(e) =>
+                            setProfileDraft((prev) =>
+                              prev
+                                ? { ...prev, nickname: e.target.value }
+                                : prev,
+                            )
+                          }
+                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500">
+                          WhatsApp (com DDD)
+                        </label>
+                        <input
+                          type="tel"
+                          value={profileDraft.phoneNumber ?? ""}
+                          onChange={(e) =>
+                            setProfileDraft((prev) =>
+                              prev
+                                ? { ...prev, phoneNumber: e.target.value }
+                                : prev,
+                            )
+                          }
+                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500">
+                          Bairro preferido
+                        </label>
+                        <input
+                          type="text"
+                          value={profileDraft.neighborhood ?? ""}
+                          onChange={(e) =>
+                            setProfileDraft((prev) =>
+                              prev
+                                ? { ...prev, neighborhood: e.target.value }
+                                : prev,
+                            )
+                          }
+                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500">
+                          Rua
+                        </label>
+                        <input
+                          type="text"
+                          value={profileDraft.street ?? ""}
+                          onChange={(e) =>
+                            setProfileDraft((prev) =>
+                              prev
+                                ? { ...prev, street: e.target.value }
+                                : prev,
+                            )
+                          }
+                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold text-gray-500">
+                            Número
+                          </label>
+                          <input
+                            type="text"
+                            value={profileDraft.number ?? ""}
+                            onChange={(e) =>
+                              setProfileDraft((prev) =>
+                                prev
+                                  ? { ...prev, number: e.target.value }
+                                  : prev,
+                              )
+                            }
+                            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-gray-500">
+                            Complemento
+                          </label>
+                          <input
+                            type="text"
+                            value={profileDraft.complement ?? ""}
+                            onChange={(e) =>
+                              setProfileDraft((prev) =>
+                                prev
+                                  ? { ...prev, complement: e.target.value }
+                                  : prev,
+                              )
+                            }
+                            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500">
+                          Tipo preferido (Entrega/Retirada)
+                        </label>
+                        <input
+                          type="text"
+                          value={profileDraft.addressLabel ?? ""}
+                          onChange={(e) =>
+                            setProfileDraft((prev) =>
+                              prev
+                                ? { ...prev, addressLabel: e.target.value }
+                                : prev,
+                            )
+                          }
+                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-col gap-2">
+                      <button
+                        onClick={handleProfileSave}
+                        className="rounded-2xl bg-indigo-600 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700"
+                      >
+                        Salvar perfil
+                      </button>
+                      <button
+                        onClick={handleLogout}
+                        className="rounded-2xl border border-red-100 py-2 text-sm font-semibold text-red-500 hover:bg-red-50"
+                      >
+                        Sair da conta
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
+                    Faça login para editar seu perfil.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -13,6 +13,7 @@ interface OrderAPIResponse {
   name?: string;
   customerName?: string;
   phoneNumber: string;
+  createdAt?: string;
 }
 
 interface Order {
@@ -22,6 +23,7 @@ interface Order {
   total: number;
   name: string;
   phoneNumber: string;
+  createdAt?: string;
 }
 
 export default function MeusPedidos(): JSX.Element {
@@ -55,6 +57,7 @@ export default function MeusPedidos(): JSX.Element {
             total: o.total,
             phoneNumber: o.phoneNumber,
             name: o.name || o.customerName || "Cliente",
+            createdAt: o.createdAt,
           };
           setOrder(orderFormatado);
         })
@@ -113,6 +116,7 @@ export default function MeusPedidos(): JSX.Element {
           total: p.total,
           phoneNumber: p.phoneNumber,
           name: p.name || p.customerName || "Cliente",
+          createdAt: p.createdAt,
         };
         setOrder(orderFormatado);
       })
@@ -268,6 +272,17 @@ export default function MeusPedidos(): JSX.Element {
             <div className="mb-2 text-lg">
               <strong>Unidade:</strong> {order.store}
             </div>
+            {order.createdAt && (
+              <div className="mb-2 text-sm text-gray-600">
+                <strong className="font-semibold text-gray-700">
+                  Criado em:
+                </strong>{" "}
+                {new Date(order.createdAt).toLocaleString("pt-BR", {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+              </div>
+            )}
 
             <div className="mb-4">
               <div className="mb-1 text-sm font-semibold text-gray-600">Status:</div>

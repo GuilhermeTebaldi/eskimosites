@@ -18,6 +18,11 @@ api.interceptors.request.use((config) => {
       config.headers = config.headers ?? {};
       config.headers["X-Store"] = store.trim().toLowerCase();
     }
+    const token = localStorage.getItem("eskimo_customer_token");
+    if (token) {
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   } catch {
     /* ignore */
   }
