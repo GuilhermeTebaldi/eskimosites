@@ -544,6 +544,16 @@ export default function Loja() {
   });
   const [storeCustomer, setStoreCustomer] = useState<StoreCustomerProfile | null>(null);
   const [profileDraft, setProfileDraft] = useState<StoreCustomerProfile | null>(null);
+  const clearCustomerAuth = useCallback(() => {
+    setCustomerToken(null);
+    setStoreCustomer(null);
+    setProfileDraft(null);
+    try {
+      localStorage.removeItem("eskimo_customer_token");
+    } catch {
+      /* noop */
+    }
+  }, []);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authLoading, setAuthLoading] = useState(false);
@@ -1150,24 +1160,23 @@ export default function Loja() {
     }
     try {
       const res = await fetchWithStore(`${API_URL}/store-customers/me`);
-      if (!res.ok) throw new Error("Perfil não encontrado");
+      if (res.status === 401 || res.status === 403) {
+        clearCustomerAuth();
+        return null;
+      }
+      if (!res.ok) {
+        console.warn("Falha ao carregar perfil do cliente:", res.status, res.statusText);
+        return null;
+      }
       const data = (await res.json()) as StoreCustomerProfile;
       setStoreCustomer(data);
       setProfileDraft(data);
       return data;
     } catch (err) {
       console.warn("Falha ao carregar perfil do cliente:", err);
-      setStoreCustomer(null);
-      setProfileDraft(null);
-      setCustomerToken(null);
-      try {
-        localStorage.removeItem("eskimo_customer_token");
-      } catch {
-        /* ignore */
-      }
       return null;
     }
-  }, [customerToken, fetchWithStore]);
+  }, [customerToken, fetchWithStore, clearCustomerAuth]);
 
   useEffect(() => {
     void fetchCustomerProfile();
