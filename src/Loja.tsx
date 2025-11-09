@@ -1394,7 +1394,11 @@ export default function Loja() {
         setWalletOpen(true);
 
         const ctrl = await bricks.create("wallet", "mp-wallet-container", {
-          initialization: { preferenceId },
+          initialization: {
+            preferenceId,
+            // Keep checkout inside the Loja so PIX never leaves the site.
+            redirectMode: "modal",
+          } as unknown as { preferenceId: string },
           customization: { texts: { valueProp: "security_details" } },
           callbacks: {
             onReady: () => {
