@@ -2811,38 +2811,38 @@ export default function Loja() {
                     <label className="text-xs font-semibold text-gray-600">
                       Nome completo
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={authForm.fullName}
-                      onChange={(e) =>
-                        setAuthForm((prev) => ({
-                          ...prev,
-                          fullName: e.target.value,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-gray-600">
-                      Apelido
+                      <input
+                        type="text"
+                        required
+                        value={authForm.fullName}
+                        onChange={(e) =>
+                          setAuthForm((prev) => ({
+                            ...prev,
+                            fullName: e.target.value,
+                          }))
+                        }
+                        className="profile-input mt-1 w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600">
+                        Apelido
                     </label>
                     <input
-                      type="text"
-                      required
-                      value={authForm.nickname}
-                      onChange={(e) =>
-                        setAuthForm((prev) => ({
-                          ...prev,
-                          nickname: e.target.value,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                    />
-                  </div>
-                </>
-              )}
+                        type="text"
+                        required
+                        value={authForm.nickname}
+                        onChange={(e) =>
+                          setAuthForm((prev) => ({
+                            ...prev,
+                            nickname: e.target.value,
+                          }))
+                        }
+                        className="profile-input mt-1 w-full"
+                      />
+                    </div>
+                  </>
+                )}
 
               <div>
                 <label className="text-xs font-semibold text-gray-600">
@@ -2858,7 +2858,7 @@ export default function Loja() {
                       email: e.target.value,
                     }))
                   }
-                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                  className="profile-input mt-1 w-full"
                 />
               </div>
               <div>
@@ -2876,7 +2876,7 @@ export default function Loja() {
                       password: e.target.value,
                     }))
                   }
-                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                  className="profile-input mt-1 w-full"
                 />
               </div>
               {authMode === "register" && (
@@ -2895,7 +2895,7 @@ export default function Loja() {
                         confirmPassword: e.target.value,
                       }))
                     }
-                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                    className="profile-input mt-1 w-full"
                   />
                 </div>
               )}
