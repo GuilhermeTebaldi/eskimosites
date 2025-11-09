@@ -893,41 +893,6 @@ export default function Loja() {
     }
   }, []);
 
-  // Polling universal: com orderId definido e sem confirmação aberta,
-  // verifica status a cada 5s até 10 minutos. Ao "pago", abre confirmação.
-  useEffect(() => {
-    if (!orderId || showConfirmation) return;
-
-    let tries = 0;
-    const maxTries = Math.ceil((10 * 60) / 5); // 10 minutos
-    const iv = window.setInterval(async () => {
-      tries++;
-      try {
-        type OrderDTO = { status?: string; Status?: string };
-        const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
-        const d = res.data ?? {};
-        const status = String(d.status ?? d.Status ?? "").toLowerCase();
-        if (status === "pago") {
-          setShowConfirmation(true);
-          setCart([]);
-          if (orderId) setOrderAck(orderId);
-          clearLastSig();
-          try {
-            localStorage.setItem("last_order_id", String(orderId));
-          } catch {
-            /* empty */
-          }
-          window.clearInterval(iv);
-        }
-      } catch {
-        /* ignore */
-      }
-      if (tries >= maxTries) window.clearInterval(iv);
-    }, 5000);
-
-    return () => window.clearInterval(iv);
-  }, [orderId, showConfirmation]);
-
   // detectar loja mais próxima (com obrigatoriedade de permissão)
   useEffect(() => {
     (async () => {
@@ -1358,6 +1323,71 @@ export default function Loja() {
     }
   }, []);
 
+  const finalizePaidOrder = useCallback(
+    (paidOrderId: number) => {
+      stopPolling();
+      try {
+        walletCtrlRef.current?.unmount?.();
+      } catch {
+        /* empty */
+      }
+      walletCtrlRef.current = null;
+      setWalletOpen(false);
+      setPaymentOverlay(false);
+      setOrderId(paidOrderId);
+      setCart([]);
+      setOrderAck(paidOrderId);
+      clearLastSig();
+      try {
+        localStorage.setItem("last_order_id", String(paidOrderId));
+      } catch {
+        /* empty */
+      }
+      setShowConfirmation(true);
+    },
+    [
+      setPaymentOverlay,
+      stopPolling,
+      setWalletOpen,
+      setOrderId,
+      setCart,
+      setShowConfirmation,
+    ],
+  );
+
+  // Polling universal: com orderId definido e sem confirmação aberta,
+  // verifica status a cada 5s até 10 minutos. Ao "pago", fecha o MP e mostra a confirmação.
+  useEffect(() => {
+    if (!orderId || showConfirmation) return;
+
+    let tries = 0;
+    const maxTries = Math.ceil((10 * 60) / 5); // 10 minutos
+    const iv = window.setInterval(async () => {
+      tries++;
+      try {
+        type OrderDTO = {
+          status?: string;
+          Status?: string;
+          paymentStatus?: string;
+        };
+        const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
+        const d = res.data ?? {};
+        const status = String(
+          d.status ?? d.Status ?? d.paymentStatus ?? "",
+        ).toLowerCase();
+        if (status === "pago" || status === "approved" || status === "paid") {
+          finalizePaidOrder(orderId);
+          window.clearInterval(iv);
+        }
+      } catch {
+        /* ignore */
+      }
+      if (tries >= maxTries) window.clearInterval(iv);
+    }, 5000);
+
+    return () => window.clearInterval(iv);
+  }, [orderId, showConfirmation, finalizePaidOrder]);
+
   const checkPaidOnce = useCallback(async (id: number): Promise<boolean> => {
     try {
       const r = await fetchWithStore(`${API_URL}/orders/${id}`);
@@ -1421,20 +1451,8 @@ export default function Loja() {
           tries++;
           const paid = await checkPaidOnce(currentOrderId);
           if (paid) {
-            stopPolling();
-            try {
-              walletCtrlRef.current?.unmount?.();
-            } catch {
-              /* empty */
-            }
-            setWalletOpen(false);
-            setOrderId(currentOrderId);
-            setCart([]);
-            setOrderAck(currentOrderId);
-            clearLastSig();
-
-            // ✅ Redireciona automaticamente para a tela de pedidos confirmados
-            window.location.href = `/meus-pedidos?orderId=${currentOrderId}&paid=1`;
+            finalizePaidOrder(currentOrderId);
+            return;
           }
 
           if (tries > 180) {
@@ -1454,6 +1472,7 @@ export default function Loja() {
       showToast,
       checkPaidOnce,
       stopPolling,
+      finalizePaidOrder,
       setPaymentOverlay,
     ],
   );
