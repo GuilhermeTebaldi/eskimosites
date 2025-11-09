@@ -15,7 +15,6 @@ import React, {
 import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import LinhaProdutosAtalhos from "./LinhaProdutosAtalhos";
-import { Link } from "react-router-dom";
 import "./Loja.css";
 import PromoFlutuante from "./components/PromoFlutuante";
 
@@ -89,6 +88,17 @@ type StatusPayload = {
   nextOpening?: string | null;
 };
 
+type OrderStatusResponse = {
+  id: number;
+  store: string;
+  status: string;
+  total: number;
+  name?: string;
+  customerName?: string;
+  phoneNumber?: string;
+  createdAt?: string;
+};
+
 interface StoreCustomerProfile {
   id: number;
   email: string;
@@ -129,6 +139,64 @@ const UI = {
   PRODUCTS_PER_PAGE: 12,
 } as const;
 
+const NEIGHBORHOODS = [
+  "Alvorada",
+  "Bela Vista",
+  "Belvedere",
+  "Centro",
+  "Colônia Cella",
+  "Cristo Rei",
+  "Desbravador",
+  "Dom Gerônimo",
+  "Efapi",
+  "Eldorado",
+  "Engenho Braun",
+  "Esplanada",
+  "Jardim América",
+  "Jardim do Lago",
+  "Jardim Europa",
+  "Jardim Itália",
+  "Jardim Itália II",
+  "Jardim Paraíso",
+  "Jardim Peperi",
+  "Jardim Sul",
+  "Líder",
+  "Maria Goretti",
+  "Monte Castelo",
+  "Palmital",
+  "Palmital II",
+  "Parque das Palmeiras",
+  "Parque das Palmeiras II",
+  "Paraíso",
+  "Paraíso II",
+  "Passo dos Ferreira",
+  "Passo dos Fortes",
+  "Pinheirinho",
+  "Presidente Médici",
+  "Presidente Vargas",
+  "Quedas do Palmital",
+  "Quinta da Serra",
+  "Residencial Viena",
+  "Saic",
+  "Santa Maria",
+  "Santa Paulina",
+  "Santa Terezinha",
+  "Santo Antônio",
+  "São Carlos",
+  "São Cristóvão",
+  "São José",
+  "São Lucas",
+  "São Pedro",
+  "Seminário",
+  "Trevo",
+  "Universitário",
+  "Vila Esperança",
+  "Vila Mantelli",
+  "Vila Real",
+  "Vila Rica",
+  "Outro",
+] as const;
+
 const fmtBRL = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
@@ -142,6 +210,14 @@ const normalize = (text: string) =>
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+
+const findNeighborhoodMatch = (value: string) => {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  return (
+    NEIGHBORHOODS.find((item) => item.toLowerCase() === normalized) ?? null
+  );
+};
 
 // Distância Haversine (km)
 function getDistanceFromLatLonInKm(
@@ -477,6 +553,9 @@ export default function Loja() {
     "orders",
   );
   const [myOrders, setMyOrders] = useState<CustomerOrderSummary[]>([]);
+  const [showAllOrders, setShowAllOrders] = useState(false);
+  const [orderLookupResult, setOrderLookupResult] =
+    useState<OrderStatusResponse | null>(null);
   const [authForm, setAuthForm] = useState({
     fullName: "",
     nickname: "",
@@ -1217,11 +1296,84 @@ export default function Loja() {
     ],
   );
 
+  const handleOrderCardClick = useCallback(
+    (order: CustomerOrderSummary) => {
+      setOrderLookupResult({
+        id: order.id,
+        store: order.store,
+        status: String(order.status ?? "").toLowerCase(),
+        total: order.total,
+        createdAt: order.createdAt,
+        phoneNumber: order.phoneNumber,
+      });
+    },
+    [],
+  );
+
+  const copyOrderNumber = useCallback(() => {
+    if (!orderLookupResult) return;
+    try {
+      navigator.clipboard.writeText(orderLookupResult.id.toString());
+      showToast(`Pedido #${orderLookupResult.id} copiado!`, "success", 1800);
+    } catch {
+      showToast("Não conseguimos copiar o número.", "error");
+    }
+  }, [orderLookupResult, showToast]);
+
+  const StatusSteps = ({ status }: { status: string }) => {
+    const normalized = (status || "").toLowerCase();
+    const isPaid =
+      normalized === "pago" ||
+      normalized === "paid" ||
+      normalized === "approved";
+    const isPending =
+      normalized === "pendente" ||
+      normalized === "pending" ||
+      normalized === "in_process";
+    const isFail =
+      normalized === "cancelado" ||
+      normalized === "rejected" ||
+      normalized === "failure";
+
+    const Row = ({
+      ok,
+      fail,
+      label,
+    }: {
+      ok?: boolean;
+      fail?: boolean;
+      label: string;
+    }) => {
+      const icon = fail ? "❌" : ok ? "✅" : "☐";
+      const color = fail
+        ? "text-red-600"
+        : ok
+          ? "text-green-700"
+          : "text-gray-500";
+      return (
+        <div className={`flex items-center gap-2 text-sm ${color}`}>
+          <span className="w-5 text-lg leading-none">{icon}</span>
+          <span>{label}</span>
+        </div>
+      );
+    };
+
+    return (
+      <div className="space-y-1">
+        <Row ok={isPending || isPaid} label="Em processo" />
+        <Row ok={isPaid} label="Pago" />
+        <Row ok={isPaid} label="Confirmado" />
+        <Row fail={isFail} label="Não aprovado" />
+      </div>
+    );
+  };
+
   const handleLogout = useCallback(() => {
     setCustomerToken(null);
     setStoreCustomer(null);
     setProfileDraft(null);
     setMyOrders([]);
+    setOrderLookupResult(null);
     setHomePanelOpen(false);
     setHomeActiveTab("orders");
     setHomeHasAlert(false);
@@ -1250,7 +1402,6 @@ export default function Loja() {
           street: profileDraft.street,
           number: profileDraft.number,
           complement: profileDraft.complement,
-          addressLabel: profileDraft.addressLabel,
           profileImageBase64: profileDraft.profileImageBase64,
         }),
       });
@@ -1269,12 +1420,40 @@ export default function Loja() {
       const updated = (await res.json()) as StoreCustomerProfile;
       setStoreCustomer(updated);
       setProfileDraft(updated);
+      setCustomerName(updated.fullName ?? "");
+      setPhoneNumber(updated.phoneNumber ?? "");
+      const matchedNeighborhood = findNeighborhoodMatch(updated.neighborhood ?? "");
+      if (matchedNeighborhood) {
+        setAddress(matchedNeighborhood);
+        setCustomAddress("");
+      } else if (updated.neighborhood) {
+        setAddress("Outro");
+        setCustomAddress(updated.neighborhood);
+      } else {
+        setAddress("");
+        setCustomAddress("");
+      }
+      setStreet(updated.street ?? "");
+      setNumber(updated.number ?? "");
+      setComplement(updated.complement ?? "");
       showToast("Perfil atualizado!", "success");
     } catch (err) {
       console.error(err);
       showToast("Erro ao salvar perfil.", "error");
     }
-  }, [customerToken, fetchWithStore, profileDraft, showToast]);
+  }, [
+    customerToken,
+    fetchWithStore,
+    profileDraft,
+    setAddress,
+    setComplement,
+    setCustomAddress,
+    setCustomerName,
+    setNumber,
+    setPhoneNumber,
+    setStreet,
+    showToast,
+  ]);
 
   const handleAvatarChange = useCallback(
     (file: File | null) => {
@@ -1294,6 +1473,13 @@ export default function Loja() {
     },
     [showToast],
   );
+
+  const profileNeighborhoodOption = useMemo(() => {
+    const raw = profileDraft?.neighborhood ?? "";
+    if (!raw) return "";
+    return findNeighborhoodMatch(raw) ?? "Outro";
+  }, [profileDraft?.neighborhood]);
+
 
   // buscar config de pagamento da loja
   useEffect(() => {
@@ -1994,6 +2180,23 @@ export default function Loja() {
   // ---- RENDER ----
   return (
     <div key={componentKey} className="loja-container">
+      {storeCustomer?.profileImageBase64 && (
+        <button
+          onClick={() => {
+            setHomePanelOpen(true);
+            setHomeActiveTab("profile");
+          }}
+          className="fixed left-6 top-60 z-[40] h-16 w-16 overflow-hidden rounded-full border-4 border-green-400 bg-white shadow-xl transition hover:scale-105 active:scale-95"
+          aria-label="Abrir Minha Área"
+        >
+          <img
+            src={storeCustomer.profileImageBase64}
+            alt="Foto do cliente"
+            className="h-full w-full object-cover"
+          />
+        </button>
+      )}
+
       {/* espaçamento para o header */}
       {isClosed && (
         <div className="fixed left-0 right-0 top-0 z-[60] bg-red-600 text-white text-center text-sm font-semibold shadow-lg">
@@ -2257,24 +2460,12 @@ export default function Loja() {
       <footer className="mt-12 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50 pb-6 pt-8 text-center"></footer>
 
       {/* Botões flutuantes */}
-      <Link
-        onClick={() => {
-          /* apenas navega */
-        }}
-        to="/meus-pedidos"
-        className="fixed bottom-48 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-blue-500 p-2 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
-      >
-        <div className="text-3xl">📜</div>
-        <div className="mt-1 text-xs font-bold">Meu</div>
-        <div className="mt-1 text-xs font-bold">Pedido</div>
-      </Link>
-
       <button
         onClick={() => {
           setHomePanelOpen(true);
           setHomeActiveTab("orders");
         }}
-        className={`fixed bottom-[17rem] right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-indigo-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 ${
+        className={`fixed bottom-48 right-6 z-50 flex flex-col items-center justify-center rounded-2xl bg-indigo-500 p-3 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 ${
           homeHasAlert ? "animate-pulse" : ""
         }`}
       >
@@ -2287,7 +2478,7 @@ export default function Loja() {
             </>
           )}
         </div>
-        <div className="mt-1 text-xs font-semibold">Minha área</div>
+        <div className="mt-1 text-xs font-semibold">Perfil</div>
       </button>
 
       <button
@@ -2359,63 +2550,7 @@ export default function Loja() {
                   }}
                 >
                   <option value="">Escolha seu bairro</option>
-                  {[
-                    "Alvorada",
-                    "Bela Vista",
-                    "Belvedere",
-                    "Centro",
-                    "Colônia Cella",
-                    "Cristo Rei",
-                    "Desbravador",
-                    "Dom Gerônimo",
-                    "Efapi",
-                    "Eldorado",
-                    "Engenho Braun",
-                    "Esplanada",
-                    "Jardim América",
-                    "Jardim do Lago",
-                    "Jardim Europa",
-                    "Jardim Itália",
-                    "Jardim Itália II",
-                    "Jardim Paraíso",
-                    "Jardim Peperi",
-                    "Jardim Sul",
-                    "Líder",
-                    "Maria Goretti",
-                    "Monte Castelo",
-                    "Palmital",
-                    "Palmital II",
-                    "Parque das Palmeiras",
-                    "Parque das Palmeiras II",
-                    "Paraíso",
-                    "Paraíso II",
-                    "Passo dos Ferreira",
-                    "Passo dos Fortes",
-                    "Pinheirinho",
-                    "Presidente Médici",
-                    "Presidente Vargas",
-                    "Quedas do Palmital",
-                    "Quinta da Serra",
-                    "Residencial Viena",
-                    "Saic",
-                    "Santa Maria",
-                    "Santa Paulina",
-                    "Santa Terezinha",
-                    "Santo Antônio",
-                    "São Carlos",
-                    "São Cristóvão",
-                    "São José",
-                    "São Lucas",
-                    "São Pedro",
-                    "Seminário",
-                    "Trevo",
-                    "Universitário",
-                    "Vila Esperança",
-                    "Vila Mantelli",
-                    "Vila Real",
-                    "Vila Rica",
-                    "Outro",
-                  ].map((b) => (
+                  {NEIGHBORHOODS.map((b) => (
                     <option key={b} value={b}>
                       {b === "Outro" ? "Outro..." : b}
                     </option>
@@ -2863,64 +2998,127 @@ export default function Loja() {
             </div>
 
             {homeActiveTab === "orders" && (
-              <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-2">
+              <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-2">
                 {storeCustomer ? (
-                  myOrders.length > 0 ? (
-                    myOrders.map((order) => {
-                      const created = new Date(order.createdAt);
-                      const readable = created.toLocaleString("pt-BR", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      });
-                      const paid =
-                        order.status === "pago" ||
-                        order.status === "approved" ||
-                        order.status === "paid";
-                      return (
-                        <div
-                          key={order.id}
-                          className="rounded-2xl border border-gray-100 bg-gradient-to-r from-white to-gray-50 p-4 shadow-sm"
-                        >
-                          <div className="flex items-center justify-between text-sm font-semibold text-gray-700">
-                            <span>Pedido #{order.id}</span>
-                            <span
-                              className={`text-xs ${
-                                paid ? "text-green-600" : "text-orange-500"
-                              }`}
-                            >
-                              {paid ? "Pago" : order.status}
-                            </span>
+                  <>
+                    {orderLookupResult && (
+                      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-lg">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-xs font-semibold text-gray-500">
+                              Pedido #{orderLookupResult.id}
+                            </p>
+                            {orderLookupResult.createdAt ? (
+                              <p className="text-xs text-gray-400">
+                                {new Date(orderLookupResult.createdAt).toLocaleString("pt-BR", {
+                                  dateStyle: "short",
+                                  timeStyle: "short",
+                                })}
+                              </p>
+                            ) : null}
                           </div>
-                          <p className="text-xs text-gray-500">{readable}</p>
-                          <p className="mt-2 text-lg font-bold text-gray-900">
-                            {toBRL(order.total)}
-                          </p>
-                          <div className="mt-3 flex justify-between text-xs text-gray-500">
-                            <span>{order.store?.toUpperCase()}</span>
-                            <span>
-                              {order.deliveryType === "entregar"
-                                ? "Entrega"
-                                : "Retirada"}
-                            </span>
-                          </div>
+                          <StatusChip status={orderLookupResult.status} />
+                        </div>
+                        <p className="mt-3 text-2xl font-bold text-gray-900">
+                          {toBRL(orderLookupResult.total)}
+                        </p>
+                        <div className="mt-4">
+                          <StatusSteps status={orderLookupResult.status} />
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-600">
+                          <span>
+                            Loja: {orderLookupResult.store?.toUpperCase()}
+                          </span>
+                          {orderLookupResult.phoneNumber ? (
+                            <span>WhatsApp: {orderLookupResult.phoneNumber}</span>
+                          ) : null}
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2 text-sm">
                           <button
-                            onClick={() => {
-                              window.location.href = `/meus-pedidos?orderId=${order.id}&paid=${
-                                paid ? "1" : "0"
-                              }`;
-                            }}
-                            className="mt-3 w-full rounded-xl bg-indigo-50 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100"
+                            onClick={copyOrderNumber}
+                            className="rounded-full border border-indigo-100 px-4 py-1 font-semibold text-indigo-600 hover:bg-indigo-50"
                           >
-                            Ver detalhes
+                            Copiar número
+                          </button>
+                          <button
+                            onClick={() => setOrderLookupResult(null)}
+                            className="rounded-full border border-gray-100 px-4 py-1 text-gray-600 hover:bg-gray-50"
+                          >
+                            Fechar detalhes
                           </button>
                         </div>
-                      );
-                    })
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
-                      Ainda não encontramos pedidos vinculados a esta conta.
+                      </div>
+                    )}
+
+                    <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      Últimos pedidos
                     </div>
-                  )
+
+                    {myOrders.length > 0 ? (
+                      (showAllOrders ? myOrders : myOrders.slice(0, 1)).map((order) => {
+                        const readable = order.createdAt
+                          ? new Date(order.createdAt).toLocaleString("pt-BR", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })
+                          : "Data indisponível";
+                        const paid =
+                          order.status === "pago" ||
+                          order.status === "approved" ||
+                          order.status === "paid";
+                        return (
+                          <div
+                            key={order.id}
+                            className="rounded-2xl border border-gray-100 bg-gradient-to-r from-white to-gray-50 p-4 shadow-sm"
+                          >
+                            <div className="flex items-center justify-between text-sm font-semibold text-gray-700">
+                              <span>Pedido #{order.id}</span>
+                              <span
+                                className={`text-xs ${
+                                  paid ? "text-green-600" : "text-orange-500"
+                                }`}
+                              >
+                                {paid ? "Pago" : order.status}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500">{readable}</p>
+                            <p className="mt-2 text-lg font-bold text-gray-900">
+                              {toBRL(order.total)}
+                            </p>
+                            <div className="mt-3 flex justify-between text-xs text-gray-500">
+                              <span>{order.store?.toUpperCase()}</span>
+                              <span>
+                                {order.deliveryType === "entregar"
+                                  ? "Entrega"
+                                  : "Retirada"}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleOrderCardClick(order)}
+                              className="mt-3 w-full rounded-xl bg-indigo-50 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100"
+                            >
+                              Ver detalhes
+                            </button>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <>
+                        <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
+                          Ainda não encontramos pedidos vinculados a esta conta.
+                        </div>
+                      </>
+                    )}
+
+                    {myOrders.length > 1 && (
+                      <button
+                        onClick={() => setShowAllOrders((prev) => !prev)}
+                        className="w-full rounded-full border border-indigo-100 bg-white py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50"
+                      >
+                        {showAllOrders ? "Ocultar anteriores" : "Ver anteriores"}
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
                     Faça login para ver seus pedidos.
@@ -2981,14 +3179,14 @@ export default function Loja() {
                         <input
                           type="text"
                           value={profileDraft.fullName}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setCustomerName(value);
                             setProfileDraft((prev) =>
-                              prev
-                                ? { ...prev, fullName: e.target.value }
-                                : prev,
-                            )
-                          }
-                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                              prev ? { ...prev, fullName: value } : prev,
+                            );
+                          }}
+                          className="profile-input mt-1 w-full text-sm"
                         />
                       </div>
                       <div>
@@ -3005,7 +3203,7 @@ export default function Loja() {
                                 : prev,
                             )
                           }
-                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                          className="profile-input mt-1 w-full text-sm"
                         />
                       </div>
                       <div>
@@ -3015,32 +3213,78 @@ export default function Loja() {
                         <input
                           type="tel"
                           value={profileDraft.phoneNumber ?? ""}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setPhoneNumber(value);
                             setProfileDraft((prev) =>
-                              prev
-                                ? { ...prev, phoneNumber: e.target.value }
-                                : prev,
-                            )
-                          }
-                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                              prev ? { ...prev, phoneNumber: value } : prev,
+                            );
+                          }}
+                          className="profile-input mt-1 w-full text-sm"
                         />
                       </div>
                       <div>
                         <label className="text-xs font-semibold text-gray-500">
-                          Bairro preferido
+                          Bairro
                         </label>
-                        <input
-                          type="text"
-                          value={profileDraft.neighborhood ?? ""}
-                          onChange={(e) =>
+                        <select
+                          value={profileNeighborhoodOption}
+                          onChange={(e) => {
+                            const selected = e.target.value;
+                            if (selected === "") {
+                              setProfileDraft((prev) =>
+                                prev ? { ...prev, neighborhood: "" } : prev,
+                              );
+                              setAddress("");
+                              setCustomAddress("");
+                              return;
+                            }
+                            if (selected === "Outro") {
+                              const currentValue =
+                                profileDraft?.neighborhood ?? "";
+                              const isKnown =
+                                !!findNeighborhoodMatch(currentValue);
+                              const fallback = isKnown ? "" : currentValue;
+                              setProfileDraft((prev) =>
+                                prev
+                                  ? { ...prev, neighborhood: fallback }
+                                  : prev,
+                              );
+                              setAddress("Outro");
+                              setCustomAddress(fallback);
+                              return;
+                            }
                             setProfileDraft((prev) =>
-                              prev
-                                ? { ...prev, neighborhood: e.target.value }
-                                : prev,
-                            )
-                          }
-                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                        />
+                              prev ? { ...prev, neighborhood: selected } : prev,
+                            );
+                            setAddress(selected);
+                            setCustomAddress("");
+                          }}
+                          className="profile-input mt-1 w-full text-sm"
+                        >
+                          <option value="">Escolha seu bairro</option>
+                          {NEIGHBORHOODS.map((bairro) => (
+                            <option key={bairro} value={bairro}>
+                              {bairro === "Outro" ? "Outro..." : bairro}
+                            </option>
+                          ))}
+                        </select>
+                        {profileNeighborhoodOption === "Outro" && (
+                          <input
+                            type="text"
+                            placeholder="Digite seu bairro"
+                            value={profileDraft.neighborhood ?? ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setProfileDraft((prev) =>
+                                prev ? { ...prev, neighborhood: value } : prev,
+                              );
+                              setAddress("Outro");
+                              setCustomAddress(value);
+                            }}
+                            className="profile-input mt-2 w-full text-sm"
+                          />
+                        )}
                       </div>
                       <div>
                         <label className="text-xs font-semibold text-gray-500">
@@ -3049,14 +3293,14 @@ export default function Loja() {
                         <input
                           type="text"
                           value={profileDraft.street ?? ""}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setStreet(value);
                             setProfileDraft((prev) =>
-                              prev
-                                ? { ...prev, street: e.target.value }
-                                : prev,
-                            )
-                          }
-                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                              prev ? { ...prev, street: value } : prev,
+                            );
+                          }}
+                          className="profile-input mt-1 w-full text-sm"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
@@ -3067,14 +3311,14 @@ export default function Loja() {
                           <input
                             type="text"
                             value={profileDraft.number ?? ""}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setNumber(value);
                               setProfileDraft((prev) =>
-                                prev
-                                  ? { ...prev, number: e.target.value }
-                                  : prev,
-                              )
-                            }
-                            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                                prev ? { ...prev, number: value } : prev,
+                              );
+                            }}
+                            className="profile-input mt-1 w-full text-sm"
                           />
                         </div>
                         <div>
@@ -3084,33 +3328,16 @@ export default function Loja() {
                           <input
                             type="text"
                             value={profileDraft.complement ?? ""}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setComplement(value);
                               setProfileDraft((prev) =>
-                                prev
-                                  ? { ...prev, complement: e.target.value }
-                                  : prev,
-                              )
-                            }
-                            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                                prev ? { ...prev, complement: value } : prev,
+                              );
+                            }}
+                            className="profile-input mt-1 w-full text-sm"
                           />
                         </div>
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-gray-500">
-                          Tipo preferido (Entrega/Retirada)
-                        </label>
-                        <input
-                          type="text"
-                          value={profileDraft.addressLabel ?? ""}
-                          onChange={(e) =>
-                            setProfileDraft((prev) =>
-                              prev
-                                ? { ...prev, addressLabel: e.target.value }
-                                : prev,
-                            )
-                          }
-                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                        />
                       </div>
                     </div>
                     <div className="mt-4 flex flex-col gap-2">
@@ -3379,3 +3606,25 @@ export default function Loja() {
     </div>
   );
 }
+  const StatusChip = ({ status }: { status: string }) => {
+    const normalized = (status || "").toLowerCase();
+    const paid =
+      normalized === "pago" ||
+      normalized === "approved" ||
+      normalized === "paid";
+    const fail =
+      normalized === "rejected" ||
+      normalized === "failure" ||
+      normalized === "cancelado";
+    const chipClass = paid
+      ? "bg-green-100 text-green-700"
+      : fail
+        ? "bg-red-100 text-red-600"
+        : "bg-amber-100 text-amber-700";
+    const label = paid ? "Pago" : fail ? "Não aprovado" : "Em análise";
+    return (
+      <span className={`rounded-full px-3 py-1 text-xs font-bold ${chipClass}`}>
+        {label}
+      </span>
+    );
+  };

@@ -188,6 +188,20 @@ select:focus {
   outline: none;
 }
 
+.profile-input {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 23, 42, 0.18) !important;
+  border-radius: 14px !important;
+  padding: 10px 14px !important;
+  color: #1f2937 !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+.profile-input:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+  outline: none;
+}
+
 /* Botões com gradiente */
 button {
   background: linear-gradient(90deg, #ef233c, #ff6b6b);

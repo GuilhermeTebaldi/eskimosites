@@ -148,7 +148,7 @@ export default function PromoFlutuante({ promos, addToCart, openProduct }: Promo
                 return (
                   <div
                     key={pr.id}
-                    className="flex items-center gap-3 rounded-xl border border-gray-200 p-2 transition hover:shadow-md"
+                    className="flex items-center gap-3 overflow-hidden rounded-xl border border-gray-200 p-2 transition hover:shadow-md"
                   >
                     <button
                       type="button"
@@ -173,7 +173,15 @@ export default function PromoFlutuante({ promos, addToCart, openProduct }: Promo
                         <p className="truncate text-sm font-semibold text-gray-800">
                           {prod.name}
                         </p>
-                        <p className="truncate text-[11px] text-gray-500">
+                        <p
+                          className="text-[11px] text-gray-500 leading-snug break-words"
+                          style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
                           {pr.highlightText ?? prod.description}
                         </p>
                         <div className="text-xs text-gray-500">
