@@ -2186,7 +2186,7 @@ export default function Loja() {
             setHomePanelOpen(true);
             setHomeActiveTab("profile");
           }}
-          className="fixed left-6 top-60 z-[40] h-16 w-16 overflow-hidden rounded-full border-4 border-green-400 bg-white shadow-xl transition hover:scale-105 active:scale-95"
+          className="fixed left-5 top-60 z-[60] h-16 w-16 overflow-hidden rounded-full border-4 border-green-400 bg-white shadow-xl transition hover:scale-105 active:scale-95"
           aria-label="Abrir Minha Área"
         >
           <img

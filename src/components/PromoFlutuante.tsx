@@ -118,7 +118,7 @@ export default function PromoFlutuante({ promos, addToCart, openProduct }: Promo
         onClick={() => setOpen((prev) => !prev)}
         whileHover={{ scale: 1.05 }}
       >
-      Promoções 🎁
+      Oferta
       </motion.div>
 
       <AnimatePresence initial={false}>
