@@ -67,6 +67,8 @@ interface PaymentConfig {
   MpPublicKey?: string; // PascalCase (compat backend)
 }
 
+type PaymentMethod = "mercado_pago" | "cash";
+
 type FlyAnimation = {
   id: string;
   imageUrl: string;
@@ -97,6 +99,7 @@ type OrderStatusResponse = {
   customerName?: string;
   phoneNumber?: string;
   createdAt?: string;
+  paymentMethod?: string;
 };
 
 interface StoreCustomerProfile {
@@ -123,6 +126,7 @@ interface CustomerOrderSummary {
   createdAt: string;
   deliveryType?: string;
   phoneNumber?: string;
+  paymentMethod?: string;
 }
 
 /************************************
@@ -294,9 +298,11 @@ function buildOrderSignature(
   cart: CartItem[],
   deliveryFee: number,
   selectedStore: string | null,
+  paymentMethod: string,
 ): string {
   const payload = {
     store: selectedStore ?? "",
+    paymentMethod,
     fee: Number(Number(deliveryFee).toFixed(2)),
     items: cart
       .map((i) => ({
@@ -333,6 +339,21 @@ function clearLastSig() {
   } catch {
     /* noop */
   }
+}
+
+function normalizePaymentTag(method?: string | null): string {
+  return (method ?? "").trim().toLowerCase();
+}
+
+function isCashPayment(method?: string | null): boolean {
+  return normalizePaymentTag(method) === "cash";
+}
+
+function describePaymentMethod(method?: string | null): string {
+  const normalized = normalizePaymentTag(method);
+  if (normalized === "cash") return "Dinheiro na entrega";
+  if (normalized === "mercado_pago") return "Mercado Pago (online)";
+  return method?.trim() || "Pagamento não informado";
 }
 
 /************************************
@@ -522,6 +543,8 @@ export default function Loja() {
 
   const { storedCart, setStoredCart } = useLocalStorageCart();
   const [cart, setCart] = useState<CartItem[]>(storedCart);
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("mercado_pago");
   const [selectedStore, setSelectedStore] = useState<string | null>(() => {
     try {
       const value = localStorage.getItem("eskimo_store");
@@ -650,6 +673,8 @@ export default function Loja() {
   }, []);
 
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [lastOrderPaymentMethod, setLastOrderPaymentMethod] =
+    useState<PaymentMethod | null>(null);
 
   useEffect(() => {
     if (!storeCustomer) return;
@@ -1314,6 +1339,7 @@ export default function Loja() {
         total: order.total,
         createdAt: order.createdAt,
         phoneNumber: order.phoneNumber,
+        paymentMethod: order.paymentMethod,
       });
     },
     [],
@@ -1879,6 +1905,7 @@ export default function Loja() {
         /* empty */
       }
       setShowConfirmation(true);
+      setLastOrderPaymentMethod("mercado_pago");
       setHomeHasAlert(true);
       void loadMyOrders();
     },
@@ -1890,6 +1917,7 @@ export default function Loja() {
       setCart,
       setShowConfirmation,
       loadMyOrders,
+      setLastOrderPaymentMethod,
     ],
   );
 
@@ -2044,6 +2072,7 @@ export default function Loja() {
         cart,
         effectiveDeliveryFee,
         selectedStore,
+        "mercado_pago",
       );
 
       if (orderId && getLastSig() && getLastSig() !== currentSig) {
@@ -2083,6 +2112,7 @@ export default function Loja() {
           total: realTotal,
           deliveryFee: realDeliveryFee,
           phoneNumber,
+          paymentMethod: "mercado_pago",
         };
 
         const orderRes = await fetchWithStore(`${API_URL}/orders`, {
@@ -2184,6 +2214,144 @@ export default function Loja() {
     status?.message,
     fetchWithStore,
     requireCustomerAuth,
+  ]);
+
+  const handleCashOrder = useCallback(async () => {
+    if (!requireCustomerAuth()) return;
+    if (isClosed) {
+      showToast(
+        status?.message || "Loja fechada no momento.",
+        "warning",
+      );
+      return;
+    }
+    if (paymentBusy) return;
+
+    setPaymentBusy(true);
+    try {
+      const ok = await validateBeforePayment();
+      const currentSig = buildOrderSignature(
+        cart,
+        effectiveDeliveryFee,
+        selectedStore,
+        "cash",
+      );
+
+      if (orderId && getLastSig() && getLastSig() !== currentSig) {
+        try {
+          await fetchWithStore(`${API_URL}/orders/${orderId}/cancel`, {
+            method: "PATCH",
+          });
+        } catch {
+          /* não bloqueia o fluxo */
+        }
+        setOrderId(null);
+      }
+
+      if (!ok) return;
+
+      const realDeliveryFee = effectiveDeliveryFee;
+      const realTotal = subtotal + realDeliveryFee;
+
+      const orderPayload = {
+        customerName: customerName.trim(),
+        address: (address === "Outro" ? customAddress : address).trim(),
+        street: street.trim(),
+        number: number.trim(),
+        complement: complement.trim(),
+        deliveryType,
+        store: selectedStore,
+        items: cart.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+          imageUrl: item.product.imageUrl,
+        })),
+        total: realTotal,
+        deliveryFee: realDeliveryFee,
+        phoneNumber,
+        paymentMethod: "cash",
+      };
+
+      const orderRes = await fetchWithStore(`${API_URL}/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderPayload),
+      });
+
+      if (!orderRes.ok) {
+        showToast("Falha ao criar pedido em dinheiro.", "error");
+        return;
+      }
+
+      let orderData: unknown = null;
+      const orderText = await orderRes.text();
+      try {
+        orderData = orderText ? JSON.parse(orderText) : null;
+      } catch {
+        /* empty */
+      }
+      const createdOrderId = isOrderResponse(orderData)
+        ? orderData.id
+        : undefined;
+
+      if (!createdOrderId || !Number.isFinite(createdOrderId)) {
+        showToast("Pedido salvo, mas não recebemos o número.", "error");
+        return;
+      }
+
+      setOrderId(createdOrderId);
+      setLastSig(currentSig);
+      setCart([]);
+      dispatch({ type: "RESET" });
+      setShowConfirmation(true);
+      setLastOrderPaymentMethod("cash");
+      setHomeHasAlert(true);
+      showToast(
+        "Pedido enviado! Pague em dinheiro ao motoboy.",
+        "success",
+      );
+      void loadMyOrders();
+      try {
+        localStorage.setItem("last_order_id", String(createdOrderId));
+      } catch {
+        /* empty */
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Erro ao enviar pedido em dinheiro.", "error");
+    } finally {
+      setPaymentBusy(false);
+    }
+  }, [
+    requireCustomerAuth,
+    isClosed,
+    status?.message,
+    paymentBusy,
+    validateBeforePayment,
+    cart,
+    effectiveDeliveryFee,
+    selectedStore,
+    orderId,
+    fetchWithStore,
+    setOrderId,
+    subtotal,
+    customerName,
+    address,
+    customAddress,
+    street,
+    number,
+    complement,
+    deliveryType,
+    phoneNumber,
+    setCart,
+    dispatch,
+    setShowConfirmation,
+    setHomeHasAlert,
+    loadMyOrders,
+    showToast,
+    setLastOrderPaymentMethod,
   ]);
 
   // ---- RENDER ----
@@ -2641,7 +2809,55 @@ export default function Loja() {
                     {toBRL(subtotal + effectiveDeliveryFee)}
                   </p>
                 </div>
-
+                <div className="mb-4 rounded-2xl border border-gray-200 bg-white/80 p-3 text-sm text-gray-700">
+                  <p className="mb-2 text-xs font-semibold text-gray-500">
+                    Forma de pagamento
+                  </p>
+                  <label className={`mb-2 flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-2 transition ${
+                    paymentMethod === "mercado_pago"
+                      ? "border-indigo-400 bg-indigo-50"
+                      : "border-gray-200 bg-white hover:bg-gray-50"
+                  }`}>
+                    <input
+                      type="radio"
+                      name="payment-method"
+                      value="mercado_pago"
+                      checked={paymentMethod === "mercado_pago"}
+                      onChange={() => setPaymentMethod("mercado_pago")}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">
+                        💳 Pagar agora no site
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Cartão, PIX e boleto via Mercado Pago.
+                      </p>
+                    </div>
+                  </label>
+                  <label className={`flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-2 transition ${
+                    paymentMethod === "cash"
+                      ? "border-amber-500 bg-amber-50"
+                      : "border-gray-200 bg-white hover:bg-gray-50"
+                  }`}>
+                    <input
+                      type="radio"
+                      name="payment-method"
+                      value="cash"
+                      checked={paymentMethod === "cash"}
+                      onChange={() => setPaymentMethod("cash")}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">
+                        💵 Pagar em dinheiro
+                      </p>
+                      <p className="text-xs text-amber-700">
+                        Pagamento confirmado quando o motoboy retornar à loja.
+                      </p>
+                    </div>
+                  </label>
+                </div>
                 <div className="flex items-center justify-between">
                   <button
                     onClick={() => dispatch({ type: "RESET" })}
@@ -2652,30 +2868,10 @@ export default function Loja() {
 
                   <button
                     onClick={async () => {
-                      const ok = await validateBeforePayment();
-                      // Se já existe pedido pendente mas a "assinatura" mudou, cancela o antigo
-                      const currentSig = buildOrderSignature(
-                        cart,
-                        effectiveDeliveryFee,
-                        selectedStore,
-                      );
-
-                      if (
-                        orderId &&
-                        getLastSig() &&
-                        getLastSig() !== currentSig
-                      ) {
-                        try {
-                        await fetchWithStore(`${API_URL}/orders/${orderId}/cancel`, {
-                          method: "PATCH",
-                        });
-                        } catch {
-                          /* não bloqueia o fluxo */
-                        }
-                        setOrderId(null);
+                      if (paymentMethod === "cash") {
+                        await handleCashOrder();
+                        return;
                       }
-
-                      if (!ok) return;
                       await handleMercadoPagoPayment();
                     }}
                     disabled={paymentBusy || effectiveDeliveryFee === 0}
@@ -2688,8 +2884,12 @@ export default function Loja() {
                     }`}
                   >
                     {paymentBusy
-                      ? "Iniciando pagamento..."
-                      : "Ir para Pagamento"}
+                      ? paymentMethod === "cash"
+                        ? "Enviando pedido..."
+                        : "Iniciando pagamento..."
+                      : paymentMethod === "cash"
+                        ? "Confirmar em Dinheiro"
+                        : "Ir para Pagamento"}
                   </button>
                 </div>
               </div>
@@ -3008,7 +3208,7 @@ export default function Loja() {
 
             {homeActiveTab === "orders" && (
               <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-2">
-                {storeCustomer ? (
+                    {storeCustomer ? (
                   <>
                     {orderLookupResult && (
                       <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-lg">
@@ -3033,6 +3233,17 @@ export default function Loja() {
                         </p>
                         <div className="mt-4">
                           <StatusSteps status={orderLookupResult.status} />
+                        </div>
+                        <div className="mt-4 rounded-2xl bg-gray-50 p-3 text-xs text-gray-700">
+                          <p className="font-semibold">
+                            Pagamento:{" "}
+                            {describePaymentMethod(orderLookupResult.paymentMethod)}
+                          </p>
+                          {isCashPayment(orderLookupResult.paymentMethod) && (
+                            <p className="mt-1 text-[11px] font-semibold text-amber-700">
+                              Dinheiro na entrega · confirmamos quando o motoboy retornar.
+                            </p>
+                          )}
                         </div>
                         <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-600">
                           <span>
@@ -3102,6 +3313,18 @@ export default function Loja() {
                                   : "Retirada"}
                               </span>
                             </div>
+                            <p
+                              className={`mt-2 text-xs ${
+                                isCashPayment(order.paymentMethod)
+                                  ? "text-amber-700"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              Pagamento: {describePaymentMethod(order.paymentMethod)}
+                              {isCashPayment(order.paymentMethod)
+                                ? " · aguardando confirmação."
+                                : ""}
+                            </p>
                             <button
                               onClick={() => handleOrderCardClick(order)}
                               className="mt-3 w-full rounded-xl bg-indigo-50 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100"
@@ -3403,10 +3626,20 @@ export default function Loja() {
                 Copiar
               </button>
             </div>
-            <p className="mb-6 text-sm text-gray-600">
+            <p className="text-sm text-gray-600">
               Você poderá acompanhar o status do seu pedido clicando em{" "}
               <strong>“Meu Pedido”</strong>.
             </p>
+            {isCashPayment(lastOrderPaymentMethod) ? (
+              <p className="mb-6 mt-2 text-sm font-semibold text-amber-700">
+                Pagamento em dinheiro: entregue o valor ao motoboy. O pagamento será
+                confirmado no painel assim que ele retornar à loja.
+              </p>
+            ) : (
+              <p className="mb-6 mt-2 text-sm text-gray-600">
+                Um atendente será avisado assim que o pagamento online for confirmado.
+              </p>
+            )}
             <button
               onClick={() => {
                 // ✅ ACK e limpar last_order_id
