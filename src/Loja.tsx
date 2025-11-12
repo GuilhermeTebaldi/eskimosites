@@ -3322,7 +3322,7 @@ export default function Loja() {
                             >
                               Pagamento: {describePaymentMethod(order.paymentMethod)}
                               {isCashPayment(order.paymentMethod)
-                                ? " · "
+                                ? " "
                                 : ""}
                             </p>
                             <button
