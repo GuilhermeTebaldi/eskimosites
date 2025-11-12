@@ -695,7 +695,6 @@ export default function Loja() {
     type: "info" | "success" | "warning" | "error";
     message: string;
   } | null>(null);
-  const [manualCheckLoading, setManualCheckLoading] = useState(false);
   const [promos, setPromos] = useState<PromotionDTO[]>([]);
   const toastTimerRef = useRef<number | null>(null);
   const showToast = useCallback(
@@ -1927,7 +1926,6 @@ export default function Loja() {
   const finalizePaidOrder = useCallback(
     (paidOrderId: number) => {
       stopPolling();
-      setManualCheckLoading(false);
       try {
         walletCtrlRef.current?.unmount?.();
       } catch {
@@ -2012,30 +2010,6 @@ export default function Loja() {
     },
     [checkPaidOnce, fetchWithStore],
   );
-
-  const handleManualPaymentCheck = useCallback(async () => {
-    if (!orderId) {
-      showToast("Nenhum pedido para verificar.", "warning");
-      return;
-    }
-    setManualCheckLoading(true);
-    try {
-      const paid = await checkPaidOnce(orderId);
-      if (paid) {
-        finalizePaidOrder(orderId);
-      } else {
-        showToast(
-          "Ainda não recebemos a confirmação do PIX. Aguarde alguns segundos e tente novamente.",
-          "info",
-          4000,
-        );
-      }
-    } catch {
-      showToast("Não conseguimos verificar o pagamento agora.", "error");
-    } finally {
-      setManualCheckLoading(false);
-    }
-  }, [orderId, checkPaidOnce, finalizePaidOrder, showToast]);
 
   // Abre o Wallet Brick
   const openWalletBrick = useCallback(
@@ -3194,21 +3168,6 @@ export default function Loja() {
         <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-[95%] max-w-md rounded-2xl bg-white p-3 shadow-2xl">
             <div id="mp-wallet-container" />
-            <div className="mt-4 rounded-2xl bg-gray-50 p-3 text-sm text-gray-600">
-              <p className="font-semibold text-gray-700">
-                Já efetuou o PIX?
-              </p>
-              <p>
-                Clique no botão abaixo para procurarmos automaticamente a confirmação junto ao Mercado Pago.
-              </p>
-              <button
-                onClick={handleManualPaymentCheck}
-                disabled={manualCheckLoading}
-                className="mt-3 w-full rounded-xl bg-emerald-500 px-4 py-2 text-white font-semibold shadow hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {manualCheckLoading ? "Verificando..." : "Já paguei"}
-              </button>
-            </div>
             <div className="mt-3 flex justify-end gap-2">
               <button
                 onClick={async () => {
@@ -3219,7 +3178,6 @@ export default function Loja() {
                   }
                   setWalletOpen(false);
                   stopPolling();
-                  setManualCheckLoading(false);
                   if (orderId) {
                     const cancelResult = await cancelOrderIfUnpaid(orderId);
                     if (cancelResult === "cancelled") {
