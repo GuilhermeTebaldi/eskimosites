@@ -1992,6 +1992,32 @@ export default function Loja() {
     [fetchMpSyncedStatus],
   );
 
+  useEffect(() => {
+    if (!orderId || showConfirmation) return;
+
+    let cancelled = false;
+    const handleVisibility = async () => {
+      if (document.visibilityState !== "visible") return;
+      if (!orderId || showConfirmation || cancelled) return;
+      try {
+        const paid = await checkPaidOnce(orderId);
+        if (paid) finalizePaidOrder(orderId);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    window.addEventListener("focus", handleVisibility);
+    document.addEventListener("visibilitychange", handleVisibility);
+    void handleVisibility();
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", handleVisibility);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [orderId, showConfirmation, checkPaidOnce, finalizePaidOrder]);
+
   type CancelAttemptResult = "cancelled" | "already_paid" | "failed";
 
   const cancelOrderIfUnpaid = useCallback(
