@@ -631,14 +631,44 @@ export default function Loja() {
   const fetchMpSyncedStatus = useCallback(
     async (id: number): Promise<string | null> => {
       if (!id || Number.isNaN(id)) return null;
+
+      const tryParseStatus = (payload: unknown) => {
+        try {
+          const obj = payload as Record<string, unknown>;
+          const raw = String(
+            (obj?.status ??
+              obj?.Status ??
+              obj?.paymentStatus ??
+              obj?.providerStatus ??
+              "") as string,
+          ).toLowerCase();
+          return raw || null;
+        } catch {
+          return null;
+        }
+      };
+
       try {
-        const res = await fetchWithStore(`${API_URL}/payments/mp/status/${id}`);
+        const res = await fetchWithStore(`${API_URL}/payments/mp/status/${id}`, {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const payload = await res.json();
+          const parsed = tryParseStatus(payload);
+          if (parsed) return parsed;
+        }
+      } catch {
+        /* ignore e tenta fallback */
+      }
+
+      // Fallback: status direto do pedido (garante retorno mesmo se MP search falhar)
+      try {
+        const res = await fetchWithStore(`${API_URL}/orders/${id}`, {
+          cache: "no-store",
+        });
         if (!res.ok) return null;
         const payload = await res.json();
-        const raw = String(
-          (payload?.status ?? payload?.Status ?? payload?.paymentStatus ?? "") as string,
-        ).toLowerCase();
-        return raw || null;
+        return tryParseStatus(payload);
       } catch {
         return null;
       }
