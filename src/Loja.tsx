@@ -628,6 +628,24 @@ export default function Loja() {
     [selectedStore, customerToken],
   );
 
+  const fetchMpSyncedStatus = useCallback(
+    async (id: number): Promise<string | null> => {
+      if (!id || Number.isNaN(id)) return null;
+      try {
+        const res = await fetchWithStore(`${API_URL}/payments/mp/status/${id}`);
+        if (!res.ok) return null;
+        const payload = await res.json();
+        const raw = String(
+          (payload?.status ?? payload?.Status ?? payload?.paymentStatus ?? "") as string,
+        ).toLowerCase();
+        return raw || null;
+      } catch {
+        return null;
+      }
+    },
+    [fetchWithStore],
+  );
+
   const updateSelectedStore = useCallback((store: string | null) => {
     autoRedirectInProgressRef.current = false;
     noOpenStoreToastRef.current = false;
@@ -1054,16 +1072,7 @@ export default function Loja() {
       if (hasOrderAck(orderId)) return;
 
       try {
-        type OrderDTO = {
-          paymentStatus: string | undefined;
-          status?: string;
-          Status?: string;
-        };
-        const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
-        const d = res.data ?? {};
-        const status = String(
-          d.status ?? d.Status ?? d.paymentStatus ?? "",
-        ).toLowerCase();
+        const status = await fetchMpSyncedStatus(orderId);
 
         if (status === "pago" || status === "approved" || status === "paid") {
           setOrderId(orderId);
@@ -1096,7 +1105,7 @@ export default function Loja() {
     } catch {
       /* empty */
     }
-  }, []);
+  }, [fetchMpSyncedStatus]);
 
   // detectar loja mais próxima (com obrigatoriedade de permissão)
   useEffect(() => {
@@ -1931,16 +1940,7 @@ export default function Loja() {
     const iv = window.setInterval(async () => {
       tries++;
       try {
-        type OrderDTO = {
-          status?: string;
-          Status?: string;
-          paymentStatus?: string;
-        };
-        const res = await axios.get<OrderDTO>(`${API_URL}/orders/${orderId}`);
-        const d = res.data ?? {};
-        const status = String(
-          d.status ?? d.Status ?? d.paymentStatus ?? "",
-        ).toLowerCase();
+        const status = await fetchMpSyncedStatus(orderId);
         if (status === "pago" || status === "approved" || status === "paid") {
           finalizePaidOrder(orderId);
           window.clearInterval(iv);
@@ -1952,21 +1952,34 @@ export default function Loja() {
     }, 5000);
 
     return () => window.clearInterval(iv);
-  }, [orderId, showConfirmation, finalizePaidOrder]);
+  }, [orderId, showConfirmation, finalizePaidOrder, fetchMpSyncedStatus]);
 
-  const checkPaidOnce = useCallback(async (id: number): Promise<boolean> => {
-    try {
-      const r = await fetchWithStore(`${API_URL}/orders/${id}`);
-      if (!r.ok) return false;
-      const o = await r.json();
-      const raw = String(
-        (o?.status ?? o?.Status ?? o?.paymentStatus ?? "") as string,
-      ).toLowerCase();
+  const checkPaidOnce = useCallback(
+    async (id: number): Promise<boolean> => {
+      const raw = await fetchMpSyncedStatus(id);
       return raw === "pago" || raw === "approved" || raw === "paid";
-    } catch {
-      return false;
-    }
-  }, [fetchWithStore]);
+    },
+    [fetchMpSyncedStatus],
+  );
+
+  type CancelAttemptResult = "cancelled" | "already_paid" | "failed";
+
+  const cancelOrderIfUnpaid = useCallback(
+    async (id: number | null | undefined): Promise<CancelAttemptResult> => {
+      if (typeof id !== "number" || Number.isNaN(id)) return "failed";
+      const alreadyPaid = await checkPaidOnce(id);
+      if (alreadyPaid) return "already_paid";
+      try {
+        const resp = await fetchWithStore(`${API_URL}/orders/${id}/cancel`, {
+          method: "PATCH",
+        });
+        return resp.ok ? "cancelled" : "failed";
+      } catch {
+        return "failed";
+      }
+    },
+    [checkPaidOnce, fetchWithStore],
+  );
 
   // Abre o Wallet Brick
   const openWalletBrick = useCallback(
@@ -2076,12 +2089,11 @@ export default function Loja() {
       );
 
       if (orderId && getLastSig() && getLastSig() !== currentSig) {
-        try {
-          await fetchWithStore(`${API_URL}/orders/${orderId}/cancel`, {
-            method: "PATCH",
-          });
-        } catch {
-          /* não bloqueia o fluxo */
+        const cancelResult = await cancelOrderIfUnpaid(orderId);
+        if (cancelResult === "already_paid") {
+          showToast("Seu pedido anterior já foi pago e está em processamento.", "info", 4000);
+        } else if (cancelResult === "failed") {
+          showToast("Não conseguimos cancelar o pedido anterior. Vamos continuar assim mesmo.", "warning");
         }
         setOrderId(null);
       }
@@ -2207,6 +2219,7 @@ export default function Loja() {
     selectedStore,
     cart,
     phoneNumber,
+    cancelOrderIfUnpaid,
     openWalletBrick,
     setPaymentOverlay,
     isClosed,
@@ -2238,13 +2251,7 @@ export default function Loja() {
       );
 
       if (orderId && getLastSig() && getLastSig() !== currentSig) {
-        try {
-          await fetchWithStore(`${API_URL}/orders/${orderId}/cancel`, {
-            method: "PATCH",
-          });
-        } catch {
-          /* não bloqueia o fluxo */
-        }
+        await cancelOrderIfUnpaid(orderId);
         setOrderId(null);
       }
 
@@ -2334,6 +2341,7 @@ export default function Loja() {
     effectiveDeliveryFee,
     selectedStore,
     orderId,
+    cancelOrderIfUnpaid,
     fetchWithStore,
     setOrderId,
     subtotal,
@@ -3141,15 +3149,19 @@ export default function Loja() {
                   setWalletOpen(false);
                   stopPolling();
                   if (orderId) {
-                    try {
-                    await fetchWithStore(`${API_URL}/orders/${orderId}/cancel`, {
-                      method: "PATCH",
-                    });
-                    } catch {
-                      /* empty */
+                    const cancelResult = await cancelOrderIfUnpaid(orderId);
+                    if (cancelResult === "cancelled") {
+                      clearLastSig();
+                      setOrderId(null);
+                    } else if (cancelResult === "already_paid") {
+                      showToast(
+                        "Pagamento já confirmado. Não é possível cancelar agora.",
+                        "info",
+                        4000,
+                      );
+                    } else {
+                      showToast("Não conseguimos cancelar o pedido.", "warning");
                     }
-                    clearLastSig();
-                    setOrderId(null);
                   }
                 }}
                 className="rounded bg-gray-200 px-3 py-1 text-gray-700 hover:bg-gray-300"
