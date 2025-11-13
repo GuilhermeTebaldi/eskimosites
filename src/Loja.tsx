@@ -497,10 +497,7 @@ export default function Loja() {
   const cartShakeTimerRef = useRef<number | null>(null);
   const [flyAnimations, setFlyAnimations] = useState<FlyAnimation[]>([]);
   const [cartShake, setCartShake] = useState(false);
-  const [pendingReturn, setPendingReturn] = useState<{
-    orderId: number;
-    status: string | null;
-  } | null>(null);
+  const [showMpInstructionModal, setShowMpInstructionModal] = useState(false);
 
   const { storedCart, setStoredCart } = useLocalStorageCart();
   const [cart, setCart] = useState<CartItem[]>(storedCart);
@@ -683,9 +680,6 @@ export default function Loja() {
   }, []);
 
   const [showConfirmation, setShowConfirmation] = useState(false);
-  useEffect(() => {
-    if (showConfirmation) setPendingReturn(null);
-  }, [showConfirmation]);
   const [lastOrderPaymentMethod, setLastOrderPaymentMethod] =
     useState<PaymentMethod | null>(null);
 
@@ -1074,14 +1068,9 @@ export default function Loja() {
           } catch {
             /* empty */
           }
-          setPendingReturn(null);
-        } else if (status) {
-          setPendingReturn({ orderId, status });
-        } else {
-          setPendingReturn({ orderId, status: null });
         }
       } catch {
-        setPendingReturn({ orderId, status: null });
+        /* ignore */
       }
     }
 
@@ -1945,7 +1934,7 @@ export default function Loja() {
   );
 
   // Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
-  const handleMercadoPagoPayment = useCallback(async () => {
+  const processMercadoPagoPayment = useCallback(async () => {
     if (!requireCustomerAuth()) return;
     if (isClosed) {
       showToast(
@@ -2094,6 +2083,19 @@ export default function Loja() {
     fetchWithStore,
     requireCustomerAuth,
   ]);
+
+  const confirmMpInstructionsAndPay = useCallback(() => {
+    setShowMpInstructionModal(false);
+    void processMercadoPagoPayment();
+  }, [processMercadoPagoPayment]);
+
+  const dismissMpInstructions = useCallback(() => {
+    setShowMpInstructionModal(false);
+  }, []);
+
+  const handleMercadoPagoPayment = useCallback(() => {
+    setShowMpInstructionModal(true);
+  }, []);
 
   const handleCashOrder = useCallback(async () => {
     if (!requireCustomerAuth()) return;
@@ -3436,19 +3438,45 @@ export default function Loja() {
         </div>
       )}
 
-      {pendingReturn && !showConfirmation && (
-        <div className="fixed bottom-4 right-4 z-[90] max-w-xs rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-sm shadow-2xl">
-          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-400">
-            Confirmando pagamento
-          </p>
-          <p className="mt-1 font-semibold text-gray-800">
-            Pedido #{pendingReturn.orderId}
-          </p>
-          <p className="text-xs text-gray-500">
-            {pendingReturn.status
-              ? "Recebemos seu pedido e estamos aguardando a confirmação do Mercado Pago. Assim que o pagamento for aprovado, mostraremos a confirmação automaticamente."
-              : "Recebemos seu pedido e continuamos consultando o Mercado Pago. Isso pode levar alguns segundos após o pagamento do Pix."}
-          </p>
+      {showMpInstructionModal && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-xl font-bold text-gray-900">
+              Antes de continuar com o pagamento
+            </h2>
+            <p className="mt-3 text-sm text-gray-600">
+              Ao clicar em &quot;Continuar com Mercado Pago&quot;, abriremos o
+              Checkout do Mercado Pago. Depois de copiar o Pix e pagar no seu
+              banco,{" "}
+              <strong>volte para a loja nesta mesma aba</strong>. Assim que o
+              pagamento for confirmado, mostraremos o pedido automaticamente.
+            </p>
+            <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-gray-600">
+              <li>Copie o Pix ou escaneie o QR Code e finalize no seu banco.</li>
+              <li>
+                Caso o Mercado Pago não volte sozinho, use o botão
+                &quot;Voltar para Eskimo&quot; ou volte manualmente.
+              </li>
+              <li>
+                Ao retornar, você verá um aviso &quot;Confirmando pagamento&quot;
+                até liberarmos o pedido.
+              </li>
+            </ul>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={dismissMpInstructions}
+                className="rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmMpInstructionsAndPay}
+                className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700"
+              >
+                Entendi, continuar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
