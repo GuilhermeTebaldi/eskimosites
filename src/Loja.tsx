@@ -1108,7 +1108,6 @@ export default function Loja() {
           setOrderId(orderId);
           setShowConfirmation(true);
           setCart([]);
-          setOrderAck(orderId);
           clearLastSig();
           try {
             localStorage.setItem("last_order_id", String(orderId));
@@ -1936,7 +1935,6 @@ export default function Loja() {
       setPaymentOverlay(false);
       setOrderId(paidOrderId);
       setCart([]);
-      setOrderAck(paidOrderId);
       clearLastSig();
       try {
         localStorage.setItem("last_order_id", String(paidOrderId));
@@ -2719,7 +2717,7 @@ export default function Loja() {
             </>
           )}
         </div>
-        <div className="mt-1 text-xs font-semibold">Perfil</div>
+        <div className="mt-1 text-xs font-semibold">Pedidos</div>
       </button>
 
       <button
