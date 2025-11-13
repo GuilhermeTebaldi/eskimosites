@@ -1,6 +1,6 @@
 // Loja.tsx — versão revisada (monolítica) 100% focada em Mercado Pago
 // - Remove 100% do antigo PIX local/QRCode (componentes, helpers, modais, confirmações locais)
-// - Mantém e aprimora o fluxo Mercado Pago (Wallet Brick) com overlay de preparação e polling
+// - Adota o fluxo Mercado Pago redirecionado (Checkout Pro) para aproveitar o auto_return
 // - Corrige estados e efeitos para não haver referências ao PIX antigo
 // - Mantém filtros, carrinho, seleção de loja, geolocalização, UI essenciais
 
@@ -59,13 +59,6 @@ type PromotionDTO = {
     pinnedTop?: boolean;
   } | null;
 };
-
-interface PaymentConfig {
-  provider?: string;
-  isActive?: boolean;
-  mpPublicKey?: string; // camelCase
-  MpPublicKey?: string; // PascalCase (compat backend)
-}
 
 type PaymentMethod = "mercado_pago" | "cash";
 
@@ -428,33 +421,8 @@ function useDeliveryFee(
   return { deliveryFee, recalc } as const;
 }
 
-// ——— Tipos auxiliares (Mercado Pago Wallet + guards) ———
+// ——— Type guards auxiliares ———
 type Json = Record<string, unknown>;
-
-type WalletController = { unmount?: () => void };
-type WalletOptions = {
-  initialization: { preferenceId: string };
-  customization?: { texts?: { valueProp?: string } };
-  callbacks?: {
-    onReady?: () => void;
-    onError?: (error: unknown) => void;
-  };
-};
-type Bricks = {
-  create: (
-    name: "wallet",
-    containerId: string,
-    options: WalletOptions,
-  ) => Promise<WalletController>;
-};
-interface MercadoPagoCtor {
-  new (publicKey: string, opts?: { locale?: string }): { bricks: () => Bricks };
-}
-declare global {
-  interface Window {
-    MercadoPago?: MercadoPagoCtor;
-  }
-}
 
 // Type guards p/ respostas JSON
 function isOrderResponse(x: unknown): x is { id: number } {
@@ -463,14 +431,6 @@ function isOrderResponse(x: unknown): x is { id: number } {
     x !== null &&
     "id" in x &&
     typeof (x as Json).id === "number"
-  );
-}
-function isCheckoutResponse(x: unknown): x is { preferenceId: string } {
-  return (
-    typeof x === "object" &&
-    x !== null &&
-    "preferenceId" in x &&
-    typeof (x as Json).preferenceId === "string"
   );
 }
 
@@ -515,9 +475,6 @@ export default function Loja() {
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentOverlay, setPaymentOverlay] = useState(false);
   const [paymentOverlayProgress, setPaymentOverlayProgress] = useState(0);
-  const [walletOpen, setWalletOpen] = useState(false);
-  const walletCtrlRef = useRef<WalletController | null>(null);
-  const pollRef = useRef<number | null>(null);
   const autoRedirectInProgressRef = useRef(false);
   const noOpenStoreToastRef = useRef(false);
 
@@ -988,12 +945,6 @@ export default function Loja() {
     },
     [],
   );
-
-  // Config de pagamento por loja (Mercado Pago)
-  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(
-    null,
-  );
-
   // hook da taxa de entrega
   const { deliveryFee, recalc } = useDeliveryFee(
     deliveryRate,
@@ -1553,25 +1504,6 @@ export default function Loja() {
     return findNeighborhoodMatch(raw) ?? "Outro";
   }, [profileDraft?.neighborhood]);
 
-
-  // buscar config de pagamento da loja
-  useEffect(() => {
-    const storeName = (selectedStore ?? "").trim();
-    if (!storeName) {
-      setPaymentConfig(null);
-      return;
-    }
-    fetchWithStore(`${API_URL}/paymentconfigs/${encodeURIComponent(storeName)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: PaymentConfig | null) => {
-        setPaymentConfig(data);
-      })
-      .catch((e) => {
-        console.warn("paymentconfigs fetch error", e);
-        setPaymentConfig(null);
-      });
-  }, [fetchWithStore, selectedStore]);
-
   // categorias e subcategorias memorizadas
   const categories = useMemo(
     () => Array.from(new Set(products.map((p) => p.categoryName))),
@@ -1895,43 +1827,8 @@ export default function Loja() {
     isPhoneValid,
   ]);
 
-  // SDK do Mercado Pago
-  const loadMPSDK = useCallback(async (): Promise<MercadoPagoCtor> => {
-    if (window.MercadoPago) return window.MercadoPago;
-    await new Promise<void>((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = "https://sdk.mercadopago.com/js/v2";
-      s.async = true;
-      s.onload = () => resolve();
-      s.onerror = () =>
-        reject(new Error("Falha ao carregar SDK do Mercado Pago"));
-      document.head.appendChild(s);
-    });
-    if (!window.MercadoPago) {
-      throw new Error(
-        "SDK do Mercado Pago não disponível após carregar script.",
-      );
-    }
-    return window.MercadoPago;
-  }, []);
-
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      window.clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
-
   const finalizePaidOrder = useCallback(
     (paidOrderId: number) => {
-      stopPolling();
-      try {
-        walletCtrlRef.current?.unmount?.();
-      } catch {
-        /* empty */
-      }
-      walletCtrlRef.current = null;
-      setWalletOpen(false);
       setPaymentOverlay(false);
       setOrderId(paidOrderId);
       setCart([]);
@@ -1948,8 +1845,6 @@ export default function Loja() {
     },
     [
       setPaymentOverlay,
-      stopPolling,
-      setWalletOpen,
       setOrderId,
       setCart,
       setShowConfirmation,
@@ -2033,81 +1928,6 @@ export default function Loja() {
       }
     },
     [checkPaidOnce, fetchWithStore],
-  );
-
-  // Abre o Wallet Brick
-  const openWalletBrick = useCallback(
-    async (preferenceId: string, currentOrderId: number) => {
-      try {
-        const MP = await loadMPSDK();
-
-        const publicKey =
-          paymentConfig?.mpPublicKey ?? paymentConfig?.MpPublicKey;
-        if (!publicKey) {
-          showToast(
-            "Public Key do Mercado Pago não configurada para esta loja.",
-            "error",
-          );
-          return;
-        }
-
-        const mp = new MP(publicKey, { locale: "pt-BR" });
-        const bricks = mp.bricks();
-
-        setWalletOpen(true);
-
-        const ctrl = await bricks.create("wallet", "mp-wallet-container", {
-          initialization: {
-            preferenceId,
-            // Keep checkout inside the Loja so PIX never leaves the site.
-            redirectMode: "modal",
-          } as unknown as { preferenceId: string },
-          customization: { texts: { valueProp: "security_details" } },
-          callbacks: {
-            onReady: () => {
-              setPaymentOverlay(false);
-            },
-            onError: (err: unknown) => {
-              console.error("Wallet error:", err);
-              showToast("Erro no pagamento (Mercado Pago).", "error");
-              setWalletOpen(false);
-            },
-          },
-        });
-
-        walletCtrlRef.current = ctrl;
-
-        // Polling do pedido até ficar pago
-        let tries = 0;
-        stopPolling();
-        pollRef.current = window.setInterval(async () => {
-          tries++;
-          const paid = await checkPaidOnce(currentOrderId);
-          if (paid) {
-            finalizePaidOrder(currentOrderId);
-            return;
-          }
-
-          if (tries > 180) {
-            // ~12min
-            stopPolling();
-          }
-        }, 4000);
-      } catch (e) {
-        console.error(e);
-        showToast("Não foi possível abrir o pagamento no site.", "error");
-        setWalletOpen(false);
-      }
-    },
-    [
-      loadMPSDK,
-      paymentConfig,
-      showToast,
-      checkPaidOnce,
-      stopPolling,
-      finalizePaidOrder,
-      setPaymentOverlay,
-    ],
   );
 
   // Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
@@ -2222,31 +2042,10 @@ export default function Loja() {
       }
       setLastSig(currentSig);
 
-      // 2) Cria a preference e abre o Wallet (modal no mesmo tab)
-      const payRes = await fetchWithStore(
-        `${API_URL}/payments/mp/checkout?orderId=${currentOrderId}`,
-        { method: "POST" },
-      );
-      if (!payRes.ok) {
-        showToast("Falha ao iniciar pagamento (Mercado Pago).", "error");
-        return;
-      }
-
-      let data: unknown = null;
-      const text = await payRes.text();
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        /* empty */
-      }
-      const prefId = isCheckoutResponse(data) ? data.preferenceId : undefined;
-
-      if (!prefId) {
-        showToast("Preferência inválida do Mercado Pago.", "error");
-        return;
-      }
-
-      await openWalletBrick(prefId, currentOrderId!);
+      // 2) Redireciona para o Checkout Pro; o MP retorna automaticamente via auto_return
+      const goUrl = `${API_URL}/payments/mp/go?orderId=${currentOrderId}`;
+      setPaymentOverlay(false);
+      window.location.assign(goUrl);
       return;
     } catch (e) {
       console.error(e);
@@ -2274,7 +2073,6 @@ export default function Loja() {
     cart,
     phoneNumber,
     cancelOrderIfUnpaid,
-    openWalletBrick,
     setPaymentOverlay,
     isClosed,
     showToast,
@@ -3183,46 +2981,6 @@ export default function Loja() {
                     : "Entrar"}
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Wallet Brick do Mercado Pago */}
-      {walletOpen && (
-        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[95%] max-w-md rounded-2xl bg-white p-3 shadow-2xl">
-            <div id="mp-wallet-container" />
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                onClick={async () => {
-                  try {
-                    walletCtrlRef.current?.unmount?.();
-                  } catch {
-                    /* empty */
-                  }
-                  setWalletOpen(false);
-                  stopPolling();
-                  if (orderId) {
-                    const cancelResult = await cancelOrderIfUnpaid(orderId);
-                    if (cancelResult === "cancelled") {
-                      clearLastSig();
-                      setOrderId(null);
-                    } else if (cancelResult === "already_paid") {
-                      showToast(
-                        "Pagamento já confirmado. Não é possível cancelar agora.",
-                        "info",
-                        4000,
-                      );
-                    } else {
-                      showToast("Não conseguimos cancelar o pedido.", "warning");
-                    }
-                  }
-                }}
-                className="rounded bg-gray-200 px-3 py-1 text-gray-700 hover:bg-gray-300"
-              >
-                Cancelar
-              </button>
-            </div>
           </div>
         </div>
       )}
