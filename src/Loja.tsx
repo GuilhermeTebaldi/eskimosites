@@ -1071,10 +1071,10 @@ export default function Loja() {
       }
     }
 
-    if (paid && Number.isFinite(id)) {
-      // Mesmo com paid=1, só mostra se backend confirmar como pago
+    if (Number.isFinite(id)) {
+      // Mesmo sem paid=1, tentamos confirmar com o backend.
       resolveAndShow(id);
-      return;
+      if (paid) return;
     }
 
     // Fallback: tentar o último pedido salvo
