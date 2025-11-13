@@ -93,6 +93,7 @@ type OrderStatusResponse = {
   phoneNumber?: string;
   createdAt?: string;
   paymentMethod?: string;
+  deliveryType?: string;
 };
 
 interface StoreCustomerProfile {
@@ -349,6 +350,62 @@ function describePaymentMethod(method?: string | null): string {
   return method?.trim() || "Pagamento não informado";
 }
 
+function normalizeStatusTag(status?: string | null): string {
+  return (status ?? "").toString().trim().toLowerCase();
+}
+
+const CUSTOMER_CONFIRMABLE_STATUS = new Set<string>([
+  "pago",
+  "paid",
+  "approved",
+  "confirmado",
+  "confirmada",
+  "pronto",
+  "pronta",
+  "pronto_para_entrega",
+  "pronto para entrega",
+  "saiu_para_entrega",
+  "saiu para entrega",
+  "em rota",
+  "a caminho",
+  "out_for_delivery",
+]);
+
+function canCustomerConfirmDelivery(order?: {
+  status?: string | null;
+  paymentMethod?: string | null;
+  deliveryType?: string | null;
+} | null): boolean {
+  if (!order) return false;
+  const deliveryMode = (order.deliveryType ?? "").trim().toLowerCase();
+  if (!deliveryMode || !deliveryMode.startsWith("entreg")) return false;
+  if (normalizePaymentTag(order.paymentMethod) === "cash") return false;
+
+  const normalized = normalizeStatusTag(order.status);
+  if (!normalized) return false;
+  if (
+    normalized === "entregue" ||
+    normalized === "delivered" ||
+    normalized === "cancelado" ||
+    normalized === "cancelada" ||
+    normalized === "cancelled" ||
+    normalized === "rejected" ||
+    normalized === "failure"
+  ) {
+    return false;
+  }
+
+  if (CUSTOMER_CONFIRMABLE_STATUS.has(normalized)) return true;
+  if (
+    normalized.includes("saiu") ||
+    normalized.includes("rota") ||
+    normalized.includes("caminho")
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /************************************
  * Hooks utilitários
  ************************************/
@@ -547,6 +604,20 @@ export default function Loja() {
   const [showAllOrders, setShowAllOrders] = useState(false);
   const [orderLookupResult, setOrderLookupResult] =
     useState<OrderStatusResponse | null>(null);
+  const selectedOrderFromList = useMemo(() => {
+    if (!orderLookupResult) return null;
+    return myOrders.find((order) => order.id === orderLookupResult.id) ?? null;
+  }, [orderLookupResult, myOrders]);
+  const canConfirmSelectedDelivery = useMemo(() => {
+    if (!orderLookupResult) return false;
+    return canCustomerConfirmDelivery({
+      status: orderLookupResult.status ?? selectedOrderFromList?.status,
+      paymentMethod:
+        orderLookupResult.paymentMethod ?? selectedOrderFromList?.paymentMethod,
+      deliveryType:
+        orderLookupResult.deliveryType ?? selectedOrderFromList?.deliveryType,
+    });
+  }, [orderLookupResult, selectedOrderFromList]);
   const [authForm, setAuthForm] = useState({
     fullName: "",
     nickname: "",
@@ -1332,6 +1403,7 @@ export default function Loja() {
         createdAt: order.createdAt,
         phoneNumber: order.phoneNumber,
         paymentMethod: order.paymentMethod,
+        deliveryType: order.deliveryType,
       });
     },
     [],
@@ -1346,6 +1418,38 @@ export default function Loja() {
       showToast("Não conseguimos copiar o número.", "error");
     }
   }, [orderLookupResult, showToast]);
+
+  const handleConfirmDelivery = useCallback(
+    async (orderId: number) => {
+      if (!orderId) return;
+      try {
+        const res = await fetchWithStore(
+          `${API_URL}/orders/${orderId}/deliver`,
+          { method: "PATCH" },
+        );
+        if (!res.ok) {
+          throw new Error("Fail");
+        }
+        showToast("Obrigado! Entrega confirmada.", "success");
+        setMyOrders((prev) =>
+          prev.map((order) =>
+            order.id === orderId ? { ...order, status: "entregue" } : order,
+          ),
+        );
+        setOrderLookupResult((prev) =>
+          prev && prev.id === orderId ? { ...prev, status: "entregue" } : prev,
+        );
+        void loadMyOrders();
+      } catch (err) {
+        console.error(err);
+        showToast(
+          "Não conseguimos confirmar a entrega agora.",
+          "error",
+        );
+      }
+    },
+    [fetchWithStore, showToast, loadMyOrders],
+  );
 
   const StatusSteps = ({ status }: { status: string }) => {
     const normalized = (status || "").toLowerCase();
@@ -3100,6 +3204,14 @@ export default function Loja() {
                           >
                             Copiar número
                           </button>
+                          {canConfirmSelectedDelivery && orderLookupResult && (
+                            <button
+                              onClick={() => handleConfirmDelivery(orderLookupResult.id)}
+                              className="rounded-full border border-green-100 bg-green-50 px-4 py-1 font-semibold text-green-700 hover:bg-green-100"
+                            >
+                              Confirmar entrega
+                            </button>
+                          )}
                           <button
                             onClick={() => setOrderLookupResult(null)}
                             className="rounded-full border border-gray-100 px-4 py-1 text-gray-600 hover:bg-gray-50"
@@ -3165,6 +3277,14 @@ export default function Loja() {
                                 ? " "
                                 : ""}
                             </p>
+                            {canCustomerConfirmDelivery(order) && (
+                              <button
+                                onClick={() => handleConfirmDelivery(order.id)}
+                                className="mt-3 w-full rounded-xl border border-green-100 bg-green-50 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-100"
+                              >
+                                Confirmar entrega
+                              </button>
+                            )}
                             <button
                               onClick={() => handleOrderCardClick(order)}
                               className="mt-3 w-full rounded-xl bg-indigo-50 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100"
