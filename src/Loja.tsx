@@ -497,6 +497,10 @@ export default function Loja() {
   const cartShakeTimerRef = useRef<number | null>(null);
   const [flyAnimations, setFlyAnimations] = useState<FlyAnimation[]>([]);
   const [cartShake, setCartShake] = useState(false);
+  const [pendingReturn, setPendingReturn] = useState<{
+    orderId: number;
+    status: string | null;
+  } | null>(null);
 
   const { storedCart, setStoredCart } = useLocalStorageCart();
   const [cart, setCart] = useState<CartItem[]>(storedCart);
@@ -647,6 +651,7 @@ export default function Loja() {
     }
   }, [customerToken]);
 
+
   // Toast simples local
   const [toast, setToast] = useState<{
     type: "info" | "success" | "warning" | "error";
@@ -678,6 +683,9 @@ export default function Loja() {
   }, []);
 
   const [showConfirmation, setShowConfirmation] = useState(false);
+  useEffect(() => {
+    if (showConfirmation) setPendingReturn(null);
+  }, [showConfirmation]);
   const [lastOrderPaymentMethod, setLastOrderPaymentMethod] =
     useState<PaymentMethod | null>(null);
 
@@ -1051,6 +1059,7 @@ export default function Loja() {
 
       // Se já vimos, não reabrir
       if (hasOrderAck(orderId)) return;
+      setOrderId(orderId);
 
       try {
         const status = await fetchMpSyncedStatus(orderId);
@@ -1065,9 +1074,14 @@ export default function Loja() {
           } catch {
             /* empty */
           }
+          setPendingReturn(null);
+        } else if (status) {
+          setPendingReturn({ orderId, status });
+        } else {
+          setPendingReturn({ orderId, status: null });
         }
       } catch {
-        // silencioso: se não achou o pedido, não abre
+        setPendingReturn({ orderId, status: null });
       }
     }
 
@@ -3419,6 +3433,22 @@ export default function Loja() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {pendingReturn && !showConfirmation && (
+        <div className="fixed bottom-4 right-4 z-[90] max-w-xs rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-sm shadow-2xl">
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-400">
+            Confirmando pagamento
+          </p>
+          <p className="mt-1 font-semibold text-gray-800">
+            Pedido #{pendingReturn.orderId}
+          </p>
+          <p className="text-xs text-gray-500">
+            {pendingReturn.status
+              ? "Recebemos seu pedido e estamos aguardando a confirmação do Mercado Pago. Assim que o pagamento for aprovado, mostraremos a confirmação automaticamente."
+              : "Recebemos seu pedido e continuamos consultando o Mercado Pago. Isso pode levar alguns segundos após o pagamento do Pix."}
+          </p>
         </div>
       )}
 
