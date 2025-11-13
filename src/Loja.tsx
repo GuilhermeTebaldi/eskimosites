@@ -1422,6 +1422,10 @@ export default function Loja() {
   const handleConfirmDelivery = useCallback(
     async (orderId: number) => {
       if (!orderId) return;
+      const ok = window.confirm(
+        "Confirma que você já recebeu este pedido? Essa ação não pode ser desfeita.",
+      );
+      if (!ok) return;
       try {
         const res = await fetchWithStore(
           `${API_URL}/orders/${orderId}/deliver`,
