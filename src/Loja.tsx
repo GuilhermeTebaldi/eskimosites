@@ -604,6 +604,12 @@ export default function Loja() {
   const [showAllOrders, setShowAllOrders] = useState(false);
   const [orderLookupResult, setOrderLookupResult] =
     useState<OrderStatusResponse | null>(null);
+  const [pendingDeliveryConfirmation, setPendingDeliveryConfirmation] =
+    useState<{
+      id: number;
+      store?: string | null;
+      total?: number;
+    } | null>(null);
   const selectedOrderFromList = useMemo(() => {
     if (!orderLookupResult) return null;
     return myOrders.find((order) => order.id === orderLookupResult.id) ?? null;
@@ -1419,41 +1425,63 @@ export default function Loja() {
     }
   }, [orderLookupResult, showToast]);
 
-  const handleConfirmDelivery = useCallback(
-    async (orderId: number) => {
-      if (!orderId) return;
-      const ok = window.confirm(
-        "Confirma que você já recebeu este pedido? Essa ação não pode ser desfeita.",
-      );
-      if (!ok) return;
-      try {
-        const res = await fetchWithStore(
-          `${API_URL}/orders/${orderId}/deliver`,
-          { method: "PATCH" },
-        );
-        if (!res.ok) {
-          throw new Error("Fail");
-        }
-        showToast("Obrigado! Entrega confirmada.", "success");
-        setMyOrders((prev) =>
-          prev.map((order) =>
-            order.id === orderId ? { ...order, status: "entregue" } : order,
-          ),
-        );
-        setOrderLookupResult((prev) =>
-          prev && prev.id === orderId ? { ...prev, status: "entregue" } : prev,
-        );
-        void loadMyOrders();
-      } catch (err) {
-        console.error(err);
-        showToast(
-          "Não conseguimos confirmar a entrega agora.",
-          "error",
-        );
-      }
+  const requestConfirmDelivery = useCallback(
+    (order: {
+      id: number;
+      store?: string | null;
+      total?: number;
+      status?: string | null;
+      deliveryType?: string | null;
+      paymentMethod?: string | null;
+    }) => {
+      if (!canCustomerConfirmDelivery(order)) return;
+      setPendingDeliveryConfirmation({
+        id: order.id,
+        store: order.store,
+        total: order.total,
+      });
     },
-    [fetchWithStore, showToast, loadMyOrders],
+    [],
   );
+
+  const performConfirmDelivery = useCallback(async () => {
+    if (!pendingDeliveryConfirmation) return;
+    const orderId = pendingDeliveryConfirmation.id;
+    try {
+      const res = await fetchWithStore(
+        `${API_URL}/orders/${orderId}/deliver`,
+        { method: "PATCH" },
+      );
+      if (!res.ok) throw new Error("Fail");
+
+      showToast("Obrigado! Entrega confirmada.", "success");
+      setPendingDeliveryConfirmation(null);
+      setMyOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId ? { ...order, status: "entregue" } : order,
+        ),
+      );
+      setOrderLookupResult((prev) =>
+        prev && prev.id === orderId ? { ...prev, status: "entregue" } : prev,
+      );
+      void loadMyOrders();
+    } catch (err) {
+      console.error(err);
+      showToast(
+        "Não conseguimos confirmar a entrega agora.",
+        "error",
+      );
+    }
+  }, [
+    pendingDeliveryConfirmation,
+    fetchWithStore,
+    showToast,
+    loadMyOrders,
+  ]);
+
+  const cancelConfirmDelivery = useCallback(() => {
+    setPendingDeliveryConfirmation(null);
+  }, []);
 
   const StatusSteps = ({ status }: { status: string }) => {
     const normalized = (status || "").toLowerCase();
@@ -3210,7 +3238,16 @@ export default function Loja() {
                           </button>
                           {canConfirmSelectedDelivery && orderLookupResult && (
                             <button
-                              onClick={() => handleConfirmDelivery(orderLookupResult.id)}
+                              onClick={() =>
+                                requestConfirmDelivery({
+                                  id: orderLookupResult.id,
+                                  total: orderLookupResult.total,
+                                  store: orderLookupResult.store,
+                                  paymentMethod: orderLookupResult.paymentMethod,
+                                  deliveryType: orderLookupResult.deliveryType,
+                                  status: orderLookupResult.status,
+                                })
+                              }
                               className="rounded-full border border-green-100 bg-green-50 px-4 py-1 font-semibold text-green-700 hover:bg-green-100"
                             >
                               Confirmar entrega
@@ -3283,7 +3320,7 @@ export default function Loja() {
                             </p>
                             {canCustomerConfirmDelivery(order) && (
                               <button
-                                onClick={() => handleConfirmDelivery(order.id)}
+                                onClick={() => requestConfirmDelivery(order)}
                                 className="mt-3 w-full rounded-xl border border-green-100 bg-green-50 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-100"
                               >
                                 Confirmar entrega
@@ -3598,6 +3635,46 @@ export default function Loja() {
                 className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700"
               >
                 Entendi, continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDeliveryConfirmation && (
+        <div className="fixed inset-0 z-[205] flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-xl font-bold text-gray-900">
+              Confirmar entrega?
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Confirme apenas se você já recebeu o pedido da loja.
+            </p>
+            <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">
+              <p className="font-semibold">
+                Pedido #{pendingDeliveryConfirmation.id}
+              </p>
+              {pendingDeliveryConfirmation.total !== undefined && (
+                <p>{toBRL(pendingDeliveryConfirmation.total)}</p>
+              )}
+              {pendingDeliveryConfirmation.store && (
+                <p className="text-xs text-gray-500">
+                  Loja: {pendingDeliveryConfirmation.store.toUpperCase()}
+                </p>
+              )}
+            </div>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={cancelConfirmDelivery}
+                className="rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Ainda não recebi
+              </button>
+              <button
+                onClick={performConfirmDelivery}
+                className="rounded-full bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-green-700"
+              >
+                Sim, já recebi
               </button>
             </div>
           </div>
