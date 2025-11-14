@@ -902,7 +902,7 @@ export default function Loja() {
   >(null);
   const [search, setSearch] = useState("");
   const [componentKey, setComponentKey] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [, setCurrentPage] = useState(1);
   const [customAddress, setCustomAddress] = useState("");
 
   // lojas (constante)
@@ -1960,40 +1960,7 @@ export default function Loja() {
   }, [filtered]);
 
   // paginação automática (infinite scroll)
-  const paginados = useMemo(
-    () => produtosOrdenados.slice(0, currentPage * UI.PRODUCTS_PER_PAGE),
-    [produtosOrdenados, currentPage],
-  );
-
-  const totalPages = useMemo(
-    () => Math.ceil(filtered.length / UI.PRODUCTS_PER_PAGE),
-    [filtered.length],
-  );
-
-  // sentinela para carregar mais
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!loadMoreRef.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry.isIntersecting) {
-          setCurrentPage((p) => {
-            if (p < totalPages) return p + 1;
-            return p;
-          });
-        }
-      },
-      { rootMargin: "200px" },
-    );
-
-    observer.observe(loadMoreRef.current);
-
-    return () => {
-      if (loadMoreRef.current) observer.unobserve(loadMoreRef.current);
-    };
-  }, [totalPages]);
+  const paginados = useMemo(() => produtosOrdenados, [produtosOrdenados]);
 
   // máscara e envio limpo do telefone
   const handlePhoneChange = useCallback(
@@ -2873,13 +2840,6 @@ export default function Loja() {
           </div>
         )}
       </div>
-
-      {/* Sentinela invisível para carregar mais */}
-      {currentPage < totalPages && (
-        <div ref={loadMoreRef} className="mb-24 mt-4 h-10 w-full text-center">
-          <span className="text-sm text-gray-400">Carregando mais...</span>
-        </div>
-      )}
 
       {/* Rodapé */}
       <footer className="mt-12 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50 pb-6 pt-8 text-center"></footer>
