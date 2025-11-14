@@ -406,6 +406,79 @@ function canCustomerConfirmDelivery(order?: {
   return false;
 }
 
+function getOrderStatusMeta(status?: string | null) {
+  const normalized = normalizeStatusTag(status);
+  if (normalized === "entregue" || normalized === "delivered") {
+    return {
+      label: "Entregue",
+      bg: "bg-green-100",
+      text: "text-green-800",
+      dot: "bg-green-500",
+    };
+  }
+  if (normalized === "pago" || normalized === "approved" || normalized === "paid") {
+    return {
+      label: "Pago",
+      bg: "bg-emerald-100",
+      text: "text-emerald-800",
+      dot: "bg-emerald-500",
+    };
+  }
+  if (normalized === "cancelado" || normalized === "cancelada" || normalized === "cancelled") {
+    return {
+      label: "Cancelado",
+      bg: "bg-red-100",
+      text: "text-red-700",
+      dot: "bg-red-500",
+    };
+  }
+  if (
+    normalized === "pendente" ||
+    normalized === "pending" ||
+    normalized === "in_process"
+  ) {
+    return {
+      label: "Pendente",
+      bg: "bg-amber-100",
+      text: "text-amber-800",
+      dot: "bg-amber-500",
+    };
+  }
+  if (
+    normalized.includes("rota") ||
+    normalized.includes("caminho") ||
+    normalized.includes("saiu")
+  ) {
+    return {
+      label: "Saiu para entrega",
+      bg: "bg-blue-100",
+      text: "text-blue-800",
+      dot: "bg-blue-500",
+    };
+  }
+  return {
+    label: status?.toUpperCase() || "Status",
+    bg: "bg-gray-200",
+    text: "text-gray-700",
+    dot: "bg-gray-500",
+  };
+}
+
+function canCustomerResumePayment(order?: {
+  status?: string | null;
+  paymentMethod?: string | null;
+} | null): boolean {
+  if (!order) return false;
+  const payment = normalizePaymentTag(order.paymentMethod);
+  if (payment !== "mercado_pago") return false;
+  const normalized = normalizeStatusTag(order.status);
+  return (
+    normalized === "pendente" ||
+    normalized === "pending" ||
+    normalized === "in_process"
+  );
+}
+
 /************************************
  * Hooks utilitários
  ************************************/
@@ -614,6 +687,23 @@ export default function Loja() {
     if (!orderLookupResult) return null;
     return myOrders.find((order) => order.id === orderLookupResult.id) ?? null;
   }, [orderLookupResult, myOrders]);
+
+  useEffect(() => {
+    if (!orderLookupResult) return;
+    const latest = myOrders.find((order) => order.id === orderLookupResult.id);
+    if (!latest) return;
+    setOrderLookupResult((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: latest.status ?? prev.status,
+            paymentMethod: latest.paymentMethod ?? prev.paymentMethod,
+            store: latest.store ?? prev.store,
+            deliveryType: latest.deliveryType ?? prev.deliveryType,
+          }
+        : prev,
+    );
+  }, [myOrders, orderLookupResult?.id]);
   const canConfirmSelectedDelivery = useMemo(() => {
     if (!orderLookupResult) return false;
     return canCustomerConfirmDelivery({
@@ -737,6 +827,7 @@ export default function Loja() {
   const addButtonPulseRafRef = useRef<number | null>(null);
   const stockFlashTimerRef = useRef<number | null>(null);
   const [stockFlash, setStockFlash] = useState(false);
+  const orderStatusMapRef = useRef<Map<number, string>>(new Map());
   const [addButtonPulse, setAddButtonPulse] = useState(false);
   const showToast = useCallback(
     (
@@ -771,7 +862,7 @@ export default function Loja() {
   const [lastOrderPaymentMethod, setLastOrderPaymentMethod] =
     useState<PaymentMethod | null>(null);
 
-  useEffect(() => {
+  const hydrateCustomerFormFromProfile = useCallback(() => {
     if (!storeCustomer) return;
     setCustomerName((prev) =>
       prev && prev.trim().length > 0 ? prev : storeCustomer.fullName ?? prev,
@@ -798,6 +889,10 @@ export default function Loja() {
         : storeCustomer.phoneNumber ?? prev,
     );
   }, [storeCustomer]);
+
+  useEffect(() => {
+    hydrateCustomerFormFromProfile();
+  }, [hydrateCustomerFormFromProfile]);
 
   const [quickFilterCategory, setQuickFilterCategory] = useState<string | null>(
     null,
@@ -1316,6 +1411,7 @@ export default function Loja() {
 
   const loadMyOrders = useCallback(async () => {
     if (!customerToken) {
+      orderStatusMapRef.current.clear();
       setMyOrders([]);
       return;
     }
@@ -1323,18 +1419,48 @@ export default function Loja() {
       const res = await fetchWithStore(`${API_URL}/orders/my`);
       if (!res.ok) throw new Error("Não foi possível carregar pedidos.");
       const data = (await res.json()) as CustomerOrderSummary[];
-      setMyOrders(Array.isArray(data) ? data : []);
+      const normalized = Array.isArray(data) ? data : [];
+      setMyOrders(normalized);
+
+      let statusChanged = false;
+      const nextMap = new Map<number, string>();
+      normalized.forEach((order) => {
+        const status = normalizeStatusTag(order.status);
+        nextMap.set(order.id, status);
+        const prev = orderStatusMapRef.current.get(order.id);
+        if (prev && prev !== status) {
+          statusChanged = true;
+        }
+      });
+      orderStatusMapRef.current = nextMap;
+      if (statusChanged && !homePanelOpen) {
+        setHomeHasAlert(true);
+      }
     } catch (err) {
       console.warn(err);
       setMyOrders([]);
     }
-  }, [customerToken, fetchWithStore]);
+  }, [customerToken, fetchWithStore, homePanelOpen, setHomeHasAlert]);
 
   useEffect(() => {
-    if (homePanelOpen) {
-      void loadMyOrders();
-      setHomeHasAlert(false);
-    }
+    if (!storeCustomer) return;
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      await loadMyOrders();
+    };
+    void tick();
+    const interval = window.setInterval(tick, 7000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [storeCustomer, loadMyOrders]);
+
+  useEffect(() => {
+    if (!homePanelOpen) return;
+    setHomeHasAlert(false);
+    void loadMyOrders();
   }, [homePanelOpen, loadMyOrders]);
 
   const handleAuthSubmit = useCallback(
@@ -1468,6 +1594,16 @@ export default function Loja() {
     },
     [],
   );
+
+  const handleResumePayment = useCallback(
+    (orderId: number) => {
+      if (!orderId) return;
+      showToast("Redirecionando para o pagamento...", "info");
+      window.location.assign(`${API_URL}/payments/mp/go?orderId=${orderId}`);
+    },
+    [showToast],
+  );
+
 
   const triggerAddButtonPulse = useCallback(() => {
     if (addButtonPulseTimerRef.current) {
@@ -2130,6 +2266,28 @@ export default function Loja() {
       }
     },
     [checkPaidOnce, fetchWithStore],
+  );
+
+  const handleCustomerCancelOrder = useCallback(
+    async (orderId: number) => {
+      if (!orderId) return;
+      const ok = window.confirm("Deseja cancelar este pedido?");
+      if (!ok) return;
+      const result = await cancelOrderIfUnpaid(orderId);
+      if (result === "cancelled") {
+        showToast("Pedido cancelado com sucesso.", "success");
+        orderStatusMapRef.current.delete(orderId);
+        void loadMyOrders();
+      } else if (result === "already_paid") {
+        showToast(
+          "Pedido já foi pago e não pode ser cancelado.",
+          "warning",
+        );
+      } else {
+        showToast("Não conseguimos cancelar o pedido agora.", "error");
+      }
+    },
+    [cancelOrderIfUnpaid, loadMyOrders, showToast],
   );
 
   // Fluxo de pagamento com Mercado Pago (cria pedido → inicia cobrança no backend)
@@ -3307,35 +3465,57 @@ export default function Loja() {
                             <span>WhatsApp: {orderLookupResult.phoneNumber}</span>
                           ) : null}
                         </div>
-                        <div className="mt-4 flex flex-wrap gap-2 text-sm">
+                      <div className="mt-4 flex flex-wrap gap-2 text-sm">
+                        <button
+                          onClick={copyOrderNumber}
+                          className="rounded-full border border-indigo-100 px-4 py-1 font-semibold text-indigo-600 hover:bg-indigo-50"
+                        >
+                          Copiar número
+                        </button>
+                        {canConfirmSelectedDelivery && orderLookupResult && (
                           <button
-                            onClick={copyOrderNumber}
-                            className="rounded-full border border-indigo-100 px-4 py-1 font-semibold text-indigo-600 hover:bg-indigo-50"
+                            onClick={() =>
+                              requestConfirmDelivery({
+                                id: orderLookupResult.id,
+                                total: orderLookupResult.total,
+                                store: orderLookupResult.store,
+                                paymentMethod: orderLookupResult.paymentMethod,
+                                deliveryType: orderLookupResult.deliveryType,
+                                status: orderLookupResult.status,
+                              })
+                            }
+                            className="rounded-full border border-green-100 bg-green-50 px-4 py-1 font-semibold text-green-700 hover:bg-green-100"
                           >
-                            Copiar número
+                            Confirmar entrega
                           </button>
-                          {canConfirmSelectedDelivery && orderLookupResult && (
+                        )}
+                        {orderLookupResult &&
+                          canCustomerResumePayment(orderLookupResult) && (
                             <button
                               onClick={() =>
-                                requestConfirmDelivery({
-                                  id: orderLookupResult.id,
-                                  total: orderLookupResult.total,
-                                  store: orderLookupResult.store,
-                                  paymentMethod: orderLookupResult.paymentMethod,
-                                  deliveryType: orderLookupResult.deliveryType,
-                                  status: orderLookupResult.status,
-                                })
+                                handleResumePayment(orderLookupResult.id)
                               }
-                              className="rounded-full border border-green-100 bg-green-50 px-4 py-1 font-semibold text-green-700 hover:bg-green-100"
+                              className="rounded-full border border-blue-100 bg-blue-50 px-4 py-1 text-blue-700 hover:bg-blue-100"
                             >
-                              Confirmar entrega
+                              Continuar pagamento
                             </button>
                           )}
-                          <button
-                            onClick={() => setOrderLookupResult(null)}
-                            className="rounded-full border border-gray-100 px-4 py-1 text-gray-600 hover:bg-gray-50"
-                          >
-                            Fechar detalhes
+                        {orderLookupResult &&
+                          canCustomerResumePayment(orderLookupResult) && (
+                            <button
+                              onClick={() =>
+                                handleCustomerCancelOrder(orderLookupResult.id)
+                              }
+                              className="rounded-full border border-red-100 bg-red-50 px-4 py-1 text-red-600 hover:bg-red-100"
+                            >
+                              Cancelar pedido
+                            </button>
+                          )}
+                        <button
+                          onClick={() => setOrderLookupResult(null)}
+                          className="rounded-full border border-gray-100 px-4 py-1 text-gray-600 hover:bg-gray-50"
+                        >
+                          Fechar detalhes
                           </button>
                         </div>
                       </div>
@@ -3353,10 +3533,6 @@ export default function Loja() {
                               timeStyle: "short",
                             })
                           : "Data indisponível";
-                        const paid =
-                          order.status === "pago" ||
-                          order.status === "approved" ||
-                          order.status === "paid";
                         return (
                           <div
                             key={order.id}
@@ -3364,13 +3540,7 @@ export default function Loja() {
                           >
                             <div className="flex items-center justify-between text-sm font-semibold text-gray-700">
                               <span>Pedido #{order.id}</span>
-                              <span
-                                className={`text-xs ${
-                                  paid ? "text-green-600" : "text-orange-500"
-                                }`}
-                              >
-                                {paid ? "Pago" : order.status}
-                              </span>
+                              <OrderStatusBadge status={order.status} />
                             </div>
                             <p className="text-xs text-gray-500">{readable}</p>
                             <p className="mt-2 text-lg font-bold text-gray-900">
@@ -3403,6 +3573,22 @@ export default function Loja() {
                               >
                                 Confirmar entrega
                               </button>
+                            )}
+                            {canCustomerResumePayment(order) && (
+                              <div className="mt-3 flex flex-col gap-2">
+                                <button
+                                  onClick={() => handleResumePayment(order.id)}
+                                  className="w-full rounded-xl border border-blue-100 bg-blue-50 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+                                >
+                                  Continuar pagamento
+                                </button>
+                                <button
+                                  onClick={() => handleCustomerCancelOrder(order.id)}
+                                  className="w-full rounded-xl border border-red-100 bg-red-50 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+                                >
+                                  Cancelar pedido
+                                </button>
+                              </div>
                             )}
                             <button
                               onClick={() => handleOrderCardClick(order)}
@@ -3822,6 +4008,7 @@ export default function Loja() {
                 setPhoneNumber("");
                 setAddress("");
                 setCustomAddress("");
+                hydrateCustomerFormFromProfile();
 
                 // agora sim limpar a querystring
                 try {
@@ -4044,24 +4231,25 @@ export default function Loja() {
   );
 }
   const StatusChip = ({ status }: { status: string }) => {
-    const normalized = (status || "").toLowerCase();
-    const paid =
-      normalized === "pago" ||
-      normalized === "approved" ||
-      normalized === "paid";
-    const fail =
-      normalized === "rejected" ||
-      normalized === "failure" ||
-      normalized === "cancelado";
-    const chipClass = paid
-      ? "bg-green-100 text-green-700"
-      : fail
-        ? "bg-red-100 text-red-600"
-        : "bg-amber-100 text-amber-700";
-    const label = paid ? "Pago" : fail ? "Não aprovado" : "Em análise";
+    const meta = getOrderStatusMeta(status);
     return (
-      <span className={`rounded-full px-3 py-1 text-xs font-bold ${chipClass}`}>
-        {label}
+      <span
+        className={`inline-flex items-center gap-2 rounded-full px-4 py-1 text-sm font-bold uppercase tracking-wide ${meta.bg} ${meta.text}`}
+      >
+        <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
+        {meta.label}
+      </span>
+    );
+  };
+
+  const OrderStatusBadge = ({ status }: { status: string }) => {
+    const meta = getOrderStatusMeta(status);
+    return (
+      <span
+        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${meta.bg} ${meta.text}`}
+      >
+        <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
+        {meta.label}
       </span>
     );
   };
