@@ -1091,6 +1091,7 @@ export default function Loja() {
         : 0,
     [selectedProduct, getQtyInCart],
   );
+  const addButtonPulseActive = addButtonPulse && remainingForSelected > 0;
 
   // formatação moeda memoizada
   const toBRL = useCallback((v: number) => fmtBRL.format(v), []);
@@ -3856,7 +3857,11 @@ export default function Loja() {
           onClick={() => setSelectedProduct(null)}
         >
           <div
-            className="relative w-full max-w-sm rounded-xl bg-white p-4"
+            className={`relative w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl transition-all duration-300 ${
+              addButtonPulseActive
+                ? "ring-2 ring-green-200 shadow-[0_0_35px_rgba(34,197,94,0.45)] scale-[1.01]"
+                : ""
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -3899,7 +3904,17 @@ export default function Loja() {
             </div>
 
             {/* Quantidade + Adicionar */}
-            <div className="mb-2 flex items-center justify-between">
+            <div
+              className={`mb-2 flex items-center justify-between rounded-xl px-2 py-2 transition-all ${
+                addButtonPulseActive ? "bg-green-50 shadow-inner" : "bg-transparent"
+              } ${addButtonPulseActive ? "animate-[pulse-bar_0.45s_ease-out]" : ""}`}
+              style={{
+                boxShadow:
+                  addButtonPulseActive
+                    ? "0 0 0.8rem rgba(34,197,94,0.35)"
+                    : "none",
+              }}
+            >
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setQuantityToAdd((q) => Math.max(1, q - 1))}
@@ -3943,11 +3958,11 @@ export default function Loja() {
                   remainingForSelected <= 0
                     ? "cursor-not-allowed bg-gray-300 text-gray-500"
                     : `bg-green-600 text-white hover:bg-green-700 ${
-                        addButtonPulse ? "scale-105 shadow-lg" : "scale-100"
+                        addButtonPulseActive ? "scale-105 shadow-lg" : "scale-100"
                       }`
                 }`}
               >
-                {addButtonPulse && remainingForSelected > 0 && (
+                {addButtonPulseActive && (
                   <span className="pointer-events-none absolute inset-0 animate-ping rounded bg-white/30" />
                 )}
                 <span className="relative">Adicionar</span>
