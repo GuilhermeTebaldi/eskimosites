@@ -1291,6 +1291,15 @@ export default function Loja() {
     if (storeCustomer) setProfileDraft(storeCustomer);
   }, [storeCustomer]);
 
+  const clearProductFilters = useCallback(() => {
+    setQuickFilterCategory(null);
+    setQuickFilterSubcategory(null);
+    setSearch("");
+    setCurrentPage(1);
+    setSelectedCategory(null);
+    setSelectedSubcategory(null);
+  }, []);
+
   useEffect(() => {
     setStockFlash(false);
   }, [selectedProduct]);
@@ -2472,7 +2481,22 @@ export default function Loja() {
           overflow: "hidden",
         }}
       >
-        <div className="flex items-center justify-center py-2">
+        <div
+          className="flex cursor-pointer items-center justify-center py-2 transition hover:scale-105"
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            clearProductFilters();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              clearProductFilters();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
+        >
           <img
             src="https://upload.wikimedia.org/wikipedia/commons/9/96/Logo_eskim%C3%B3_Sorvetes_Vermelha.png"
             alt="Eskimo Logo"
