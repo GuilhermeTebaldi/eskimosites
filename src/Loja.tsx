@@ -733,6 +733,11 @@ export default function Loja() {
   } | null>(null);
   const [promos, setPromos] = useState<PromotionDTO[]>([]);
   const toastTimerRef = useRef<number | null>(null);
+  const addButtonPulseTimerRef = useRef<number | null>(null);
+  const addButtonPulseRafRef = useRef<number | null>(null);
+  const stockFlashTimerRef = useRef<number | null>(null);
+  const [stockFlash, setStockFlash] = useState(false);
+  const [addButtonPulse, setAddButtonPulse] = useState(false);
   const showToast = useCallback(
     (
       message: string,
@@ -753,6 +758,12 @@ export default function Loja() {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
       if (cartShakeTimerRef.current)
         window.clearTimeout(cartShakeTimerRef.current);
+      if (addButtonPulseTimerRef.current)
+        window.clearTimeout(addButtonPulseTimerRef.current);
+      if (addButtonPulseRafRef.current)
+        window.cancelAnimationFrame(addButtonPulseRafRef.current);
+      if (stockFlashTimerRef.current)
+        window.clearTimeout(stockFlashTimerRef.current);
     };
   }, []);
 
@@ -1281,6 +1292,10 @@ export default function Loja() {
   }, [storeCustomer]);
 
   useEffect(() => {
+    setStockFlash(false);
+  }, [selectedProduct]);
+
+  useEffect(() => {
     if (!authModalOpen) return;
     setAuthForm((prev) => ({
       ...prev,
@@ -1443,6 +1458,44 @@ export default function Loja() {
     },
     [],
   );
+
+  const triggerAddButtonPulse = useCallback(() => {
+    if (addButtonPulseTimerRef.current) {
+      window.clearTimeout(addButtonPulseTimerRef.current);
+      addButtonPulseTimerRef.current = null;
+    }
+    if (addButtonPulseRafRef.current) {
+      window.cancelAnimationFrame(addButtonPulseRafRef.current);
+      addButtonPulseRafRef.current = null;
+    }
+    setAddButtonPulse(false);
+    addButtonPulseRafRef.current = window.requestAnimationFrame(() => {
+      setAddButtonPulse(true);
+      addButtonPulseTimerRef.current = window.setTimeout(() => {
+        setAddButtonPulse(false);
+        addButtonPulseTimerRef.current = null;
+        if (addButtonPulseRafRef.current) {
+          window.cancelAnimationFrame(addButtonPulseRafRef.current);
+          addButtonPulseRafRef.current = null;
+        }
+      }, 420);
+    });
+  }, []);
+
+  const triggerStockFlash = useCallback(() => {
+    if (stockFlashTimerRef.current) {
+      window.clearTimeout(stockFlashTimerRef.current);
+      stockFlashTimerRef.current = null;
+    }
+    setStockFlash(false);
+    requestAnimationFrame(() => {
+      setStockFlash(true);
+      stockFlashTimerRef.current = window.setTimeout(() => {
+        setStockFlash(false);
+        stockFlashTimerRef.current = null;
+      }, 600);
+    });
+  }, []);
 
   const performConfirmDelivery = useCallback(async () => {
     if (!pendingDeliveryConfirmation) return;
@@ -3849,6 +3902,8 @@ export default function Loja() {
                     modalImageRef.current?.getBoundingClientRect() ?? undefined;
                   const productToAdd = selectedProduct;
                   const qty = quantityToAdd || 1;
+                  triggerAddButtonPulse();
+                  triggerStockFlash();
                   addToCart(productToAdd, qty, {
                     imageUrl: productToAdd.imageUrl,
                     originRect,
@@ -3860,17 +3915,35 @@ export default function Loja() {
                   });
                 }}
                 disabled={remainingForSelected <= 0}
-                className={`rounded px-4 py-1 font-semibold transition ${
+                className={`relative overflow-hidden rounded px-4 py-1 font-semibold transition-transform ${
                   remainingForSelected <= 0
                     ? "cursor-not-allowed bg-gray-300 text-gray-500"
-                    : "bg-green-600 text-white hover:bg-green-700"
+                    : `bg-green-600 text-white hover:bg-green-700 ${
+                        addButtonPulse ? "scale-105 shadow-lg" : "scale-100"
+                      }`
                 }`}
               >
-                Adicionar
+                {addButtonPulse && remainingForSelected > 0 && (
+                  <span className="pointer-events-none absolute inset-0 animate-ping rounded bg-white/30" />
+                )}
+                <span className="relative">Adicionar</span>
               </button>
             </div>
-            <div className="text-xs text-gray-500">
-              Em estoque: {remainingForSelected}
+            <div
+              className={`text-xs font-semibold transition-all ${
+                stockFlash
+                  ? "text-green-700 scale-105"
+                  : "text-gray-500 scale-100"
+              }`}
+            >
+              Em estoque:{" "}
+              <span
+                className={`inline-block min-w-[1.5rem] text-center transition-all ${
+                  stockFlash ? "animate-pulse text-green-600" : ""
+                }`}
+              >
+                {remainingForSelected}
+              </span>
             </div>
           </div>
         </div>
