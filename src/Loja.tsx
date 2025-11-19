@@ -1684,6 +1684,8 @@ export default function Loja() {
 
   const StatusSteps = ({ status }: { status: string }) => {
     const normalized = (status || "").toLowerCase();
+    const isDelivered =
+      normalized === "entregue" || normalized === "delivered";
     const isPaid =
       normalized === "pago" ||
       normalized === "paid" ||
@@ -1696,6 +1698,30 @@ export default function Loja() {
       normalized === "cancelado" ||
       normalized === "rejected" ||
       normalized === "failure";
+
+    if (isDelivered) {
+      return (
+        <div className="rounded-3xl bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-400 p-4 text-white shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-3xl">
+              ✅
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-50">
+                Pedido finalizado
+              </p>
+              <p className="text-lg font-bold leading-tight">
+                Tudo certo — seu pedido foi entregue!
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-emerald-50">
+            Obrigado por comprar com a gente. Aproveite e volte sempre que bater
+            vontade! 💚
+          </p>
+        </div>
+      );
+    }
 
     const Row = ({
       ok,
@@ -3413,7 +3439,9 @@ export default function Loja() {
                           </p>
                           {isCashPayment(orderLookupResult.paymentMethod) && (
                             <p className="mt-1 text-[11px] font-semibold text-amber-700">
-                              Dinheiro na entrega · confirmamos quando o motoboy retornar.
+                              {normalizeStatusTag(orderLookupResult.status) === "entregue"
+                                ? "Pagamento recebido e entrega concluída. Obrigado pela confiança!"
+                                : "Dinheiro na entrega · confirmamos quando o motoboy retornar."}
                             </p>
                           )}
                         </div>
